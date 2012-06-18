@@ -156,14 +156,20 @@ typedef struct {
 	int len;
 } winlist;
 
+#define TOPLEFT 1
+#define TOPRIGHT 2
+#define BOTTOMLEFT 3
+#define BOTTOMRIGHT 4
+
 // track window stuff
 typedef struct {
 	int have_old;
-	int old_x, old_y, old_w, old_h;
-	int old_sx, old_sy, old_sw, old_sh;
+	int x, y, w, h;
+	int sx, sy, sw, sh;
 	int have_mr;
 	int mr_x, mr_y, mr_w, mr_h;
 	int have_closed;
+	int last_corner;
 } wincache;
 
 // usable space on a monitor
@@ -932,13 +938,31 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	// put the window in same general position it was before
 	if (smart)
 	{
+		// shrinking w. check if we were once in a corner previous-to-last
+		// expanding w is already covered by bumping above
+		if (c->cache && c->cache->last_corner && c->sw > fw)
+		{
+			if (c->cache->last_corner == TOPLEFT || c->cache->last_corner == BOTTOMLEFT)
+				fx = monitor.x;
+			if (c->cache->last_corner == TOPRIGHT || c->cache->last_corner == BOTTOMRIGHT)
+				fx = monitor.x + monitor.w - fw;
+		}
 		// screen center always wins
-		if (c->is_xcenter) fx = monitor.x + ((monitor.w - fw) / 2);
+		else if (c->is_xcenter) fx = monitor.x + ((monitor.w - fw) / 2);
 		else if (c->is_left) fx = monitor.x;
 		else if (c->is_right) fx = monitor.x + monitor.w - fw;
 
+		// shrinking h. check if we were once in a corner previous-to-last
+		// expanding h is already covered by bumping above
+		if (c->cache && c->cache->last_corner && c->sh > fh)
+		{
+			if (c->cache->last_corner == TOPLEFT || c->cache->last_corner == TOPRIGHT)
+				fy = monitor.y;
+			if (c->cache->last_corner == BOTTOMLEFT || c->cache->last_corner == BOTTOMRIGHT)
+				fy = monitor.y + monitor.h - fh;
+		}
 		// screen center always wins
-		if (c->is_ycenter) fy = monitor.y + ((monitor.h - fh) / 2);
+		else if (c->is_ycenter) fy = monitor.y + ((monitor.h - fh) / 2);
 		else if (c->is_top) fy = monitor.y;
 		else if (c->is_bottom) fy = monitor.y + monitor.h - fh;
 	}
@@ -952,9 +976,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		fw = MAX(1, fw-(config_border_width*2));
 		fh = MAX(1, fh-(config_border_width*2));
 	}
-
 	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
-	event_note("moveresize: %d %d %d %d", fx, fy, fw, fh);
 
 	// track the move/resize instruction
 	// apps that come back with an alternative configurerequest (eg, some terminals, gvim, etc)
@@ -973,10 +995,10 @@ void client_save_position(client *c)
 	client_extended_data(c);
 	if (!c->cache) return;
 	c->cache->have_old = 1;
-	c->cache->old_x = c->x; c->cache->old_sx = c->sx;
-	c->cache->old_y = c->y; c->cache->old_sy = c->sy;
-	c->cache->old_w = c->w; c->cache->old_sw = c->sw;
-	c->cache->old_h = c->h; c->cache->old_sh = c->sh;
+	c->cache->x = c->x; c->cache->sx = c->sx;
+	c->cache->y = c->y; c->cache->sy = c->sy;
+	c->cache->w = c->w; c->cache->sw = c->sw;
+	c->cache->h = c->h; c->cache->sh = c->sh;
 }
 
 // save co-ords for later flip-back
@@ -984,8 +1006,8 @@ void client_save_position_horz(client *c)
 {
 	client_extended_data(c); if (!c->cache) return;
 	if (!c->cache->have_old) client_save_position(c);
-	c->cache->old_x = c->x; c->cache->old_sx = c->sx;
-	c->cache->old_w = c->w; c->cache->old_sw = c->sw;
+	c->cache->x = c->x; c->cache->sx = c->sx;
+	c->cache->w = c->w; c->cache->sw = c->sw;
 }
 
 // save co-ords for later flip-back
@@ -993,8 +1015,8 @@ void client_save_position_vert(client *c)
 {
 	client_extended_data(c); if (!c->cache) return;
 	if (!c->cache->have_old) client_save_position(c);
-	c->cache->old_y = c->y; c->cache->old_sy = c->sy;
-	c->cache->old_h = c->h; c->cache->old_sh = c->sh;
+	c->cache->y = c->y; c->cache->sy = c->sy;
+	c->cache->h = c->h; c->cache->sh = c->sh;
 }
 
 // revert to saved co-ords
@@ -1002,10 +1024,10 @@ void client_restore_position(client *c, int smart, int x, int y, int w, int h)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
-		c->cache && c->cache->have_old ? c->cache->old_x: x,
-		c->cache && c->cache->have_old ? c->cache->old_y: y,
-		c->cache && c->cache->have_old ? c->cache->old_sw: w,
-		c->cache && c->cache->have_old ? c->cache->old_sh: h);
+		c->cache && c->cache->have_old ? c->cache->x: x,
+		c->cache && c->cache->have_old ? c->cache->y: y,
+		c->cache && c->cache->have_old ? c->cache->sw: w,
+		c->cache && c->cache->have_old ? c->cache->sh: h);
 }
 
 // revert to saved co-ords
@@ -1013,8 +1035,8 @@ void client_restore_position_horz(client *c, int smart, int x, int w)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
-		c->cache && c->cache->have_old ? c->cache->old_x: x, c->y,
-		c->cache && c->cache->have_old ? c->cache->old_sw: w, c->sh);
+		c->cache && c->cache->have_old ? c->cache->x: x, c->y,
+		c->cache && c->cache->have_old ? c->cache->sw: w, c->sh);
 }
 
 // revert to saved co-ords
@@ -1022,8 +1044,8 @@ void client_restore_position_vert(client *c, int smart, int y, int h)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
-		c->x, c->cache && c->cache->have_old ? c->cache->old_y: y,
-		c->sw, c->cache && c->cache->have_old ? c->cache->old_sh: h);
+		c->x, c->cache && c->cache->have_old ? c->cache->y: y,
+		c->sw, c->cache && c->cache->have_old ? c->cache->sh: h);
 }
 
 // add a window and family to the stacking order
@@ -1141,6 +1163,18 @@ void client_review(client *c)
 	};
 
 	window_set_atom_prop(c->window, netatoms[NET_WM_ALLOWED_ACTIONS], allowed, 7);
+
+	if (c->cache && !c->is_full)
+	{
+		// if client is in a screen corner, track it...
+		// if we shrink the window form maxv/maxh/fullscreen later,
+		// we can have it stick to the original corner rather then re-centering
+		if (c->is_left  && c->is_top) c->cache->last_corner = TOPLEFT;
+		else if (c->is_left  && c->is_bottom) c->cache->last_corner = BOTTOMLEFT;
+		else if (c->is_right && c->is_top) c->cache->last_corner = TOPRIGHT;
+		else if (c->is_right && c->is_bottom) c->cache->last_corner = BOTTOMRIGHT;
+		else c->cache->last_corner = 0;
+	}
 }
 
 // visually highlight a client to attract attention
@@ -1752,20 +1786,35 @@ void handle_motionnotify(XEvent *ev)
 	event_log("MotionNotify", ev->xbutton.subwindow);
 	// compress events to reduce window jitter and CPU load
 	while(XCheckTypedEvent(display, MotionNotify, ev));
-
-	int xd = ev->xbutton.x_root - mouse_button.x_root;
-	int yd = ev->xbutton.y_root - mouse_button.y_root;
-
-	XMoveResizeWindow(display, ev->xmotion.window,
-		mouse_attr.x + (mouse_button.button == Button1 ? xd : 0),
-		mouse_attr.y + (mouse_button.button == Button1 ? yd : 0),
-		MAX(1, mouse_attr.width  + (mouse_button.button == Button3 ? xd : 0)),
-		MAX(1, mouse_attr.height + (mouse_button.button == Button3 ? yd : 0)));
-
-	// who knows where we've ended up. clear states
 	client *c = window_client(ev->xmotion.window);
-	if (c)
+	if (c && c->manage)
 	{
+		client_extended_data(c);
+		int xd = ev->xbutton.x_root - mouse_button.x_root;
+		int yd = ev->xbutton.y_root - mouse_button.y_root;
+		int x  = mouse_attr.x + (mouse_button.button == Button1 ? xd : 0);
+		int y  = mouse_attr.y + (mouse_button.button == Button1 ? yd : 0);
+		int w  = MAX(1, mouse_attr.width  + (mouse_button.button == Button3 ? xd : 0));
+		int h  = MAX(1, mouse_attr.height + (mouse_button.button == Button3 ? yd : 0));
+		int vague = c->monitor.w/100;
+
+		// snap to monitor edges
+		if (mouse_button.button == Button1)
+		{
+			if (NEAR(c->monitor.x, vague, x)) x = c->monitor.x;
+			if (NEAR(c->monitor.y, vague, y)) y = c->monitor.y;
+			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) x = c->monitor.x+c->monitor.w-w-(config_border_width*2);
+			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) y = c->monitor.y+c->monitor.h-h-(config_border_width*2);
+		}
+		else
+		if (mouse_button.button == Button3)
+		{
+			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) w = c->monitor.x+c->monitor.w-x-(config_border_width*2);
+			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) h = c->monitor.y+c->monitor.h-y-(config_border_width*2);
+		}
+		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
+
+		// who knows where we've ended up. clear states
 		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
 	}
