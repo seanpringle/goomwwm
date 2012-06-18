@@ -1,6 +1,6 @@
 /* GoomwWM, Get out of my way, Window Manager!
 
-MIT License
+MIT/X11 License
 Copyright (c) 2012 Sean Pringle <sean.pringle@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining
@@ -751,7 +751,7 @@ void client_extended_data(client *c)
 
 	// find last known co-ords
 	int idx = winlist_find(windows, c->window);
-	if (idx >= 0) c->cache = windows->data[idx];
+	c->cache = idx >= 0 ? windows->data[idx]: NULL;
 
 	// co-ords are x,y upper left outsize border, w,h inside border
 	// correct to include border in w,h for non-fullscreen windows to simplify calculations
@@ -1809,13 +1809,13 @@ void handle_configurerequest(XEvent *ev)
 		wc.border_width = 0; wc.sibling = None; wc.stack_mode = None;
 
 		// only move/resize requests go through. never stacking
-		if (e->value_mask | (CWX|CWY|CWWidth|CWHeight))
+		if (e->value_mask & (CWX|CWY|CWWidth|CWHeight))
 		{
 			client_extended_data(c);
 			unsigned long mask = e->value_mask & (CWX|CWY|CWWidth|CWHeight);
 			// if we previously instructed the window to an x/y/w/h which conforms to
 			// their w/h hints, demand co-operation!
-			if (c->cache->have_mr)
+			if (c->cache && c->cache->have_mr)
 			{
 				mask = CWX|CWY|CWWidth|CWHeight;
 				wc.x = c->cache->mr_x; wc.y = c->cache->mr_y;
