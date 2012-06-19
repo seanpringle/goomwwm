@@ -48,6 +48,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define NEAR(a,o,b) ((b) > (a)-(o) && (b) < (a)+(o))
+#define OVERLAP(a,b,c,d) (((a)==(c) && (b)==(d)) || MIN((a)+(b), (c)+(d)) - MAX((a), (c)) > 0)
+#define INTERSECT(x,y,w,h,x1,y1,w1,h1) (OVERLAP((x),(w),(x1),(w1)) && OVERLAP((y),(h),(y1),(h1)))
 #define READ 0
 #define WRITE 1
 
@@ -210,7 +212,7 @@ unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus,  config_border_blur,
 	config_flash_success, config_flash_failure;
 
-char *config_switcher,
+char *config_switcher, *config_launcher,
 	*config_key_1,  *config_key_2,  *config_key_3,  *config_key_4,   *config_key_5,
 	*config_key_6,  *config_key_7,  *config_key_8,  *config_key_9,
 	*config_key_F1, *config_key_F2, *config_key_F3, *config_key_F4,  *config_key_F5,  *config_key_F6,
@@ -1048,6 +1050,122 @@ void client_restore_position_vert(client *c, int smart, int y, int h)
 		c->sw, c->cache && c->cache->have_old ? c->cache->sh: h);
 }
 
+struct client_expand_data {
+	winlist *inplay; // windows in stacking order
+	workarea *regions; // coords/sizes of fully visible windows
+	workarea *allregions; // coords/sizes of all windows, visible or obscured
+	int relevant; // size of ^regions^ array
+	client *main; // the active, focused window we're resizing
+};
+
+// client_expand interator
+int client_expand_regions(int idx, Window w, void *p)
+{
+	struct client_expand_data *my = p;
+	client *c = window_client(w);
+	if (c && c->manage)
+	{
+		client_extended_data(c);
+		// only concerned about windows on this monitor
+		if (c->monitor.x == my->main->monitor.x && c->monitor.y == my->main->monitor.y) // same monitor
+		{
+			client_extended_data(c);
+			int i, obscured = 0;
+			for (i = my->inplay->len-1; i > idx; i--)
+			{
+				// if the window intersects with any other window higher in the stack order, it must be at least partially obscured
+				if (my->allregions[i].w && INTERSECT(c->sx, c->sy, c->sw, c->sh, my->allregions[i].x, my->allregions[i].y, my->allregions[i].w, my->allregions[i].h))
+				{
+					obscured = 1;
+					break;
+				}
+			}
+			// record a full visible window
+			if (!obscured)
+			{
+				my->regions[my->relevant].x = c->sx;
+				my->regions[my->relevant].y = c->sy;
+				my->regions[my->relevant].w = c->sw;
+				my->regions[my->relevant].h = c->sh;
+				my->relevant++;
+			}
+			my->allregions[idx].x = c->sx;
+			my->allregions[idx].y = c->sy;
+			my->allregions[idx].w = c->sw;
+			my->allregions[idx].h = c->sh;
+		}
+	}
+	free(c);
+	return 0;
+}
+
+// expand a window to take up available space around it on the current monitor
+// do not cover any window that is entirely visible (snap to surrounding edges)
+void client_expand(client *c)
+{
+	client_extended_data(c);
+
+	struct client_expand_data _my, *my = &_my;
+	memset(my, 0, sizeof(struct client_expand_data));
+
+	my->inplay = windows_activated;
+	// list of coords/sizes for fully visible windows
+	my->regions = calloc(sizeof(workarea), my->inplay->len);
+	// list of coords/sizes for all relevant windows
+	my->allregions = calloc(sizeof(workarea), my->inplay->len);
+	my->main = c;
+
+	// build the (all)regions arrays
+	winlist_iterate_down(my->inplay, client_expand_regions, my);
+
+	int i, n, x = c->sx, y = c->sy, w = c->sw, h = c->sh;
+
+	// try to grow upward. locate the lower edge of the nearest fully visible window
+	n = 0;
+	for (i = 1; i < my->relevant; i++)
+	{
+		if (my->regions[i].y + my->regions[i].h <= y && OVERLAP(x, w, my->regions[i].x, my->regions[i].w))
+			n = MAX(n, my->regions[i].y + my->regions[i].h);
+	}
+	h += y-n; y = n;
+	// try to grow downward. locate the upper edge of the nearest fully visible window
+	n = c->monitor.h;
+	for (i = 1; i < my->relevant; i++)
+	{
+		if (my->regions[i].y >= y+h && OVERLAP(x, w, my->regions[i].x, my->regions[i].w))
+			n = MIN(n, my->regions[i].y);
+	}
+	h = n-y;
+	// try to grow left. locate the right edge of the nearest fully visible window
+	n = 0;
+	for (i = 1; i < my->relevant; i++)
+	{
+		if (my->regions[i].x + my->regions[i].w <= x && OVERLAP(y, h, my->regions[i].y, my->regions[i].h))
+			n = MAX(n, my->regions[i].x + my->regions[i].w);
+	}
+	w += x-n; x = n;
+	// try to grow right. locate the left edge of the nearest fully visible window
+	n = c->monitor.w;
+	for (i = 1; i < my->relevant; i++)
+	{
+		if (my->regions[i].x >= x+w && OVERLAP(y, h, my->regions[i].y, my->regions[i].h))
+			n = MIN(n, my->regions[i].x);
+	}
+	w = n-x;
+
+	// if there is nowhere to grow and we have a saved position, flip back to it.
+	// allows the expand key to be used as a toggle!
+	if (x == c->sx && y == c->sy && w == c->sw && h == c->sh && c->cache->have_old)
+		client_restore_position(c, 0, c->x, c->y, c->cache->sw, c->cache->sh);
+	else
+	{
+		// save pos for toggle
+		client_save_position(c);
+		client_moveresize(c, 0, c->monitor.x+x, c->monitor.y+y, w, h);
+	}
+	free(my->regions); free(my->allregions);
+}
+
 // add a window and family to the stacking order
 void client_stack_family(client *c, winlist *stack)
 {
@@ -1597,10 +1715,12 @@ void handle_keypress(XEvent *ev)
 
 		if (key == XK_Escape) client_close(c);
 		else if (key == XK_i) event_client_dump(c);
-		else if (key == XK_equal) client_nws_above(c, TOGGLE);
-		else if (key == XK_backslash) client_nws_fullscreen(c, TOGGLE);
-		else if (key == XK_bracketleft) client_nws_maxhorz(c, TOGGLE);
-		else if (key == XK_bracketright) client_nws_maxvert(c, TOGGLE);
+		else if (key == XK_x) exec_cmd(config_launcher);
+		else if (key == XK_a) client_nws_above(c, TOGGLE);
+		else if (key == XK_f) client_nws_fullscreen(c, TOGGLE);
+		else if (key == XK_h) client_nws_maxhorz(c, TOGGLE);
+		else if (key == XK_v) client_nws_maxvert(c, TOGGLE);
+		else if (key == XK_e) client_expand(c);
 		else
 		// cycle through windows with same WM_CLASS
 		if (key == XK_grave)
@@ -1971,9 +2091,16 @@ void handle_clientmessage(XEvent *ev)
 			client_close(c);
 
 		else
-		if (m->message_type == netatoms[NET_MOVERESIZE_WINDOW])
-			client_moveresize(c, 0, m->data.l[1], m->data.l[2], m->data.l[3], m->data.l[4]);
-
+		if (m->message_type == netatoms[NET_MOVERESIZE_WINDOW] &&
+			(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
+		{
+			client_extended_data(c);
+			client_moveresize(c, 0,
+				m->data.l[1] >= 0 ? m->data.l[1]: c->x,
+				m->data.l[2] >= 0 ? m->data.l[2]: c->y,
+				m->data.l[3] >= 1 ? m->data.l[3]: c->sw,
+				m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
+		}
 		else
 		if (m->message_type == netatoms[NET_WM_STATE])
 		{
@@ -2062,12 +2189,8 @@ void setup_screen(int scr)
 
 	// MODKEY+
 	const KeySym keys[] = {
-		// window move/resize
 		XK_Right, XK_Left, XK_Up, XK_Down, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Insert, XK_Delete,
-		// window switching
-		XK_Tab, XK_grave, XK_Escape,
-		XK_backslash, XK_bracketleft, XK_bracketright, XK_equal,
-		XK_i
+		XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_f, XK_h, XK_v, XK_e, XK_i
 	};
 
 	// bind all MODKEY+ combos
@@ -2158,6 +2281,7 @@ int main(int argc, char *argv[])
 	config_flash_width   = MAX(0, find_arg_int(argc, argv, "-flash", FLASH));
 	// customizable keys
 	config_switcher = find_arg_str(argc, argv, "-switcher", SWITCHER);
+	config_launcher = find_arg_str(argc, argv, "-launcher", LAUNCHER);
 	// app_find_or_start() keys
 	config_key_1 = find_arg_str(argc, argv, "-1", NULL); config_key_2 = find_arg_str(argc, argv, "-2", NULL);
 	config_key_3 = find_arg_str(argc, argv, "-3", NULL); config_key_4 = find_arg_str(argc, argv, "-4", NULL);
