@@ -52,6 +52,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define INTERSECT(x,y,w,h,x1,y1,w1,h1) (OVERLAP((x),(w),(x1),(w1)) && OVERLAP((y),(h),(y1),(h1)))
 #define READ 0
 #define WRITE 1
+#define HORIZONTAL 1
+#define VERTICAL 2
 
 void catch_exit(int sig)
 {
@@ -198,19 +200,20 @@ typedef struct {
 #define BORDER 2
 #define FOCUS "Royal Blue"
 #define BLUR "Dark Gray"
-#define SUCCESS "Dark Green"
-#define FAILURE "Red"
+#define FLASHON "Dark Green"
+#define FLASHOFF "Dark Red"
 #define SWITCHER NULL
 #define SWITCHER_BUILTIN "dmenu -i -l 25 -wp 60 -hc -vc -fn -*-terminus-medium-r-*-*-24-*-*-*-*-*-*-*"
 #define LAUNCHER "dmenu_run"
-#define FLASH 20
+#define FLASHPX 20
+#define FLASHMS 300
 #define MODKEY Mod4Mask
 
-int config_border_width, config_flash_width;
 
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus,  config_border_blur,
-	config_flash_success, config_flash_failure;
+	config_flash_on, config_flash_off,
+	config_border_width, config_flash_width, config_flash_ms;
 
 char *config_switcher, *config_launcher,
 	*config_key_1,  *config_key_2,  *config_key_3,  *config_key_4,   *config_key_5,
@@ -1101,7 +1104,7 @@ int client_expand_regions(int idx, Window w, void *p)
 
 // expand a window to take up available space around it on the current monitor
 // do not cover any window that is entirely visible (snap to surrounding edges)
-void client_expand(client *c)
+void client_expand(client *c, int directions)
 {
 	client_extended_data(c);
 
@@ -1120,47 +1123,68 @@ void client_expand(client *c)
 
 	int i, n, x = c->sx, y = c->sy, w = c->sw, h = c->sh;
 
-	// try to grow upward. locate the lower edge of the nearest fully visible window
-	n = 0;
-	for (i = 1; i < my->relevant; i++)
+	if (directions & VERTICAL)
 	{
-		if (my->regions[i].y + my->regions[i].h <= y && OVERLAP(x, w, my->regions[i].x, my->regions[i].w))
-			n = MAX(n, my->regions[i].y + my->regions[i].h);
+		// try to grow upward. locate the lower edge of the nearest fully visible window
+		n = 0;
+		for (i = 1; i < my->relevant; i++)
+		{
+			if (my->regions[i].y + my->regions[i].h <= y && OVERLAP(x, w, my->regions[i].x, my->regions[i].w))
+				n = MAX(n, my->regions[i].y + my->regions[i].h);
+		}
+		h += y-n; y = n;
+		// try to grow downward. locate the upper edge of the nearest fully visible window
+		n = c->monitor.h;
+		for (i = 1; i < my->relevant; i++)
+		{
+			if (my->regions[i].y >= y+h && OVERLAP(x, w, my->regions[i].x, my->regions[i].w))
+				n = MIN(n, my->regions[i].y);
+		}
+		h = n-y;
 	}
-	h += y-n; y = n;
-	// try to grow downward. locate the upper edge of the nearest fully visible window
-	n = c->monitor.h;
-	for (i = 1; i < my->relevant; i++)
+	if (directions & HORIZONTAL)
 	{
-		if (my->regions[i].y >= y+h && OVERLAP(x, w, my->regions[i].x, my->regions[i].w))
-			n = MIN(n, my->regions[i].y);
+		// try to grow left. locate the right edge of the nearest fully visible window
+		n = 0;
+		for (i = 1; i < my->relevant; i++)
+		{
+			if (my->regions[i].x + my->regions[i].w <= x && OVERLAP(y, h, my->regions[i].y, my->regions[i].h))
+				n = MAX(n, my->regions[i].x + my->regions[i].w);
+		}
+		w += x-n; x = n;
+		// try to grow right. locate the left edge of the nearest fully visible window
+		n = c->monitor.w;
+		for (i = 1; i < my->relevant; i++)
+		{
+			if (my->regions[i].x >= x+w && OVERLAP(y, h, my->regions[i].y, my->regions[i].h))
+				n = MIN(n, my->regions[i].x);
+		}
+		w = n-x;
 	}
-	h = n-y;
-	// try to grow left. locate the right edge of the nearest fully visible window
-	n = 0;
-	for (i = 1; i < my->relevant; i++)
-	{
-		if (my->regions[i].x + my->regions[i].w <= x && OVERLAP(y, h, my->regions[i].y, my->regions[i].h))
-			n = MAX(n, my->regions[i].x + my->regions[i].w);
-	}
-	w += x-n; x = n;
-	// try to grow right. locate the left edge of the nearest fully visible window
-	n = c->monitor.w;
-	for (i = 1; i < my->relevant; i++)
-	{
-		if (my->regions[i].x >= x+w && OVERLAP(y, h, my->regions[i].y, my->regions[i].h))
-			n = MIN(n, my->regions[i].x);
-	}
-	w = n-x;
-
 	// if there is nowhere to grow and we have a saved position, flip back to it.
 	// allows the expand key to be used as a toggle!
 	if (x == c->sx && y == c->sy && w == c->sw && h == c->sh && c->cache->have_old)
-		client_restore_position(c, 0, c->x, c->y, c->cache->sw, c->cache->sh);
+	{
+		if (directions & VERTICAL && directions & HORIZONTAL)
+			client_restore_position(c, 0, c->x, c->y, c->cache->sw, c->cache->sh);
+		else
+		if (directions & VERTICAL)
+			client_restore_position_vert(c, 0, c->y, c->cache->sh);
+		else
+		if (directions & HORIZONTAL)
+			client_restore_position_horz(c, 0, c->x, c->cache->sw);
+	}
 	else
 	{
 		// save pos for toggle
-		client_save_position(c);
+		if (directions & VERTICAL && directions & HORIZONTAL)
+			client_save_position(c);
+		else
+		if (directions & VERTICAL)
+			client_save_position_vert(c);
+		else
+		if (directions & HORIZONTAL)
+			client_save_position_horz(c);
 		client_moveresize(c, 0, c->monitor.x+x, c->monitor.y+y, w, h);
 	}
 	free(my->regions); free(my->allregions);
@@ -1307,6 +1331,13 @@ void client_flash(client *c, unsigned int color, int delay)
 		int x1 = c->x, x2 = c->x + c->sw - config_flash_width;
 		int y1 = c->y, y2 = c->y + c->sh - config_flash_width;
 
+		// if there is a move request dispatched, flash there to match
+		if (c->cache && c->cache->have_mr)
+		{
+			x1 = c->cache->mr_x; x2 = x1 + c->cache->mr_w - config_flash_width + config_border_width;
+			y1 = c->cache->mr_y; y2 = y1 + c->cache->mr_h - config_flash_width + config_border_width;
+		}
+
 		Window tl = XCreateSimpleWindow(display, c->xattr.root, x1, y1, config_flash_width, config_flash_width, 0, None, color);
 		Window tr = XCreateSimpleWindow(display, c->xattr.root, x2, y1, config_flash_width, config_flash_width, 0, None, color);
 		Window bl = XCreateSimpleWindow(display, c->xattr.root, x1, y2, config_flash_width, config_flash_width, 0, None, color);
@@ -1353,7 +1384,7 @@ void client_activate(client *c)
 	winlist_append(windows_activated, c->window, NULL);
 	ewmh_active_window(c->xattr.root, c->window);
 	// tell the user something happened
-	if (!c->active) client_flash(c, config_border_focus, 300);
+	if (!c->active) client_flash(c, config_border_focus, config_flash_ms);
 }
 
 // set WM_STATE
@@ -1459,12 +1490,14 @@ void client_nws_above(client *c, int action)
 	{
 		client_add_state(c, netatoms[NET_WM_STATE_ABOVE]);
 		client_raise(c, 0);
+		client_flash(c, config_flash_on, config_flash_ms);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
+	{
 		client_remove_state(c, netatoms[NET_WM_STATE_ABOVE]);
-
-	client_flash(c, config_flash_success, 300);
+		client_flash(c, config_flash_off, config_flash_ms);
+	}
 }
 
 // maximize vertically
@@ -1478,12 +1511,14 @@ void client_nws_maxvert(client *c, int action)
 		client_save_position_vert(c);
 		client_add_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
+		client_flash(c, config_flash_on, config_flash_ms);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
 		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
 		client_restore_position_vert(c, 0, c->monitor.y + (c->monitor.h/4), c->monitor.h/2);
+		client_flash(c, config_flash_off, config_flash_ms);
 	}
 }
 
@@ -1498,12 +1533,14 @@ void client_nws_maxhorz(client *c, int action)
 		client_save_position_horz(c);
 		client_add_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->sh);
+		client_flash(c, config_flash_on, config_flash_ms);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
 		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_restore_position_horz(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.w/2);
+		client_flash(c, config_flash_off, config_flash_ms);
 	}
 }
 
@@ -1716,11 +1753,13 @@ void handle_keypress(XEvent *ev)
 		if (key == XK_Escape) client_close(c);
 		else if (key == XK_i) event_client_dump(c);
 		else if (key == XK_x) exec_cmd(config_launcher);
-		else if (key == XK_a) client_nws_above(c, TOGGLE);
-		else if (key == XK_f) client_nws_fullscreen(c, TOGGLE);
-		else if (key == XK_h) client_nws_maxhorz(c, TOGGLE);
-		else if (key == XK_v) client_nws_maxvert(c, TOGGLE);
-		else if (key == XK_e) client_expand(c);
+		else if (key == XK_equal) client_nws_above(c, TOGGLE);
+		else if (key == XK_backslash) client_nws_fullscreen(c, TOGGLE);
+		else if (key == XK_bracketleft) client_nws_maxhorz(c, TOGGLE);
+		else if (key == XK_bracketright) client_nws_maxvert(c, TOGGLE);
+		else if (key == XK_Return) client_expand(c, HORIZONTAL|VERTICAL);
+		else if (key == XK_semicolon) client_expand(c, HORIZONTAL);
+		else if (key == XK_apostrophe) client_expand(c, VERTICAL);
 		else
 		// cycle through windows with same WM_CLASS
 		if (key == XK_grave)
@@ -2190,7 +2229,8 @@ void setup_screen(int scr)
 	// MODKEY+
 	const KeySym keys[] = {
 		XK_Right, XK_Left, XK_Up, XK_Down, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Insert, XK_Delete,
-		XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_f, XK_h, XK_v, XK_e, XK_i
+		XK_backslash, XK_bracketleft, XK_bracketright, XK_semicolon, XK_apostrophe, XK_Return,
+		XK_Tab, XK_grave, XK_Escape, XK_x, XK_equal, XK_i
 	};
 
 	// bind all MODKEY+ combos
@@ -2276,9 +2316,10 @@ int main(int argc, char *argv[])
 	// border width in pixels
 	config_border_width = MAX(0, find_arg_int(argc, argv, "-border", BORDER));
 	// window flashing
-	config_flash_success = XGetColor(display, find_arg_str(argc, argv, "-success", SUCCESS));
-	config_flash_failure = XGetColor(display, find_arg_str(argc, argv, "-failure", FAILURE));
-	config_flash_width   = MAX(0, find_arg_int(argc, argv, "-flash", FLASH));
+	config_flash_on  = XGetColor(display, find_arg_str(argc, argv, "-flashon",  FLASHON));
+	config_flash_off = XGetColor(display, find_arg_str(argc, argv, "-flashoff", FLASHOFF));
+	config_flash_width = MAX(0, find_arg_int(argc, argv, "-flashpx", FLASHPX));
+	config_flash_ms    = MAX(FLASHMS, find_arg_int(argc, argv, "-flashms", FLASHMS));
 	// customizable keys
 	config_switcher = find_arg_str(argc, argv, "-switcher", SWITCHER);
 	config_launcher = find_arg_str(argc, argv, "-launcher", LAUNCHER);
