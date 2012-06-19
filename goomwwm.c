@@ -174,7 +174,18 @@ typedef struct {
 	int mr_x, mr_y, mr_w, mr_h;
 	int have_closed;
 	int last_corner;
+	unsigned int tags;
 } wincache;
+
+#define TAG1 1
+#define TAG2 (1<<1)
+#define TAG3 (1<<2)
+#define TAG4 (1<<3)
+#define TAG5 (1<<4)
+#define TAG6 (1<<5)
+#define TAG7 (1<<6)
+#define TAG8 (1<<7)
+#define TAG9 (1<<8)
 
 // usable space on a monitor
 typedef struct {
@@ -209,7 +220,6 @@ typedef struct {
 #define FLASHMS 300
 #define MODKEY Mod4Mask
 
-
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus,  config_border_blur,
 	config_flash_on, config_flash_off,
@@ -217,9 +227,7 @@ unsigned int config_modkey, config_ignore_modkeys,
 
 char *config_switcher, *config_launcher,
 	*config_key_1,  *config_key_2,  *config_key_3,  *config_key_4,   *config_key_5,
-	*config_key_6,  *config_key_7,  *config_key_8,  *config_key_9,
-	*config_key_F1, *config_key_F2, *config_key_F3, *config_key_F4,  *config_key_F5,  *config_key_F6,
-	*config_key_F7, *config_key_F8, *config_key_F9, *config_key_F10, *config_key_F11, *config_key_F12;
+	*config_key_6,  *config_key_7,  *config_key_8,  *config_key_9;
 
 unsigned int NumlockMask = 0;
 Display *display;
@@ -227,6 +235,7 @@ XButtonEvent mouse_button;
 XWindowAttributes mouse_attr;
 winlist *windows, *windows_activated;
 Window supporting;
+unsigned int currenttag = TAG1;
 
 static int (*xerror)(Display *, XErrorEvent *);
 
@@ -691,6 +700,17 @@ client* window_client(Window win)
 		c->input = hints && hints->flags & InputHint ? 1: 0;
 		XFree(hints);
 	}
+
+	// find last known state
+	int idx = winlist_find(windows, c->window);
+	if (idx < 0)
+	{
+		wincache *cache = calloc(sizeof(wincache), 1);
+		winlist_append(windows, c->window, cache);
+		idx = windows->len-1;
+	}
+	c->cache = windows->data[idx];
+
 	return c;
 }
 
@@ -759,10 +779,6 @@ void client_extended_data(client *c)
 	// window co-ords translated to 0-based on screen
 	int x = c->xattr.x - screen_x; int y = c->xattr.y - screen_y;
 	int w = c->xattr.width; int h = c->xattr.height;
-
-	// find last known co-ords
-	int idx = winlist_find(windows, c->window);
-	c->cache = idx >= 0 ? windows->data[idx]: NULL;
 
 	// co-ords are x,y upper left outsize border, w,h inside border
 	// correct to include border in w,h for non-fullscreen windows to simplify calculations
@@ -895,7 +911,6 @@ int client_protocol_event(client *c, Atom protocol)
 // close a window politely if possible, else kill it
 void client_close(client *c)
 {
-	client_extended_data(c);
 	if (c->cache->have_closed || !client_protocol_event(c, atoms[WM_DELETE_WINDOW]))
 		XKillClient(display, c->window);
 	c->cache->have_closed = 1;
@@ -1190,6 +1205,46 @@ void client_expand(client *c, int directions)
 	free(my->regions); free(my->allregions);
 }
 
+// visually highlight a client to attract attention
+// for now, four coloured squares in the corners. could get fancier?
+void client_flash(client *c, unsigned int color, int delay)
+{
+	client_extended_data(c);
+	if (config_flash_width > 0 && !fork())
+	{
+		display = XOpenDisplay(0x0);
+
+		int x1 = c->x, x2 = c->x + c->sw - config_flash_width;
+		int y1 = c->y, y2 = c->y + c->sh - config_flash_width;
+
+		// if there is a move request dispatched, flash there to match
+		if (c->cache && c->cache->have_mr)
+		{
+			x1 = c->cache->mr_x; x2 = x1 + c->cache->mr_w - config_flash_width + config_border_width;
+			y1 = c->cache->mr_y; y2 = y1 + c->cache->mr_h - config_flash_width + config_border_width;
+		}
+
+		Window tl = XCreateSimpleWindow(display, c->xattr.root, x1, y1, config_flash_width, config_flash_width, 0, None, color);
+		Window tr = XCreateSimpleWindow(display, c->xattr.root, x2, y1, config_flash_width, config_flash_width, 0, None, color);
+		Window bl = XCreateSimpleWindow(display, c->xattr.root, x1, y2, config_flash_width, config_flash_width, 0, None, color);
+		Window br = XCreateSimpleWindow(display, c->xattr.root, x2, y2, config_flash_width, config_flash_width, 0, None, color);
+
+		XSetWindowAttributes attr; attr.override_redirect = True;
+		XChangeWindowAttributes(display, tl, CWOverrideRedirect, &attr);
+		XChangeWindowAttributes(display, tr, CWOverrideRedirect, &attr);
+		XChangeWindowAttributes(display, bl, CWOverrideRedirect, &attr);
+		XChangeWindowAttributes(display, br, CWOverrideRedirect, &attr);
+
+		XMapRaised(display, tl); XMapRaised(display, tr);
+		XMapRaised(display, bl); XMapRaised(display, br);
+		XSync(display, False);
+		usleep(delay*1000);
+		XDestroyWindow(display, tl); XDestroyWindow(display, tr);
+		XDestroyWindow(display, bl); XDestroyWindow(display, br);
+		exit(EXIT_SUCCESS);
+	}
+}
+
 // add a window and family to the stacking order
 void client_stack_family(client *c, winlist *stack)
 {
@@ -1271,7 +1326,8 @@ void client_raise(client *c, int priority)
 		winlist_free(inplay);
 	}
 	// locate our family
-	client_stack_family(c, stack);
+	if (winlist_find(stack, c->window) < 0)
+		client_stack_family(c, stack);
 
 	// raise the top window inthe stack
 	XRaiseWindow(display, stack->array[0]);
@@ -1279,6 +1335,70 @@ void client_raise(client *c, int priority)
 	if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
 
 	winlist_free(stack);
+}
+
+struct tag_raise_data {
+	unsigned int tag;
+	winlist *stack;
+};
+
+// tag_raise iterator
+int tag_raise_cb(int idx, Window w, void *p)
+{
+	struct tag_raise_data *my = p;
+	client *c = window_client(w);
+	if (c && c->manage && winlist_find(my->stack, w) < 0)
+	{
+		if (c->cache->tags & my->tag)
+			client_stack_family(c, my->stack);
+	}
+	free(c);
+	return 0;
+}
+
+// raise all windows in a tag
+void tag_raise(unsigned int tag)
+{
+	struct tag_raise_data _my, *my = &_my;
+	memset(my, 0, sizeof(struct tag_raise_data));
+
+	my->tag = tag;
+	my->stack = winlist_new();
+
+	// locate windows with _NET_WM_STATE_ABOVE and/or _NET_WM_WINDOW_TYPE_DOCK to raise them first
+	struct client_raise_data search; search.stack = my->stack;
+	search.state = netatoms[NET_WM_STATE_ABOVE];
+	winlist_iterate_down(windows_activated, client_raise_state_cb, &search);
+	search.type = netatoms[NET_WM_WINDOW_TYPE_DOCK];
+	winlist_iterate_down(windows_activated, client_raise_type_cb, &search);
+
+	// locate all windows in the tag
+	winlist_iterate_down(windows_activated, tag_raise_cb, my);
+
+	if (my->stack->len)
+	{
+		// raise the top window in the stack
+		XRaiseWindow(display, my->stack->array[0]);
+		// stack everything else, in order, underneath top window
+		if (my->stack->len > 1) XRestackWindows(display, my->stack->array, my->stack->len);
+	}
+	winlist_free(my->stack);
+	currenttag = tag;
+}
+
+// toggle client in current tag
+void client_toggle_tag(client *c, unsigned int tag)
+{
+	if (c->cache->tags & tag)
+	{
+		c->cache->tags &= ~tag;
+		client_flash(c, config_flash_off, config_flash_ms);
+	}
+	else
+	{
+		c->cache->tags |= tag;
+		client_flash(c, config_flash_on, config_flash_ms);
+	}
 }
 
 // if client is new or has changed state since we last looked, tweak stuff
@@ -1316,46 +1436,6 @@ void client_review(client *c)
 		else if (c->is_right && c->is_top) c->cache->last_corner = TOPRIGHT;
 		else if (c->is_right && c->is_bottom) c->cache->last_corner = BOTTOMRIGHT;
 		else c->cache->last_corner = 0;
-	}
-}
-
-// visually highlight a client to attract attention
-// for now, four coloured squares in the corners. could get fancier?
-void client_flash(client *c, unsigned int color, int delay)
-{
-	client_extended_data(c);
-	if (config_flash_width > 0 && !fork())
-	{
-		display = XOpenDisplay(0x0);
-
-		int x1 = c->x, x2 = c->x + c->sw - config_flash_width;
-		int y1 = c->y, y2 = c->y + c->sh - config_flash_width;
-
-		// if there is a move request dispatched, flash there to match
-		if (c->cache && c->cache->have_mr)
-		{
-			x1 = c->cache->mr_x; x2 = x1 + c->cache->mr_w - config_flash_width + config_border_width;
-			y1 = c->cache->mr_y; y2 = y1 + c->cache->mr_h - config_flash_width + config_border_width;
-		}
-
-		Window tl = XCreateSimpleWindow(display, c->xattr.root, x1, y1, config_flash_width, config_flash_width, 0, None, color);
-		Window tr = XCreateSimpleWindow(display, c->xattr.root, x2, y1, config_flash_width, config_flash_width, 0, None, color);
-		Window bl = XCreateSimpleWindow(display, c->xattr.root, x1, y2, config_flash_width, config_flash_width, 0, None, color);
-		Window br = XCreateSimpleWindow(display, c->xattr.root, x2, y2, config_flash_width, config_flash_width, 0, None, color);
-
-		XSetWindowAttributes attr; attr.override_redirect = True;
-		XChangeWindowAttributes(display, tl, CWOverrideRedirect, &attr);
-		XChangeWindowAttributes(display, tr, CWOverrideRedirect, &attr);
-		XChangeWindowAttributes(display, bl, CWOverrideRedirect, &attr);
-		XChangeWindowAttributes(display, br, CWOverrideRedirect, &attr);
-
-		XMapRaised(display, tl); XMapRaised(display, tr);
-		XMapRaised(display, bl); XMapRaised(display, br);
-		XSync(display, False);
-		usleep(delay*1000);
-		XDestroyWindow(display, tl); XDestroyWindow(display, tr);
-		XDestroyWindow(display, bl); XDestroyWindow(display, br);
-		exit(EXIT_SUCCESS);
 	}
 }
 
@@ -1602,7 +1682,7 @@ void app_find_or_start(Window root, char *pattern)
 }
 
 struct window_switcher_data {
-	char class[50]; // filter by WM_CLASS
+	unsigned int tag; // filter by tag
 	int classfield;  // width of WM_CLASS field
 	char *list; // output window list
 	int used;   // out list length
@@ -1617,7 +1697,7 @@ int window_switcher_cb_class(int idx, Window w, void *p)
 	if (c)
 	{
 		client_descriptive_data(c);
-		if (!my->class[0] || !strcasecmp(c->class, my->class))
+		if (!my->tag || (c->cache && c->cache->tags & my->tag))
 			my->classfield = MAX(my->classfield, strlen(c->class));
 	}
 	free(c);
@@ -1633,7 +1713,7 @@ int window_switcher_cb_format(int idx, Window w, void *p)
 		&& !client_has_state(c, netatoms[NET_WM_STATE_SKIP_TASKBAR])))
 	{
 		client_descriptive_data(c);
-		if (!my->class[0] || !strcasecmp(c->class, my->class))
+		if (!my->tag || (c->cache && c->cache->tags & my->tag))
 		{
 			my->list = realloc(my->list, my->used + strlen(c->title) + strlen(c->class) + my->classfield + 20);
 			my->used += sprintf(my->list + my->used, my->pattern, (unsigned long)c->window, c->class, c->title);
@@ -1644,10 +1724,9 @@ int window_switcher_cb_format(int idx, Window w, void *p)
 }
 
 // built-in window switcher
-void window_switcher(Window root, char *class)
+void window_switcher(Window root, unsigned int tag)
 {
-	struct window_switcher_data my; my.classfield = 0; my.class[0] = '\0';
-	if (class) snprintf(my.class, sizeof(my.class), "%s", class);
+	struct window_switcher_data my; my.classfield = 0; my.tag = tag;
 	winlist_iterate_down(windows_activated, window_switcher_cb_class, &my);
 	my.list = calloc(1, 1024); my.used = 0;
 	sprintf(my.pattern, "%%08lx  %%%ds  %%s\n", MAX(5, my.classfield));
@@ -1693,7 +1772,7 @@ void handle_keypress(XEvent *ev)
 	if (key == XK_Tab)
 	{
 		if (config_switcher) exec_cmd(config_switcher);
-		else window_switcher(ev->xany.window, NULL);
+		else window_switcher(ev->xany.window, 0);
 	}
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
@@ -1707,20 +1786,15 @@ void handle_keypress(XEvent *ev)
 	else if (key == XK_8) app_find_or_start(attr.root, config_key_8);
 	else if (key == XK_9) app_find_or_start(attr.root, config_key_9);
 
-	// custom MODKEY+F* launchers
-	// on the command line: goomwwm -f1 "command-to-run"
-	else if (key == XK_F1) exec_cmd(config_key_F1);
-	else if (key == XK_F2) exec_cmd(config_key_F2);
-	else if (key == XK_F3) exec_cmd(config_key_F3);
-	else if (key == XK_F4) exec_cmd(config_key_F4);
-	else if (key == XK_F5) exec_cmd(config_key_F5);
-	else if (key == XK_F6) exec_cmd(config_key_F6);
-	else if (key == XK_F7) exec_cmd(config_key_F7);
-	else if (key == XK_F8) exec_cmd(config_key_F8);
-	else if (key == XK_F9) exec_cmd(config_key_F9);
-	else if (key == XK_F10) exec_cmd(config_key_F10);
-	else if (key == XK_F11) exec_cmd(config_key_F11);
-	else if (key == XK_F12) exec_cmd(config_key_F12);
+	else if (key == XK_F1) tag_raise(TAG1);
+	else if (key == XK_F2) tag_raise(TAG2);
+	else if (key == XK_F3) tag_raise(TAG3);
+	else if (key == XK_F4) tag_raise(TAG4);
+	else if (key == XK_F5) tag_raise(TAG5);
+	else if (key == XK_F6) tag_raise(TAG6);
+	else if (key == XK_F7) tag_raise(TAG7);
+	else if (key == XK_F8) tag_raise(TAG8);
+	else if (key == XK_F9) tag_raise(TAG9);
 
 	else
 	// following only relevant with a focused window
@@ -1753,6 +1827,7 @@ void handle_keypress(XEvent *ev)
 		if (key == XK_Escape) client_close(c);
 		else if (key == XK_i) event_client_dump(c);
 		else if (key == XK_x) exec_cmd(config_launcher);
+		else if (key == XK_t) client_toggle_tag(c, currenttag);
 		else if (key == XK_equal) client_nws_above(c, TOGGLE);
 		else if (key == XK_backslash) client_nws_fullscreen(c, TOGGLE);
 		else if (key == XK_bracketleft) client_nws_maxhorz(c, TOGGLE);
@@ -1763,7 +1838,7 @@ void handle_keypress(XEvent *ev)
 		else
 		// cycle through windows with same WM_CLASS
 		if (key == XK_grave)
-			window_switcher(c->xattr.root, c->class);
+			window_switcher(c->xattr.root, currenttag);
 		else
 		if (key == XK_Page_Up || key == XK_Page_Down || key == XK_Home || key == XK_End || key == XK_Insert || key == XK_Delete)
 		{
@@ -2230,6 +2305,7 @@ void setup_screen(int scr)
 	const KeySym keys[] = {
 		XK_Right, XK_Left, XK_Up, XK_Down, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Insert, XK_Delete,
 		XK_backslash, XK_bracketleft, XK_bracketright, XK_semicolon, XK_apostrophe, XK_Return,
+		XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, XK_t,
 		XK_Tab, XK_grave, XK_Escape, XK_x, XK_equal, XK_i
 	};
 
@@ -2242,13 +2318,6 @@ void setup_screen(int scr)
 	if (config_key_5) grab_key(root, XK_5); if (config_key_6) grab_key(root, XK_6);
 	if (config_key_7) grab_key(root, XK_7); if (config_key_8) grab_key(root, XK_8);
 	if (config_key_9) grab_key(root, XK_9);
-
-	if (config_key_F1) grab_key(root, XK_F1);   if (config_key_F2) grab_key(root, XK_F2);
-	if (config_key_F3) grab_key(root, XK_F3);   if (config_key_F4) grab_key(root, XK_F4);
-	if (config_key_F5) grab_key(root, XK_F5);   if (config_key_F6) grab_key(root, XK_F6);
-	if (config_key_F7) grab_key(root, XK_F7);   if (config_key_F8) grab_key(root, XK_F8);
-	if (config_key_F9) grab_key(root, XK_F9);   if (config_key_F10) grab_key(root, XK_F10);
-	if (config_key_F11) grab_key(root, XK_F11); if (config_key_F12) grab_key(root, XK_F12);
 
 	// grab mouse buttons for click-to-focus. these get passed through to the windows
 	// not binding on button4 which is usually wheel scroll
@@ -2329,13 +2398,6 @@ int main(int argc, char *argv[])
 	config_key_5 = find_arg_str(argc, argv, "-5", NULL); config_key_6 = find_arg_str(argc, argv, "-6", NULL);
 	config_key_7 = find_arg_str(argc, argv, "-7", NULL); config_key_8 = find_arg_str(argc, argv, "-8", NULL);
 	config_key_9 = find_arg_str(argc, argv, "-9", NULL);
-	// custom exec command keys
-	config_key_F1 = find_arg_str(argc, argv, "-f1", NULL); config_key_F2 = find_arg_str(argc, argv, "-f2", NULL);
-	config_key_F3 = find_arg_str(argc, argv, "-f3", NULL); config_key_F4 = find_arg_str(argc, argv, "-f4", NULL);
-	config_key_F5 = find_arg_str(argc, argv, "-f5", NULL); config_key_F6 = find_arg_str(argc, argv, "-f6", NULL);
-	config_key_F7 = find_arg_str(argc, argv, "-f7", NULL); config_key_F8 = find_arg_str(argc, argv, "-f8", NULL);
-	config_key_F9 = find_arg_str(argc, argv, "-f9", NULL); config_key_F10 = find_arg_str(argc, argv, "-f10", NULL);
-	config_key_F11 = find_arg_str(argc, argv, "-f11", NULL); config_key_F12 = find_arg_str(argc, argv, "-f12", NULL);
 
 	// X atom values
 	for (i = 0; i < ATOMS; i++) atoms[i] = XInternAtom(display, atom_names[i], False);
