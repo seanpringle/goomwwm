@@ -55,6 +55,28 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define HORIZONTAL 1
 #define VERTICAL 2
 
+void* allocate(unsigned long bytes)
+{
+	void *ptr = calloc(bytes, 1);
+	if (!ptr)
+	{
+		fprintf(stderr, "malloc failed!\n");
+		exit(EXIT_FAILURE);
+	}
+	return ptr;
+}
+
+void* reallocate(void *ptr, unsigned long bytes)
+{
+	ptr = realloc(ptr, bytes);
+	if (!ptr)
+	{
+		fprintf(stderr, "realloc failed!\n");
+		exit(EXIT_FAILURE);
+	}
+	return ptr;
+}
+
 void catch_exit(int sig)
 {
 	while (0 < waitpid(-1, NULL, WNOHANG));
@@ -146,13 +168,6 @@ int find_arg_flag(int argc, char *argv[], char *key, int def)
 #define CLIENTROLE 50
 #define CLIENTSTATE 10
 
-// for filtering XQueryTree results
-typedef struct {
-	Window parent;
-	int position;
-	char class[50];
-} search;
-
 // window lists
 typedef struct {
 	Window *array;
@@ -186,6 +201,8 @@ typedef struct {
 #define TAG7 (1<<6)
 #define TAG8 (1<<7)
 #define TAG9 (1<<8)
+
+#define TAGS 9
 
 // usable space on a monitor
 typedef struct {
@@ -234,8 +251,10 @@ Display *display;
 XButtonEvent mouse_button;
 XWindowAttributes mouse_attr;
 winlist *windows, *windows_activated;
-Window supporting;
-unsigned int currenttag = TAG1;
+unsigned int current_tag = TAG1;
+
+winlist *cache_client;
+winlist *cache_xattr;
 
 static int (*xerror)(Display *, XErrorEvent *);
 
@@ -312,6 +331,7 @@ enum {
 	NET_WM_ACTION_CLOSE,
 	NET_WM_STRUT,
 	NET_WM_STRUT_PARTIAL,
+	NET_WM_DESKTOP,
 	NETATOMS
 };
 const char *netatom_names[] = {
@@ -367,6 +387,7 @@ const char *netatom_names[] = {
 	[NET_WM_ACTION_CLOSE] = "_NET_WM_ACTION_CLOSE",
 	[NET_WM_STRUT] = "_NET_WM_STRUT",
 	[NET_WM_STRUT_PARTIAL] = "_NET_WM_STRUT_PARTIAL",
+	[NET_WM_DESKTOP] = "_NET_WM_DESKTOP",
 };
 Atom atoms[ATOMS];
 Atom netatoms[NETATOMS];
@@ -388,11 +409,13 @@ int oops(Display *d, XErrorEvent *ee)
 	return xerror(display, ee);
 }
 
+#define WINLIST 16
+
 winlist* winlist_new()
 {
-	winlist *l = malloc(sizeof(winlist));
-	l->array = malloc(sizeof(Window) * 9);
-	l->data  = malloc(sizeof(void*) * 9);
+	winlist *l = allocate(sizeof(winlist));
+	l->array = allocate(sizeof(Window) * (WINLIST+1));
+	l->data  = allocate(sizeof(void*) * (WINLIST+1));
 	l->len = 0;
 	return l;
 }
@@ -405,25 +428,30 @@ void winlist_iterate_down(winlist *l, winlist_cb cb, void *p)
 {
 	int i; for (i = l->len-1; i > -1; i--) if(cb(i, l->array[i], p)) break;
 }
-void winlist_append(winlist *l, Window w, void *d)
+int winlist_append(winlist *l, Window w, void *d)
 {
-	if (l->len > 0 && !(l->len%8))
+	if (l->len > 0 && !(l->len % WINLIST))
 	{
-		l->array = realloc(l->array, sizeof(Window) * (l->len+9));
-		l->data  = realloc(l->data,  sizeof(void*)  * (l->len+9));
+		l->array = reallocate(l->array, sizeof(Window) * (l->len+WINLIST+1));
+		l->data  = reallocate(l->data,  sizeof(void*)  * (l->len+WINLIST+1));
 	}
 	l->data[l->len] = d;
 	l->array[l->len++] = w;
+	return l->len-1;
+}
+void winlist_empty(winlist *l)
+{
+	while (l->len > 0) free(l->data[--(l->len)]);
 }
 void winlist_free(winlist *l)
 {
-	int i; for (i = 0; i < l->len; i++)
-		if (l->data[i]) free(l->data[i]);
-	free(l->array); free(l->data); free(l);
+	winlist_empty(l); free(l->array); free(l->data); free(l);
 }
 int winlist_find(winlist *l, Window w)
 {
-	int i; for (i = 0; i < l->len; i++) if (l->array[i] == w) return i;
+	// iterate backwards. theory is: windows most often accessed will be
+	// nearer the end. testing with kcachegrind seems to support this...
+	int i; for (i = l->len-1; i > -1; i--) if (l->array[i] == w) return i;
 	return -1;
 }
 int winlist_forget(winlist *l, Window w)
@@ -446,11 +474,74 @@ unsigned int XGetColor(Display *d, const char *name)
 	return XAllocNamedColor(d, map, name, &color, &color) ? color.pixel: None;
 }
 
+unsigned int tag_to_desktop(unsigned int tag)
+{
+	unsigned int i; for (i = 0; i < TAGS; i++) if (tag & (1<<i)) return i;
+	return 0xffffffff;
+}
+
+unsigned int desktop_to_tag(unsigned int desktop)
+{
+	if (desktop == 0xffffffff) return 0;
+	return 1<<desktop;
+}
+
 // check if a window id matches a known root window
 int window_is_root(Window w)
 {
 	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
 		if (RootWindow(display, scr) == w) return 1;
+	return 0;
+}
+
+// XGetWindowAttributes with caching
+int window_get_attributes(Window w, XWindowAttributes *attr)
+{
+	int idx = winlist_find(cache_xattr, w);
+	if (idx < 0)
+	{
+		if (XGetWindowAttributes(display, w, attr))
+		{
+			XWindowAttributes *cattr = allocate(sizeof(XWindowAttributes));
+			memmove(cattr, attr, sizeof(XWindowAttributes));
+			winlist_append(cache_xattr, w, cattr);
+			return 1;
+		}
+		return 0;
+	}
+	memmove(attr, cache_xattr->data[idx], sizeof(XWindowAttributes));
+	return 1;
+}
+
+// remove any cached data on a window
+void window_purge(Window w)
+{
+	winlist_forget(windows, w);
+	winlist_forget(windows_activated, w);
+	winlist_forget(cache_xattr, w);
+}
+
+int window_get_prop(Window w, Atom prop, Atom *type, int *items, void *buffer, int bytes)
+{
+	Atom _type; if (!type) type = &_type;
+	int _items; if (!items) items = &_items;
+	int format; unsigned long nitems, nbytes; unsigned char *ret = NULL;
+	memset(buffer, 0, bytes);
+
+	if (XGetWindowProperty(display, w, prop, 0, bytes/4, False, AnyPropertyType, type,
+		&format, &nitems, &nbytes, &ret) == Success && ret && *type != None && format)
+	{
+		if (format == 8)
+			memmove(buffer, ret, MIN(bytes, nitems));
+		if (format == 16)
+			memmove(buffer, ret, MIN(bytes, nitems * sizeof(short)));
+		if (format == 32)
+			memmove(buffer, ret, MIN(bytes, nitems * sizeof(long)));
+
+		*items = (int)nitems;
+		XFree(ret);
+		return 1;
+	}
 	return 0;
 }
 
@@ -462,13 +553,13 @@ char* window_get_text_prop(Window w, Atom atom)
 	{
 		if (prop.encoding == XA_STRING)
 		{
-			res = malloc(strlen((char*)prop.value)+1);
+			res = allocate(strlen((char*)prop.value)+1);
 			strcpy(res, (char*)prop.value);
 		}
 		else
 		if (XmbTextPropertyToTextList(display, &prop, &list, &count) >= Success && count > 0 && *list)
 		{
-			res = malloc(strlen(*list)+1);
+			res = allocate(strlen(*list)+1);
 			strcpy(res, *list);
 			XFreeStringList(list);
 		}
@@ -477,35 +568,26 @@ char* window_get_text_prop(Window w, Atom atom)
 	return res;
 }
 
-Atom window_get_atom_prop(Window w, Atom atom)
+int window_get_atom_prop(Window w, Atom atom, Atom *list, int count)
 {
-	Atom prop = None, a; int b; unsigned long c = 0, d; unsigned char *res;
-	if (XGetWindowProperty(display, w, atom, 0L, sizeof(Atom), False, XA_ATOM,
-		&a, &b, &c, &d, &res) == Success && res)
-	{
-		if (a == XA_ATOM && c > 0)
-			prop = *(Atom*)res;
-		XFree(res);
-	}
-	return prop;
-}
-
-int window_get_atom_proplist(Window w, Atom atom, Atom *list, int max)
-{
-	Atom a; int b; unsigned long c = 0, d; unsigned char *res;
-	if (XGetWindowProperty(display, w, atom, 0L, sizeof(Atom), False, XA_ATOM,
-		&a, &b, &c, &d, &res) == Success && res)
-	{
-		if (a == XA_ATOM && c > 0)
-			memmove(list, res, sizeof(Atom) * MIN(max, c));
-		XFree(res);
-	}
-	return (int)c;
+	Atom type; int items;
+	return window_get_prop(w, atom, &type, &items, list, count*sizeof(Atom)) && type == XA_ATOM ? items:0;
 }
 
 void window_set_atom_prop(Window w, Atom prop, Atom *atoms, int count)
 {
 	XChangeProperty(display, w, prop, XA_ATOM, 32, PropModeReplace, (unsigned char*)atoms, count);
+}
+
+int window_get_cardinal_prop(Window w, Atom atom, unsigned long *list, int count)
+{
+	Atom type; int items;
+	return window_get_prop(w, atom, &type, &items, list, count*sizeof(unsigned long)) && type == XA_CARDINAL ? items:0;
+}
+
+void window_set_cardinal_prop(Window w, Atom prop, unsigned long *values, int count)
+{
+	XChangeProperty(display, w, prop, XA_CARDINAL, 32, PropModeReplace, (unsigned char*)values, count);
 }
 
 void window_unset_prop(Window w, Atom prop)
@@ -538,7 +620,7 @@ winlist* windows_in_play(Window root)
 		for (i = 0; i < nwins; i++)
 		{
 			XWindowAttributes attr;
-			if (XGetWindowAttributes(display, wins[i], &attr)
+			if (window_get_attributes(wins[i], &attr)
 				&& attr.override_redirect == False
 				&& attr.map_state == IsViewable
 			) winlist_append(l, wins[i], NULL);
@@ -584,12 +666,13 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 
 	// walk the open apps and check for struts
 	Window root = RootWindow(display, XScreenNumberOfScreen(screen));
-	winlist *wins = windows_in_play(root);
+	winlist *wins = windows; //windows_in_play(root);
 	int i; for (i = 0; i < wins->len; i++)
 	{
 		XWindowAttributes attr;
-		XGetWindowAttributes(display, wins->array[i], &attr);
-		if (attr.x >= mon->x && attr.x < mon->x+mon->w
+		window_get_attributes(wins->array[i], &attr);
+		if (!attr.override_redirect && attr.root == root
+			&& attr.x >= mon->x && attr.x < mon->x+mon->w
 			&& attr.y >= mon->y && attr.y < mon->y+mon->h)
 		{
 			unsigned long *strut; Atom a; int b;
@@ -610,7 +693,6 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 			}
 		}
 	}
-	winlist_free(wins);
 
 	mon->x += mon->l; mon->y += mon->t;
 	mon->w -= (mon->l+mon->r);
@@ -657,20 +739,23 @@ void client_toggle_state(client *c, Atom state)
 // doesn't have to be a window we'll end up managing
 client* window_client(Window win)
 {
+	int idx = winlist_find(cache_client, win);
+	if (idx >= 0) return cache_client->data[idx];
+
 	if (win == None) return NULL;
 
-	client *c = calloc(sizeof(client), 1);
+	client *c = allocate(sizeof(client));
 	c->window = win;
 
 	// if this fails, we're up that creek
-	if (!XGetWindowAttributes(display, win, &c->xattr))
+	if (!window_get_attributes(win, &c->xattr))
 		{ free(c); return NULL; }
 
 	XGetTransientForHint(display, win, &c->trans);
 
 	c->visible = c->xattr.map_state == IsViewable ?1:0;
-	c->type    = window_get_atom_prop(win, netatoms[NET_WM_WINDOW_TYPE]);
-	c->states  = window_get_atom_proplist(win, netatoms[NET_WM_STATE], c->state, CLIENTSTATE);
+	c->states  = window_get_atom_prop(win, netatoms[NET_WM_STATE], c->state, CLIENTSTATE);
+	window_get_atom_prop(win, netatoms[NET_WM_WINDOW_TYPE], &c->type, 1);
 
 	if (c->type == None)
 	{
@@ -702,34 +787,17 @@ client* window_client(Window win)
 	}
 
 	// find last known state
-	int idx = winlist_find(windows, c->window);
+	idx = winlist_find(windows, c->window);
 	if (idx < 0)
 	{
-		wincache *cache = calloc(sizeof(wincache), 1);
+		wincache *cache = allocate(sizeof(wincache));
 		winlist_append(windows, c->window, cache);
 		idx = windows->len-1;
 	}
 	c->cache = windows->data[idx];
 
+	winlist_append(cache_client, c->window, c);
 	return c;
-}
-
-// top-level, visible, managed windows. DOES NOT include non-managable docks/panels
-winlist* windows_in_play_managed(Window root)
-{
-	winlist *l = winlist_new();
-	unsigned int nwins; int i; Window w1, w2, *wins;
-	if (XQueryTree(display, root, &w1, &w2, &wins, &nwins) && wins)
-	{
-		for (i = 0; i < nwins; i++)
-		{
-			client *c = window_client(wins[i]);
-			if (c && c->manage && c->visible) winlist_append(l, wins[i], NULL);
-			free(c);
-		}
-	}
-	if (wins) XFree(wins);
-	return l;
 }
 
 // extend client data
@@ -855,7 +923,6 @@ int ewmh_client_list_skip_cb(int i, Window w, void *p)
 	client * c = window_client(w);
 	if (c && !client_has_state(c, search->state1) && !client_has_state(c, search->state2))
 		winlist_append(search->relevant, w, NULL);
-	free(c);
 	return 0;
 }
 
@@ -1113,7 +1180,6 @@ int client_expand_regions(int idx, Window w, void *p)
 			my->allregions[idx].h = c->sh;
 		}
 	}
-	free(c);
 	return 0;
 }
 
@@ -1128,9 +1194,9 @@ void client_expand(client *c, int directions)
 
 	my->inplay = windows_activated;
 	// list of coords/sizes for fully visible windows
-	my->regions = calloc(sizeof(workarea), my->inplay->len);
+	my->regions = allocate(sizeof(workarea) * my->inplay->len);
 	// list of coords/sizes for all relevant windows
-	my->allregions = calloc(sizeof(workarea), my->inplay->len);
+	my->allregions = allocate(sizeof(workarea) * my->inplay->len);
 	my->main = c;
 
 	// build the (all)regions arrays
@@ -1254,7 +1320,7 @@ void client_stack_family(client *c, winlist *stack)
 	// if this is a transient window, find the main app
 	if (c->trans)
 	{
-		free(a); a = window_client(c->trans);
+		a = window_client(c->trans);
 		if (a && a->manage) app = a->window;
 	}
 
@@ -1265,12 +1331,11 @@ void client_stack_family(client *c, winlist *stack)
 	for (i = inplay->len-1; i > -1; i--)
 	{
 		if (inplay->array[i] == app) continue;
-		free(a); a = window_client(inplay->array[i]);
+		a = window_client(inplay->array[i]);
 		if (a && a->trans == app) winlist_append(stack, a->window, NULL);
 	}
 	winlist_free(inplay);
 	winlist_append(stack, app, NULL);
-	free(a);
 }
 
 // client_raise iterator data
@@ -1289,7 +1354,6 @@ int client_raise_state_cb(int i, Window w, void *p)
 		client *o = window_client(w);
 		if (o && o->trans == None && client_has_state(o, search->state))
 			client_stack_family(o, search->stack);
-		free(o);
 	}
 	return 0;
 }
@@ -1303,7 +1367,6 @@ int client_raise_type_cb(int i, Window w, void *p)
 		client *o = window_client(w);
 		if (o && o->trans == None && o->type == search->type)
 			client_stack_family(o, search->stack);
-		free(o);
 	}
 	return 0;
 }
@@ -1337,83 +1400,16 @@ void client_raise(client *c, int priority)
 	winlist_free(stack);
 }
 
-struct tag_raise_data {
-	unsigned int tag;
-	winlist *stack;
-};
-
-// tag_raise iterator
-int tag_raise_cb(int idx, Window w, void *p)
-{
-	struct tag_raise_data *my = p;
-	client *c = window_client(w);
-	if (c && c->manage && winlist_find(my->stack, w) < 0)
-	{
-		if (c->cache->tags & my->tag)
-			client_stack_family(c, my->stack);
-	}
-	free(c);
-	return 0;
-}
-
-// raise all windows in a tag
-void tag_raise(unsigned int tag)
-{
-	struct tag_raise_data _my, *my = &_my;
-	memset(my, 0, sizeof(struct tag_raise_data));
-
-	my->tag = tag;
-	my->stack = winlist_new();
-
-	// locate windows with _NET_WM_STATE_ABOVE and/or _NET_WM_WINDOW_TYPE_DOCK to raise them first
-	struct client_raise_data search; search.stack = my->stack;
-	search.state = netatoms[NET_WM_STATE_ABOVE];
-	winlist_iterate_down(windows_activated, client_raise_state_cb, &search);
-	search.type = netatoms[NET_WM_WINDOW_TYPE_DOCK];
-	winlist_iterate_down(windows_activated, client_raise_type_cb, &search);
-
-	// locate all windows in the tag
-	winlist_iterate_down(windows_activated, tag_raise_cb, my);
-
-	if (my->stack->len)
-	{
-		// raise the top window in the stack
-		XRaiseWindow(display, my->stack->array[0]);
-		// stack everything else, in order, underneath top window
-		if (my->stack->len > 1) XRestackWindows(display, my->stack->array, my->stack->len);
-	}
-	winlist_free(my->stack);
-	currenttag = tag;
-}
-
-// toggle client in current tag
-void client_toggle_tag(client *c, unsigned int tag)
-{
-	if (c->cache->tags & tag)
-	{
-		c->cache->tags &= ~tag;
-		client_flash(c, config_flash_off, config_flash_ms);
-	}
-	else
-	{
-		c->cache->tags |= tag;
-		client_flash(c, config_flash_on, config_flash_ms);
-	}
-}
-
-// if client is new or has changed state since we last looked, tweak stuff
-void client_review(client *c)
+// set border width approriate to position and size
+void client_review_border(client *c)
 {
 	client_extended_data(c);
+	XSetWindowBorderWidth(display, c->window, c->is_full ? 0:config_border_width);
+}
 
-	int is_full = (c->xattr.x - c->monitor.x) < 1
-		&& (c->xattr.y - c->monitor.y) < 1
-		&& c->xattr.width  >= c->monitor.w
-		&& c->xattr.height >= c->monitor.h
-		? 1: 0;
-
-	XSetWindowBorderWidth(display, c->window, is_full ? 0:config_border_width);
-
+// set allowed NET_WM_STATE_* client messages
+void client_review_nws_actions(client *c)
+{
 	Atom allowed[7] = {
 		netatoms[NET_WM_ACTION_MOVE],
 		netatoms[NET_WM_ACTION_RESIZE],
@@ -1423,20 +1419,50 @@ void client_review(client *c)
 		netatoms[NET_WM_ACTION_MAXIMIZE_HORZ],
 		netatoms[NET_WM_ACTION_MAXIMIZE_VERT],
 	};
-
 	window_set_atom_prop(c->window, netatoms[NET_WM_ALLOWED_ACTIONS], allowed, 7);
+}
 
+// if client is in a screen corner, track it...
+// if we shrink the window form maxv/maxh/fullscreen later,
+// we can have it stick to the original corner rather then re-centering
+void client_review_position(client *c)
+{
 	if (c->cache && !c->is_full)
 	{
-		// if client is in a screen corner, track it...
-		// if we shrink the window form maxv/maxh/fullscreen later,
-		// we can have it stick to the original corner rather then re-centering
 		if (c->is_left  && c->is_top) c->cache->last_corner = TOPLEFT;
 		else if (c->is_left  && c->is_bottom) c->cache->last_corner = BOTTOMLEFT;
 		else if (c->is_right && c->is_top) c->cache->last_corner = TOPRIGHT;
 		else if (c->is_right && c->is_bottom) c->cache->last_corner = BOTTOMRIGHT;
 		else c->cache->last_corner = 0;
 	}
+}
+
+// check a window's _NET_WM_DESKTOP. if found, tag it appropriately
+void client_review_desktop(client *c)
+{
+	unsigned long d;
+	// no desktop set. give it one
+	if (!window_get_cardinal_prop(c->window, netatoms[NET_WM_DESKTOP], &d, 1))
+	{
+		d = tag_to_desktop(c->cache->tags);
+		window_set_cardinal_prop(c->window, netatoms[NET_WM_DESKTOP], &d, 1);
+	}
+	else
+	// window has a desktop set. convert it to tag
+	if (d < TAGS)
+		c->cache->tags |= desktop_to_tag(d);
+	else
+	if (d == 0xffffffff)
+		c->cache->tags = 0;
+}
+
+// if client is new or has changed state since we last looked, tweak stuff
+void client_full_review(client *c)
+{
+	client_review_border(c);
+	client_review_nws_actions(c);
+	client_review_position(c);
+	client_review_desktop(c);
 }
 
 // client_activate deactivate iterator
@@ -1451,11 +1477,8 @@ int client_activate_cb(int i, Window w, void *p)
 void client_activate(client *c)
 {
 	// deactivate everyone else
-	winlist *wins = windows_in_play_managed(c->xattr.root);
-	winlist_iterate_up(wins, client_activate_cb, &c->window);
-	winlist_free(wins);
+	winlist_iterate_up(windows_activated, client_activate_cb, &c->window);
 	// setup ourself
-	client_review(c);
 	client_raise(c, client_has_state(c, netatoms[NET_WM_STATE_FULLSCREEN]));
 	client_focus(c);
 	XSetWindowBorder(display, c->window, config_border_focus);
@@ -1472,9 +1495,13 @@ void client_state(client *c, long state)
 {
 	long payload[] = { state, None };
 	XChangeProperty(display, c->window, atoms[WM_STATE], atoms[WM_STATE], 32, PropModeReplace, (unsigned char*)payload, 2);
+	if (state == NormalState)
+		client_full_review(c);
+	else
 	if (state == WithdrawnState)
 	{
 		window_unset_prop(c->window, netatoms[NET_WM_STATE]);
+		window_unset_prop(c->window, netatoms[NET_WM_DESKTOP]);
 		winlist_forget(windows_activated, c->window);
 	}
 }
@@ -1492,7 +1519,7 @@ int window_active_client_cb(int i, Window w, void *p)
 	client *c = window_client(w);
 	if (c && c->manage && c->visible && c->xattr.root == data->root)
 		{ data->cli = c; return 1; }
-	free(c); return 0;
+	return 0;
 }
 
 // locate the currently focused window and build a client for it
@@ -1510,10 +1537,96 @@ client* window_active_client(Window root)
 	{
 		winlist *inplay = windows_in_play(root);
 		winlist_iterate_down(inplay, window_active_client_cb, &search);
-		if (search.cli) client_activate(search.cli);
 		winlist_free(inplay);
+		if (search.cli) client_activate(search.cli);
 	}
 	return search.cli;
+}
+
+struct tag_raise_data {
+	unsigned int tag;
+	winlist *stack;
+	Window focus;
+};
+
+// tag_raise iterator
+int tag_raise_cb(int idx, Window w, void *p)
+{
+	struct tag_raise_data *my = p;
+	client *c = window_client(w);
+	if (c && c->manage && winlist_find(my->stack, w) < 0)
+	{
+		if (c->cache->tags & my->tag)
+		{
+			// track the top-most client for later focus
+			if (my->focus == None) my->focus = c->window;
+			client_stack_family(c, my->stack);
+		}
+	}
+	return 0;
+}
+
+// raise all windows in a tag
+void tag_raise(unsigned int tag)
+{
+	struct tag_raise_data _my, *my = &_my;
+	memset(my, 0, sizeof(struct tag_raise_data));
+
+	my->tag = tag;
+	my->stack = winlist_new();
+	my->focus = None;
+
+	// locate windows with _NET_WM_STATE_ABOVE and/or _NET_WM_WINDOW_TYPE_DOCK to raise them first
+	struct client_raise_data search; search.stack = my->stack;
+	search.state = netatoms[NET_WM_STATE_ABOVE];
+	winlist_iterate_down(windows_activated, client_raise_state_cb, &search);
+	search.type = netatoms[NET_WM_WINDOW_TYPE_DOCK];
+	winlist_iterate_down(windows_activated, client_raise_type_cb, &search);
+
+	// locate all windows in the tag, and the top one to be focused
+	winlist_iterate_down(windows_activated, tag_raise_cb, my);
+
+	if (my->stack->len)
+	{
+		// raise the top window in the stack
+		XRaiseWindow(display, my->stack->array[0]);
+		// stack everything else, in order, underneath top window
+		if (my->stack->len > 1) XRestackWindows(display, my->stack->array, my->stack->len);
+	}
+	winlist_free(my->stack);
+
+	// update current desktop on all roots
+	current_tag = tag; unsigned long d = tag_to_desktop(current_tag);
+	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
+		window_set_cardinal_prop(RootWindow(display, scr), netatoms[NET_CURRENT_DESKTOP], &d, 1);
+
+	// focus the top-most non-NET_WM_STATE_ABOVE managable client in the tag
+	if (my->focus != None)
+	{
+		client *c = window_client(my->focus);
+		if (c) client_activate(c);
+	}
+}
+
+// toggle client in current tag
+void client_toggle_tag(client *c, unsigned int tag)
+{
+	if (c->cache->tags & tag)
+	{
+		c->cache->tags &= ~tag;
+		client_flash(c, config_flash_off, config_flash_ms);
+	}
+	else
+	{
+		c->cache->tags |= tag;
+		client_flash(c, config_flash_on, config_flash_ms);
+	}
+	// update NET_WM_DESKTOP using lowest tag number.
+	// this is a bit of a fudge as we can have windows on multiple
+	// tags/desktops, without being specifically sticky... oh well.
+	unsigned long d = tag_to_desktop(c->cache->tags);
+	window_set_cardinal_prop(c->window, netatoms[NET_WM_DESKTOP], &d, 1);
+	ewmh_client_list(c->xattr.root);
 }
 
 // determine which monitor holds the active window, or failing that the mouse pointer
@@ -1525,7 +1638,6 @@ void monitor_active(Screen *screen, workarea *mon)
 	{
 		client_extended_data(c);
 		memmove(mon, &c->monitor, sizeof(workarea));
-		free(c);
 		return;
 	}
 	Window rr, cr; int rxr, ryr, wxr, wyr; unsigned int mr;
@@ -1642,7 +1754,7 @@ int app_find_by_field(int i, Window w, void *p)
 		if (!strcasecmp(((char*)c)+find->offset, find->pattern))
 			{ find->found = w; r = 1; }
 	}
-	free(c); return r;
+	return r;
 }
 
 // search and activate first open window matching class/name/role/title
@@ -1678,12 +1790,12 @@ void app_find_or_start(Window root, char *pattern)
 	if (find.found != None && (c = window_client(find.found)) && c && c->manage && c->visible)
 		client_activate(c);
 	else exec_cmd(pattern);
-	free(c);
 }
 
 struct window_switcher_data {
 	unsigned int tag; // filter by tag
 	int classfield;  // width of WM_CLASS field
+	int maxtags; // width og tags field
 	char *list; // output window list
 	int used;   // out list length
 	char pattern[20]; // window line format
@@ -1698,9 +1810,13 @@ int window_switcher_cb_class(int idx, Window w, void *p)
 	{
 		client_descriptive_data(c);
 		if (!my->tag || (c->cache && c->cache->tags & my->tag))
+		{
+			int i, t; for (i = 0, t = 0; i < TAGS; i++)
+				if (c->cache->tags & (1<<i)) t++;
+			my->maxtags = MAX(my->maxtags, t);
 			my->classfield = MAX(my->classfield, strlen(c->class));
+		}
 	}
-	free(c);
 	return 0;
 }
 
@@ -1715,21 +1831,27 @@ int window_switcher_cb_format(int idx, Window w, void *p)
 		client_descriptive_data(c);
 		if (!my->tag || (c->cache && c->cache->tags & my->tag))
 		{
-			my->list = realloc(my->list, my->used + strlen(c->title) + strlen(c->class) + my->classfield + 20);
-			my->used += sprintf(my->list + my->used, my->pattern, (unsigned long)c->window, c->class, c->title);
+			char tags[32]; memset(tags, 0, 32);
+			int i, l; for (l = 0, i = 0; i < TAGS; i++)
+				if (c->cache->tags & (1<<i)) l += sprintf(tags+l, "%d,", i+1);
+			if (l > 0) tags[l-1] = '\0';
+
+			my->list = reallocate(my->list, my->used + strlen(c->title) + strlen(tags) + strlen(c->class) + my->classfield + 50);
+			my->used += sprintf(my->list + my->used, my->pattern, (unsigned long)c->window, tags, c->class, c->title);
 		}
 	}
-	free(c);
 	return 0;
 }
 
 // built-in window switcher
 void window_switcher(Window root, unsigned int tag)
 {
-	struct window_switcher_data my; my.classfield = 0; my.tag = tag;
+	struct window_switcher_data my;
+	memset(&my, 0, sizeof(struct window_switcher_data));
+	my.tag = tag; my.list = allocate(1024);
+
 	winlist_iterate_down(windows_activated, window_switcher_cb_class, &my);
-	my.list = calloc(1, 1024); my.used = 0;
-	sprintf(my.pattern, "%%08lx  %%%ds  %%s\n", MAX(5, my.classfield));
+	sprintf(my.pattern, "%%08lx  %%%ds  %%%ds  %%s\n", MAX(2, (my.maxtags*2)-1), MAX(5, my.classfield));
 	winlist_iterate_down(windows_activated, window_switcher_cb_format, &my);
 
 	int in, out;
@@ -1764,7 +1886,7 @@ void handle_keypress(XEvent *ev)
 	XWindowAttributes attr;
 
 	// this will be a root window as we only bind buttons on those
-	XGetWindowAttributes(display, ev->xany.window, &attr);
+	window_get_attributes(ev->xany.window, &attr);
 	KeySym key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
 
 	client *c = NULL;
@@ -1827,8 +1949,8 @@ void handle_keypress(XEvent *ev)
 		if (key == XK_Escape) client_close(c);
 		else if (key == XK_i) event_client_dump(c);
 		else if (key == XK_x) exec_cmd(config_launcher);
-		else if (key == XK_t) client_toggle_tag(c, currenttag);
-		else if (key == XK_equal) client_nws_above(c, TOGGLE);
+		else if (key == XK_t) client_toggle_tag(c, current_tag);
+		else if (key == XK_a) client_nws_above(c, TOGGLE);
 		else if (key == XK_backslash) client_nws_fullscreen(c, TOGGLE);
 		else if (key == XK_bracketleft) client_nws_maxhorz(c, TOGGLE);
 		else if (key == XK_bracketright) client_nws_maxvert(c, TOGGLE);
@@ -1838,7 +1960,7 @@ void handle_keypress(XEvent *ev)
 		else
 		// cycle through windows with same WM_CLASS
 		if (key == XK_grave)
-			window_switcher(c->xattr.root, currenttag);
+			window_switcher(c->xattr.root, current_tag);
 		else
 		if (key == XK_Page_Up || key == XK_Page_Down || key == XK_Home || key == XK_End || key == XK_Insert || key == XK_Delete)
 		{
@@ -1962,7 +2084,6 @@ void handle_keypress(XEvent *ev)
 		// final co-ords are fixed. go to it...
 		if (fw > 0 && fh > 0) client_moveresize(c, smart, fx, fy, fw, fh);
 	}
-	if (c) free(c);
 }
 
 // MODKEY+keys
@@ -2004,7 +2125,6 @@ void handle_buttonpress(XEvent *ev)
 		// events we havn't snaffled for move/resize may be relevant to the subwindow. replay them
 		XAllowEvents(display, ReplayPointer, CurrentTime);
 	}
-	free(c);
 }
 
 // only get these if a window move/resize has been started in buttonpress
@@ -2052,7 +2172,6 @@ void handle_motionnotify(XEvent *ev)
 		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
 	}
-	free(c);
 }
 
 // we dont really care until a window configures and maps, so just watch it
@@ -2062,7 +2181,7 @@ void handle_createnotify(XEvent *ev)
 	XSelectInput(display, ev->xcreatewindow.window, EnterWindowMask | LeaveWindowMask | FocusChangeMask | PropertyChangeMask);
 	if (winlist_find(windows, ev->xcreatewindow.window) < 0)
 	{
-		wincache *cache = calloc(sizeof(wincache), 1);
+		wincache *cache = allocate(sizeof(wincache));
 		winlist_append(windows, ev->xcreatewindow.window, cache);
 	}
 	if (window_is_root(ev->xcreatewindow.parent)) ewmh_client_list(ev->xcreatewindow.parent);
@@ -2072,9 +2191,9 @@ void handle_createnotify(XEvent *ev)
 void handle_destroynotify(XEvent *ev)
 {
 	event_log("DestroyNotify", ev->xdestroywindow.window);
-	winlist_forget(windows, ev->xdestroywindow.window);
-	winlist_forget(windows_activated, ev->xdestroywindow.window);
-	if (window_is_root(ev->xdestroywindow.event)) ewmh_client_list(ev->xdestroywindow.event);
+	window_purge(ev->xdestroywindow.window);
+	if (window_is_root(ev->xdestroywindow.event))
+		ewmh_client_list(ev->xdestroywindow.event);
 }
 
 // very loose with configure requests
@@ -2107,7 +2226,6 @@ void handle_configurerequest(XEvent *ev)
 			XConfigureWindow(display, c->window, mask, &wc);
 		}
 	}
-	free(c);
 }
 
 // once a window has been configured, apply a border unless it is fullscreen
@@ -2115,8 +2233,7 @@ void handle_configurenotify(XEvent *ev)
 {
 	event_log("ConfigureNotify", ev->xconfigure.window);
 	client *c = window_client(ev->xconfigure.window);
-	if (c && c->manage) client_review(c);
-	free(c);
+	if (c && c->manage) client_review_border(c);
 }
 
 // map requests are when we get nasty about co-ords and size
@@ -2126,7 +2243,6 @@ void handle_maprequest(XEvent *ev)
 	client *c = window_client(ev->xmaprequest.window);
 	if (c && c->manage)
 	{
-		client_state(c, NormalState);
 		client_extended_data(c);
 
 		if (!client_has_state(c, netatoms[NET_WM_STATE_STICKY]) && !c->x && !c->y)
@@ -2151,12 +2267,10 @@ void handle_maprequest(XEvent *ev)
 			}
 			client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->w) / 2)),
 				MAX(m->y, m->y + ((m->h - c->h) / 2)), c->w, c->h);
-			free(p);
 		}
 		client_raise(c, 0);
 	}
 	XMapWindow(display, c->window);
-	free(c);
 }
 
 // a newly mapped top-level window automatically takes focus
@@ -2167,10 +2281,10 @@ void handle_mapnotify(XEvent *ev)
 	client *c = window_client(ev->xmap.window);
 	if (c && c->manage)
 	{
+		client_state(c, NormalState);
 		client_activate(c);
 		ewmh_client_list(c->xattr.root);
 	}
-	free(c);
 }
 
 // unmapping could indicate the focus window has closed
@@ -2180,12 +2294,15 @@ void handle_unmapnotify(XEvent *ev)
 	event_log("UnmapNotify", ev->xunmap.window);
 	client *c = window_client(ev->xunmap.window);
 	// was it a top-level app window that closed?
-	if (c && c->manage) client_state(c, WithdrawnState);
+	if (c && c->manage)
+	{
+		client_state(c, WithdrawnState);
+		ewmh_client_list(c->xattr.root);
+	}
 	// was it the active window?
 	if (window_is_root(ev->xunmap.event) && windows_activated->len
 		&& ev->xunmap.window == windows_activated->array[windows_activated->len-1])
-		free(window_active_client(ev->xunmap.event));
-	free(c);
+		window_active_client(ev->xunmap.event);
 }
 
 // ClientMessage
@@ -2193,42 +2310,46 @@ void handle_clientmessage(XEvent *ev)
 {
 	event_log("ClientMessage", ev->xclient.window);
 	XClientMessageEvent *m = &ev->xclient;
-	client *c = window_client(m->window);
 
-	if (c && c->manage && c->visible)
+	if (m->message_type == netatoms[NET_CURRENT_DESKTOP])
+		tag_raise(desktop_to_tag(MAX(0, MIN(TAGS, m->data.l[0]))));
+	else
 	{
-		if (m->message_type == netatoms[NET_ACTIVE_WINDOW])
-			client_activate(c);
-
-		else
-		if (m->message_type == netatoms[NET_CLOSE_WINDOW])
-			client_close(c);
-
-		else
-		if (m->message_type == netatoms[NET_MOVERESIZE_WINDOW] &&
-			(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
+		client *c = window_client(m->window);
+		if (c && c->manage && c->visible)
 		{
-			client_extended_data(c);
-			client_moveresize(c, 0,
-				m->data.l[1] >= 0 ? m->data.l[1]: c->x,
-				m->data.l[2] >= 0 ? m->data.l[2]: c->y,
-				m->data.l[3] >= 1 ? m->data.l[3]: c->sw,
-				m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
-		}
-		else
-		if (m->message_type == netatoms[NET_WM_STATE])
-		{
-			int i; for (i = 1; i < 2; i++)
+			if (m->message_type == netatoms[NET_ACTIVE_WINDOW])
+				client_activate(c);
+
+			else
+			if (m->message_type == netatoms[NET_CLOSE_WINDOW])
+				client_close(c);
+
+			else
+			if (m->message_type == netatoms[NET_MOVERESIZE_WINDOW] &&
+				(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
 			{
-				if (m->data.l[i] == netatoms[NET_WM_STATE_FULLSCREEN])
-					client_nws_fullscreen(c, m->data.l[0]);
-				else
-				if (m->data.l[i] == netatoms[NET_WM_STATE_ABOVE])
-					client_nws_above(c, m->data.l[0]);
+				client_extended_data(c);
+				client_moveresize(c, 0,
+					m->data.l[1] >= 0 ? m->data.l[1]: c->x,
+					m->data.l[2] >= 0 ? m->data.l[2]: c->y,
+					m->data.l[3] >= 1 ? m->data.l[3]: c->sw,
+					m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
+			}
+			else
+			if (m->message_type == netatoms[NET_WM_STATE])
+			{
+				int i; for (i = 1; i < 2; i++)
+				{
+					if (m->data.l[i] == netatoms[NET_WM_STATE_FULLSCREEN])
+						client_nws_fullscreen(c, m->data.l[0]);
+					else
+					if (m->data.l[i] == netatoms[NET_WM_STATE_ABOVE])
+						client_nws_above(c, m->data.l[0]);
+				}
 			}
 		}
 	}
-	free(c);
 }
 
 // PropertyNotify
@@ -2243,7 +2364,6 @@ void handle_propertynotify(XEvent *ev)
 		if (p->atom == atoms[WM_NAME] || p->atom == netatoms[NET_WM_NAME])
 			ewmh_client_list(c->xattr.root);
 	}
-	free(c);
 }
 
 // grab a MODKEY+key combo
@@ -2263,15 +2383,14 @@ void grab_key(Window root, KeySym key)
 // window setup iterator
 int setup_screen_window(int i, Window w, void *p)
 {
-	wincache *cache = calloc(sizeof(wincache), 1);
+	wincache *cache = allocate(sizeof(wincache));
 	winlist_append(windows, w, cache);
 	client *c = window_client(w);
 	if (c && c->manage)
 	{
 		winlist_append(windows_activated, c->window, NULL);
-		client_review(c);
+		client_full_review(c);
 	}
-	free(c);
 	return 0;
 }
 
@@ -2280,9 +2399,9 @@ void setup_screen(int scr)
 {
 	int i; Window root = RootWindow(display, scr);
 
-	unsigned long desktops = 1, desktop = 0;
+	unsigned long desktops = TAGS, desktop = 0;
 	unsigned long workarea[4] = { 0, 0, DisplayWidth(display, scr), DisplayHeight(display, scr) };
-	supporting = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
+	Window supporting = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
 	unsigned long pid = getpid();
 
 	// EWMH
@@ -2306,7 +2425,7 @@ void setup_screen(int scr)
 		XK_Right, XK_Left, XK_Up, XK_Down, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Insert, XK_Delete,
 		XK_backslash, XK_bracketleft, XK_bracketright, XK_semicolon, XK_apostrophe, XK_Return,
 		XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, XK_t,
-		XK_Tab, XK_grave, XK_Escape, XK_x, XK_equal, XK_i
+		XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_i
 	};
 
 	// bind all MODKEY+ combos
@@ -2333,7 +2452,7 @@ void setup_screen(int scr)
 	winlist_iterate_up(wins, setup_screen_window, NULL);
 	winlist_free(wins);
 	// activate and focus top window
-	free(window_active_client(root));
+	window_active_client(root);
 	ewmh_client_list(root);
 }
 
@@ -2347,6 +2466,9 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "cannot open display!\n");
 		return 1;
 	}
+
+	cache_client = winlist_new();
+	cache_xattr  = winlist_new();
 
 	// do this before setting error handler, so it fails if other wm in place
 	XSelectInput(display, DefaultRootWindow(display), SubstructureRedirectMask);
@@ -2413,6 +2535,9 @@ int main(int argc, char *argv[])
 	// main event loop
 	for(;;)
 	{
+		// caches only live for a single event
+		winlist_empty(cache_xattr); winlist_empty(cache_client);
+
 		// block and wait for something
 		XNextEvent(display, &ev);
 		if (ev.xany.window == None) continue;
