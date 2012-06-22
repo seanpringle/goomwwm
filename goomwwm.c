@@ -123,9 +123,8 @@ pid_t exec_cmd_io(const char *command, int *infp, int *outfp)
 pid_t exec_cmd(char *cmd)
 {
 	if (!cmd || !cmd[0]) return -1;
-	pid_t pid;
 	signal(SIGCHLD, catch_exit);
-	pid = fork();
+	pid_t pid = fork();
 	if (!pid)
 	{
 		setsid();
@@ -138,8 +137,7 @@ pid_t exec_cmd(char *cmd)
 // cli arg handling
 int find_arg(int argc, char *argv[], char *key)
 {
-	int i = 0;
-	while (i < argc && strcasecmp(argv[i], key) != 0) i++;
+	int i; for (i = 0; i < argc && strcasecmp(argv[i], key); i++);
 	return i < argc ? i: -1;
 }
 char* find_arg_str(int argc, char *argv[], char *key, char* def)
@@ -242,9 +240,16 @@ unsigned int config_modkey, config_ignore_modkeys,
 	config_flash_on, config_flash_off,
 	config_border_width, config_flash_width, config_flash_ms;
 
-char *config_switcher, *config_launcher,
-	*config_key_1,  *config_key_2,  *config_key_3,  *config_key_4,   *config_key_5,
-	*config_key_6,  *config_key_7,  *config_key_8,  *config_key_9;
+char *config_switcher, *config_launcher, *config_apps_patterns[10];
+KeySym config_apps_keysyms[] = { XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, XK_0, 0 };
+KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, 0 };
+
+int in_array_keysym(KeySym *array, KeySym code)
+{
+	int i; for (i = 0; array[i]; i++)
+		if (array[i] == code) return i;
+	return -1;
+}
 
 unsigned int NumlockMask = 0;
 Display *display;
@@ -277,8 +282,6 @@ Atom atoms[ATOMS];
 
 #define EWMH_ATOMS(X) \
 	X(_NET_SUPPORTING_WM_CHECK),\
-	X(_NET_WM_NAME),\
-	X(_NET_WM_PID),\
 	X(_NET_CLIENT_LIST),\
 	X(_NET_CLIENT_LIST_STACKING),\
 	X(_NET_NUMBER_OF_DESKTOPS),\
@@ -289,6 +292,8 @@ Atom atoms[ATOMS];
 	X(_NET_ACTIVE_WINDOW),\
 	X(_NET_CLOSE_WINDOW),\
 	X(_NET_MOVERESIZE_WINDOW),\
+	X(_NET_WM_NAME),\
+	X(_NET_WM_PID),\
 	X(_NET_WM_WINDOW_TYPE),\
 	X(_NET_WM_WINDOW_TYPE_DESKTOP),\
 	X(_NET_WM_WINDOW_TYPE_DOCK),\
@@ -360,15 +365,6 @@ winlist* winlist_new()
 	l->data  = allocate(sizeof(void*) * (WINLIST+1));
 	return l;
 }
-typedef int (*winlist_cb)(int,Window,void*);
-void winlist_iterate_up(winlist *l, winlist_cb cb, void *p)
-{
-	int i; Window w; winlist_ascend(l, i, w) if (cb(i, w, p)) break;
-}
-void winlist_iterate_down(winlist *l, winlist_cb cb, void *p)
-{
-	int i; Window w; winlist_descend(l, i, w) if (cb(i, w, p)) break;
-}
 int winlist_append(winlist *l, Window w, void *d)
 {
 	if (l->len > 0 && !(l->len % WINLIST))
@@ -439,7 +435,7 @@ int window_is_root(Window w)
 }
 
 // XGetWindowAttributes with caching
-XWindowAttributes* window_get_attributes(Window w, XWindowAttributes *attr)
+XWindowAttributes* window_get_attributes(Window w)
 {
 	int idx = winlist_find(cache_xattr, w);
 	if (idx < 0)
@@ -447,22 +443,13 @@ XWindowAttributes* window_get_attributes(Window w, XWindowAttributes *attr)
 		XWindowAttributes *cattr = allocate(sizeof(XWindowAttributes));
 		if (XGetWindowAttributes(display, w, cattr))
 		{
-			if (attr) memmove(attr, cattr, sizeof(XWindowAttributes));
 			winlist_append(cache_xattr, w, cattr);
 			return cattr;
 		}
 		free(cattr);
 		return NULL;
 	}
-	if (attr) memmove(attr, cache_xattr->data[idx], sizeof(XWindowAttributes));
 	return cache_xattr->data[idx];
-}
-
-// remove any cached data on a window
-void window_purge(Window w)
-{
-	winlist_forget(windows, w);
-	winlist_forget(windows_activated, w);
 }
 
 int window_get_prop(Window w, Atom prop, Atom *type, int *items, void *buffer, int bytes)
@@ -475,15 +462,10 @@ int window_get_prop(Window w, Atom prop, Atom *type, int *items, void *buffer, i
 	if (XGetWindowProperty(display, w, prop, 0, bytes/4, False, AnyPropertyType, type,
 		&format, &nitems, &nbytes, &ret) == Success && ret && *type != None && format)
 	{
-		if (format == 8)
-			memmove(buffer, ret, MIN(bytes, nitems));
-		if (format == 16)
-			memmove(buffer, ret, MIN(bytes, nitems * sizeof(short)));
-		if (format == 32)
-			memmove(buffer, ret, MIN(bytes, nitems * sizeof(long)));
-
-		*items = (int)nitems;
-		XFree(ret);
+		if (format ==  8) memmove(buffer, ret, MIN(bytes, nitems));
+		if (format == 16) memmove(buffer, ret, MIN(bytes, nitems * sizeof(short)));
+		if (format == 32) memmove(buffer, ret, MIN(bytes, nitems * sizeof(long)));
+		*items = (int)nitems; XFree(ret);
 		return 1;
 	}
 	return 0;
@@ -546,7 +528,9 @@ int window_send_message(Window target, Window subject, Atom atom, unsigned long 
     e.xclient.message_type = atom;     e.xclient.window    = subject;
     e.xclient.data.l[0]    = protocol; e.xclient.data.l[1] = CurrentTime;
     e.xclient.send_event   = True;     e.xclient.format    = 32;
-	return XSendEvent(display, target, False, mask, &e) ?1:0;
+	int r = XSendEvent(display, target, False, mask, &e) ?1:0;
+	XFlush(display);
+	return r;
 }
 
 // top-level, visible windows. DOES include non-managable docks/panels
@@ -561,7 +545,7 @@ winlist* windows_in_play(Window root)
 	{
 		for (i = 0; i < nwins; i++)
 		{
-			XWindowAttributes *attr = window_get_attributes(wins[i], NULL);
+			XWindowAttributes *attr = window_get_attributes(wins[i]);
 			if (attr && attr->override_redirect == False && attr->map_state == IsViewable)
 				winlist_append(l, wins[i], NULL);
 		}
@@ -605,18 +589,17 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 	Window root = RootWindow(display, XScreenNumberOfScreen(screen));
 
 	// strut cardinals are relative to the root window size, which is not necessarily the monitor size
-	XWindowAttributes *rattr = window_get_attributes(root, NULL);
+	XWindowAttributes *rattr = window_get_attributes(root);
 	int left = 0, right = 0, top = 0, bottom = 0;
 
 	int i; Window win;
 	winlist_ascend(windows_in_play(root), i, win)
 	{
-		XWindowAttributes *attr = window_get_attributes(win, NULL);
+		XWindowAttributes *attr = window_get_attributes(win);
 		if (attr && !attr->override_redirect && attr->root == root
 			&& INTERSECT(attr->x, attr->y, attr->width, attr->height, mon->x, mon->y, mon->w, mon->h))
 		{
-			unsigned long *strut; Atom a; int b;
-			unsigned long c, d; unsigned char *res;
+			unsigned long *strut, c, d; Atom a; int b; unsigned char *res;
 			if (XGetWindowProperty(display, win, netatoms[_NET_WM_STRUT_PARTIAL], 0L, 12,
 				False, XA_CARDINAL, &a, &b, &c, &d, &res) == Success && res)
 			{
@@ -675,13 +658,13 @@ client* window_client(Window win)
 	int idx = winlist_find(cache_client, win);
 	if (idx >= 0) return cache_client->data[idx];
 
+	// if this fails, we're up that creek
+	XWindowAttributes *attr = window_get_attributes(win);
+	if (!attr) return NULL;
+
 	client *c = allocate_clear(sizeof(client));
 	c->window = win;
-
-	// if this fails, we're up that creek
-	if (!window_get_attributes(win, &c->xattr))
-		{ free(c); return NULL; }
-
+	memmove(&c->xattr, attr, sizeof(XWindowAttributes));
 	XGetTransientForHint(display, win, &c->trans);
 
 	c->visible = c->xattr.map_state == IsViewable ?1:0;
@@ -850,6 +833,7 @@ void ewmh_client_list(Window root)
 			winlist_append(relevant, w, NULL);
 	XChangeProperty(display, root, netatoms[_NET_CLIENT_LIST_STACKING], XA_WINDOW, 32, PropModeReplace, (unsigned char*)relevant->array, relevant->len);
 
+	// 'windows' list has mapping order of everything. build 'mapped' from 'relevant', ordered by 'windows'
 	winlist_ascend(windows, i, w) if (winlist_forget(relevant, w)) winlist_append(mapped, w, NULL);
 	XChangeProperty(display, root, netatoms[_NET_CLIENT_LIST], XA_WINDOW, 32, PropModeReplace, (unsigned char*)mapped->array, mapped->len);
 
@@ -883,14 +867,6 @@ void client_close(client *c)
 	if (c->cache->have_closed || !client_protocol_event(c, atoms[WM_DELETE_WINDOW]))
 		XKillClient(display, c->window);
 	c->cache->have_closed = 1;
-}
-
-// focus a window politely if possible
-void client_focus(client *c)
-{
-	client_protocol_event(c, atoms[WM_TAKE_FOCUS]);
-	if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
-	else XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
 }
 
 // move & resize a window nicely
@@ -1037,110 +1013,84 @@ void client_restore_position_vert(client *c, int smart, int y, int h)
 		c->sw, c->cache && c->cache->have_old ? c->cache->sh: h);
 }
 
-struct client_expand_data {
-	winlist *inplay; // windows in stacking order
-	workarea *regions; // coords/sizes of fully visible windows
-	workarea *allregions; // coords/sizes of all windows, visible or obscured
-	int relevant; // size of ^regions^ array
-	client *main; // the active, focused window we're resizing
-};
-
-// client_expand interator
-int client_expand_regions(int idx, Window w, void *p)
-{
-	struct client_expand_data *my = p;
-	// dont care about the window doing the expanding!
-	if (w == my->main->window) return 0;
-
-	client *c = window_client(w);
-	if (c && c->manage && c->visible)
-	{
-		client_extended_data(c);
-		// only concerned about windows on this monitor
-		if (c->monitor.x == my->main->monitor.x && c->monitor.y == my->main->monitor.y) // same monitor
-		{
-			int i, obscured = 0;
-			for (i = my->inplay->len-1; i > idx; i--)
-			{
-				// if the window intersects with any other window higher in the stack order, it must be at least partially obscured
-				if (my->allregions[i].w && INTERSECT(c->sx, c->sy, c->sw, c->sh,
-					my->allregions[i].x, my->allregions[i].y, my->allregions[i].w, my->allregions[i].h))
-						{ obscured = 1; break; }
-			}
-			// record a full visible window
-			if (!obscured)
-			{
-				my->regions[my->relevant].x = c->sx;
-				my->regions[my->relevant].y = c->sy;
-				my->regions[my->relevant].w = c->sw;
-				my->regions[my->relevant].h = c->sh;
-				my->relevant++;
-			}
-			my->allregions[idx].x = c->sx;
-			my->allregions[idx].y = c->sy;
-			my->allregions[idx].w = c->sw;
-			my->allregions[idx].h = c->sh;
-		}
-	}
-	return 0;
-}
-
 // expand a window to take up available space around it on the current monitor
 // do not cover any window that is entirely visible (snap to surrounding edges)
 void client_expand(client *c, int directions)
 {
 	client_extended_data(c);
 
-	struct client_expand_data _my, *my = &_my;
-	memset(my, 0, sizeof(struct client_expand_data));
+	winlist *inplay = windows_in_play(c->xattr.root);
+	// list of coords/sizes for fully visible windows on this desktop
+	workarea *regions = allocate_clear(sizeof(workarea) * inplay->len);
+	// list of coords/sizes for all windows on this desktop
+	workarea *allregions = allocate_clear(sizeof(workarea) * inplay->len);
 
-	my->inplay = windows_in_play(c->xattr.root);
-	// list of coords/sizes for fully visible windows
-	my->regions = allocate_clear(sizeof(workarea) * my->inplay->len);
-	// list of coords/sizes for all relevant windows
-	my->allregions = allocate_clear(sizeof(workarea) * my->inplay->len);
-	my->main = c;
+	int i, relevant = 0; Window win; client *o;
 
 	// build the (all)regions arrays
-	winlist_iterate_down(my->inplay, client_expand_regions, my);
+	winlist_descend(inplay, i, win)
+	{
+		if (win == c->window) continue;
+		if ((o = window_client(win)) && c && c->manage && c->visible)
+		{
+			client_extended_data(o);
+			// only concerned about windows on this monitor
+			if (o->monitor.x == c->monitor.x && o->monitor.y == c->monitor.y) // same monitor
+			{
+				int j, obscured = 0;
+				for (j = inplay->len-1; j > i; j--)
+				{
+					// if the window intersects with any other window higher in the stack order, it must be at least partially obscured
+					if (allregions[i].w && INTERSECT(o->sx, o->sy, o->sw, o->sh,
+						allregions[i].x, allregions[i].y, allregions[i].w, allregions[i].h))
+							{ obscured = 1; break; }
+				}
+				// record a full visible window
+				if (!obscured)
+				{
+					regions[relevant].x = o->sx; regions[relevant].y = o->sy;
+					regions[relevant].w = o->sw; regions[relevant].h = o->sh;
+					relevant++;
+				}
+				allregions[i].x = o->sx; allregions[i].y = o->sy;
+				allregions[i].w = o->sw; allregions[i].h = o->sh;
+			}
+		}
+	}
 
-	int i, n, x = c->sx, y = c->sy, w = c->sw, h = c->sh;
+	int n, x = c->sx, y = c->sy, w = c->sw, h = c->sh;
 
 	if (directions & VERTICAL)
 	{
 		// try to grow upward. locate the lower edge of the nearest fully visible window
-		n = 0;
-		for (i = 0; i < my->relevant; i++)
+		for (n = 0, i = 0; i < relevant; i++)
 		{
-			if (my->regions[i].y + my->regions[i].h <= y && OVERLAP(x, w, my->regions[i].x, my->regions[i].w))
-				n = MAX(n, my->regions[i].y + my->regions[i].h);
+			if (regions[i].y + regions[i].h <= y && OVERLAP(x, w, regions[i].x, regions[i].w))
+				n = MAX(n, regions[i].y + regions[i].h);
 		}
 		h += y-n; y = n;
 		// try to grow downward. locate the upper edge of the nearest fully visible window
-		n = c->monitor.h;
-		for (i = 0; i < my->relevant; i++)
+		for (n = c->monitor.h, i = 0; i < relevant; i++)
 		{
-			if (my->regions[i].y >= y+h && OVERLAP(x, w, my->regions[i].x, my->regions[i].w))
-				n = MIN(n, my->regions[i].y);
+			if (regions[i].y >= y+h && OVERLAP(x, w, regions[i].x, regions[i].w))
+				n = MIN(n, regions[i].y);
 		}
 		h = n-y;
 	}
 	if (directions & HORIZONTAL)
 	{
 		// try to grow left. locate the right edge of the nearest fully visible window
-		n = 0;
-		for (i = 0; i < my->relevant; i++)
+		for (n = 0, i = 0; i < relevant; i++)
 		{
-			if (my->regions[i].x + my->regions[i].w <= x && OVERLAP(y, h, my->regions[i].y, my->regions[i].h))
-				n = MAX(n, my->regions[i].x + my->regions[i].w);
+			if (regions[i].x + regions[i].w <= x && OVERLAP(y, h, regions[i].y, regions[i].h))
+				n = MAX(n, regions[i].x + regions[i].w);
 		}
 		w += x-n; x = n;
 		// try to grow right. locate the left edge of the nearest fully visible window
-		n = c->monitor.w;
-		for (i = 0; i < my->relevant; i++)
+		for (n = c->monitor.w, i = 0; i < relevant; i++)
 		{
-			if (my->regions[i].x >= x+w && OVERLAP(y, h, my->regions[i].y, my->regions[i].h))
-				n = MIN(n, my->regions[i].x);
+			if (regions[i].x >= x+w && OVERLAP(y, h, regions[i].y, regions[i].h))
+				n = MIN(n, regions[i].x);
 		}
 		w = n-x;
 	}
@@ -1170,7 +1120,7 @@ void client_expand(client *c, int directions)
 			client_save_position_horz(c);
 		client_moveresize(c, 0, c->monitor.x+x, c->monitor.y+y, w, h);
 	}
-	free(my->regions); free(my->allregions);
+	free(regions); free(allregions);
 }
 
 // visually highlight a client to attract attention
@@ -1239,60 +1189,40 @@ void client_stack_family(client *c, winlist *stack)
 	winlist_append(stack, app, NULL);
 }
 
-// client_raise iterator data
-struct client_raise_data {
-	Atom type;
-	Atom state;
-	winlist *stack;
-};
-
-// client_raise interator checking _NET_WM_STATE
-int client_raise_state_cb(int i, Window w, void *p)
-{
-	struct client_raise_data *search = p;
-	if (winlist_find(search->stack, w) < 0)
-	{
-		client *o = window_client(w);
-		if (o && o->trans == None && client_has_state(o, search->state))
-			client_stack_family(o, search->stack);
-	}
-	return 0;
-}
-
-// client_raise interator checking _NET_WM_WINDOW_TYPE
-int client_raise_type_cb(int i, Window w, void *p)
-{
-	struct client_raise_data *search = p;
-	if (winlist_find(search->stack, w) < 0)
-	{
-		client *o = window_client(w);
-		if (o && o->trans == None && o->type == search->type)
-			client_stack_family(o, search->stack);
-	}
-	return 0;
-}
-
 // raise a window and its transients
 void client_raise(client *c, int priority)
 {
+	int i; Window w; client *o;
 	winlist *stack = winlist_new();
+	winlist *inplay = windows_in_play(c->xattr.root);
 
 	// priority gets us raised without anyone above us, regardless. eg _NET_WM_STATE_FULLSCREEN+focus
 	if (!priority)
 	{
-		// locate windows with _NET_WM_STATE_ABOVE and/or _NET_WM_WINDOW_TYPE_DOCK to raise them first
-		struct client_raise_data search; search.stack = stack;
-		winlist *inplay = windows_in_play(c->xattr.root);
-		search.state = netatoms[_NET_WM_STATE_ABOVE];
-		winlist_iterate_down(inplay, client_raise_state_cb, &search);
-		search.type = netatoms[_NET_WM_WINDOW_TYPE_DOCK];
-		winlist_iterate_down(inplay, client_raise_type_cb, &search);
+		// if we're above, ensure it
+		if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
+			client_stack_family(c, stack);
+
+		// locate windows with _NET_WM_STATE_ABOVE
+		winlist_descend(inplay, i, w)
+		{
+			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
+				&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_ABOVE]))
+					client_stack_family(o, stack);
+		}
+		// locate _NET_WM_WINDOW_TYPE_DOCK windows
+		winlist_descend(inplay, i, w)
+		{
+			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
+				&& c->trans == None && o->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
+					client_stack_family(o, stack);
+		}
 	}
 	// locate our family
 	if (winlist_find(stack, c->window) < 0)
 		client_stack_family(c, stack);
 
-	// raise the top window inthe stack
+	// raise the top window in the stack
 	XRaiseWindow(display, stack->array[0]);
 	// stack everything else, in order, underneath top window
 	if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
@@ -1374,7 +1304,10 @@ void client_activate(client *c)
 		if (w != c->window) XSetWindowBorder(display, w, config_border_blur);
 	// setup ourself
 	client_raise(c, client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]));
-	client_focus(c);
+	// focus a window politely if possible
+	client_protocol_event(c, atoms[WM_TAKE_FOCUS]);
+	if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
+	else XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XSetWindowBorder(display, c->window, config_border_focus);
 	// update focus history order
 	winlist_forget(windows_activated, c->window);
@@ -1405,20 +1338,16 @@ client* window_active_client(Window root)
 {
 	int i; Window w; client *c = NULL;
 	// look for a visible, previously activated window
-	winlist_descend(windows_activated, i, w) {
-		if ((c = window_client(w)) && c && c->manage && c->visible && c->xattr.root == root)
-			break;
-	}
+	winlist_descend(windows_activated, i, w)
+		if ((c = window_client(w)) && c && c->manage && c->visible && c->xattr.root == root) break;
 	// if we found one, activate it
 	if (c && (!c->focus || !c->active))
 		client_activate(c);
 	// otherwise look for any visible, manageable window
 	if (!c)
 	{
-		winlist_descend(windows_in_play(root), i, w) {
-			if ((c = window_client(w)) && c && c->manage && c->visible)
-				break;
-		}
+		winlist_descend(windows_in_play(root), i, w)
+			if ((c = window_client(w)) && c && c->manage && c->visible) break;
 		if (c) client_activate(c);
 	}
 	return c;
@@ -1433,23 +1362,29 @@ void tag_raise(unsigned int tag)
 	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
 	{
 		Window root = RootWindow(display, scr);
-
+		winlist *inplay = windows_in_play(root);
 		stack = winlist_new();
 		focus = None;
 
-		winlist *inplay = windows_in_play(root);
-
-		// locate windows with _NET_WM_STATE_ABOVE and/or _NET_WM_WINDOW_TYPE_DOCK to raise them first
-		struct client_raise_data search; search.stack = stack;
-		search.state = netatoms[_NET_WM_STATE_ABOVE];
-		winlist_iterate_down(inplay, client_raise_state_cb, &search);
-		search.type = netatoms[_NET_WM_WINDOW_TYPE_DOCK];
-		winlist_iterate_down(inplay, client_raise_type_cb, &search);
-
+		// locate windows with _NET_WM_STATE_ABOVE
+		winlist_descend(inplay, i, w)
+		{
+			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->visible
+				&& c->trans == None && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
+					client_stack_family(c, stack);
+		}
+		// locate _NET_WM_WINDOW_TYPE_DOCK windows
+		winlist_descend(inplay, i, w)
+		{
+			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->visible
+				&& c->trans == None && c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
+					client_stack_family(c, stack);
+		}
 		// locate all windows in the tag, and the top one to be focused
 		winlist_descend(inplay, i, w)
 		{
-			if ((c = window_client(w)) && c && c->manage && c->visible && c->cache->tags & tag && winlist_find(stack, w) < 0)
+			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->manage && c->visible
+				&& c->trans == None && c->cache->tags & tag)
 			{
 				if (focus == None) focus = w;
 				client_stack_family(c, stack);
@@ -1615,122 +1550,71 @@ void client_nws_review(client *c)
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
 }
 
-// iterator data for app_find_by_field()
-struct app_find {
-	char *pattern;
-	Window found;
-	int offset;
-};
-
-// iterator for app_find_or_start()
-int app_find_by_field(int i, Window w, void *p)
-{
-	struct app_find *find = p;
-	int r = 0; client *c = window_client(w);
-	if (c && c->manage && c->visible)
-	{
-		client_descriptive_data(c);
-		if (!strcasecmp(((char*)c)+find->offset, find->pattern))
-			{ find->found = w; r = 1; }
-	}
-	return r;
-}
-
 // search and activate first open window matching class/name/title
 void app_find_or_start(Window root, char *pattern)
 {
 	if (!pattern) return;
-
-	struct app_find find;
-	find.pattern = pattern;
-	find.found   = None;
 	winlist *inplay = windows_in_play(root);
 
-	if (find.found == None)
+	Window w, found = None; client *c;
+	int i, j, offsets[] = { offsetof(client, name), offsetof(client, class), offsetof(client, title) };
+	for (i = 0; i < 3 && found == None; i++)
 	{
-		find.offset = offsetof(client, name);
-		winlist_iterate_down(inplay, app_find_by_field, &find);
+		winlist_descend(inplay, j, w)
+		{
+			if ((c = window_client(w)) && c && c->manage && c->visible)
+			{
+				client_descriptive_data(c);
+				if (!strcasecmp(((char*)c)+offsets[i], pattern))
+					{ found = w; break; }
+			}
+		}
 	}
-	if (find.found == None)
-	{
-		find.offset = offsetof(client, class);
-		winlist_iterate_down(inplay, app_find_by_field, &find);
-	}
-	if (find.found == None)
-	{
-		find.offset = offsetof(client, title);
-		winlist_iterate_down(inplay, app_find_by_field, &find);
-	}
-	client *c = NULL;
-	if (find.found != None && (c = window_client(find.found)) && c && c->manage && c->visible)
-		client_activate(c);
+	if (found != None) client_activate(c);
 	else exec_cmd(pattern);
-}
-
-struct window_switcher_data {
-	unsigned int tag; // filter by tag
-	int classfield;  // width of WM_CLASS field
-	int maxtags; // width og tags field
-	char *list; // output window list
-	int used;   // out list length
-	char pattern[20]; // window line format
-};
-
-// window_switcher interator
-int window_switcher_cb_class(int idx, Window w, void *p)
-{
-	struct window_switcher_data *my = p;
-	client *c = window_client(w);
-	if (c && c->manage && c->visible)
-	{
-		client_descriptive_data(c);
-		if (!my->tag || (c->cache && c->cache->tags & my->tag))
-		{
-			int i, t; for (i = 0, t = 0; i < TAGS; i++)
-				if (c->cache->tags & (1<<i)) t++;
-			my->maxtags = MAX(my->maxtags, t);
-			my->classfield = MAX(my->classfield, strlen(c->class));
-		}
-	}
-	return 0;
-}
-
-// window_switcher interator
-int window_switcher_cb_format(int idx, Window w, void *p)
-{
-	struct window_switcher_data *my = p;
-	client *c = window_client(w);
-	if (c && c->manage && c->visible
-		&& !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_PAGER]
-		&& !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR])))
-	{
-		client_descriptive_data(c);
-		if (!my->tag || (c->cache && c->cache->tags & my->tag))
-		{
-			char tags[32]; memset(tags, 0, 32);
-			int i, l; for (l = 0, i = 0; i < TAGS; i++)
-				if (c->cache->tags & (1<<i)) l += sprintf(tags+l, "%d,", i+1);
-			if (l > 0) tags[l-1] = '\0';
-
-			my->list = reallocate(my->list, my->used + strlen(c->title) + strlen(tags) + strlen(c->class) + my->classfield + 50);
-			my->used += sprintf(my->list + my->used, my->pattern, (unsigned long)c->window, tags, c->class, c->title);
-		}
-	}
-	return 0;
 }
 
 // built-in window switcher
 void window_switcher(Window root, unsigned int tag)
 {
-	struct window_switcher_data my;
-	memset(&my, 0, sizeof(struct window_switcher_data));
-	my.tag = tag; my.list = allocate(1024); my.list[0] = 0;
+	char *list = allocate_clear(1024), pattern[50];
+	int i, classfield = 0, maxtags = 0, used = 0;
+	Window w; client *c;
 
-	winlist *inplay = windows_activated;
-	winlist_iterate_down(inplay, window_switcher_cb_class, &my);
-	sprintf(my.pattern, "%%08lx  %%%ds  %%%ds  %%s\n", MAX(2, (my.maxtags*2)-1), MAX(5, my.classfield));
-	winlist_iterate_down(inplay, window_switcher_cb_format, &my);
+	// calc widths of wm_class and tag csv fields
+	winlist_descend(windows_activated, i, w)
+	{
+		if ((c = window_client(w)) && c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
+		{
+			client_descriptive_data(c);
+			if (!tag || (c->cache && c->cache->tags & tag))
+			{
+				int j, t; for (j = 0, t = 0; j < TAGS; j++)
+					if (c->cache->tags & (1<<j)) t++;
+				maxtags = MAX(maxtags, t);
+				classfield = MAX(classfield, strlen(c->class));
+			}
+		}
+	}
+	sprintf(pattern, "%%08lx  %%%ds  %%%ds  %%s\n", MAX(2, (maxtags*2)-1), MAX(5, classfield));
+	// build the actual list
+	winlist_descend(windows_activated, i, w)
+	{
+		if ((c = window_client(w)) && c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
+		{
+			client_descriptive_data(c);
+			if (!tag || (c->cache && c->cache->tags & tag))
+			{
+				char tags[32]; memset(tags, 0, 32);
+				int j, l; for (l = 0, j = 0; j < TAGS; j++)
+					if (c->cache->tags & (1<<j)) l += sprintf(tags+l, "%d,", j+1);
+				if (l > 0) tags[l-1] = '\0';
 
+				list = reallocate(list, used + strlen(c->title) + strlen(tags) + strlen(c->class) + classfield + 50);
+				used += sprintf(list + used, pattern, (unsigned long)c->window, tags, c->class, c->title);
+			}
+		}
+	}
 	int in, out;
 	pid_t pid = fork();
 	if (!pid)
@@ -1739,13 +1623,11 @@ void window_switcher(Window root, unsigned int tag)
 		pid = exec_cmd_io(SWITCHER_BUILTIN, &in, &out);
 		if (pid > 0)
 		{
-			write(in, my.list, my.used); close(in);
-			my.used = read(out, my.list, 10);
-			close(out);
-			if (my.used > 0)
+			write(in, list, used); close(in);
+			used = read(out, list, 10); close(out);
+			if (used > 0)
 			{
-				my.list[my.used] = '\0';
-				Window w = (Window)strtol(my.list, NULL, 16);
+				list[used] = '\0'; Window w = (Window)strtol(list, NULL, 16);
 				window_send_message(root, w, netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
 					SubstructureNotifyMask | SubstructureRedirectMask);
 			}
@@ -1753,20 +1635,16 @@ void window_switcher(Window root, unsigned int tag)
 		waitpid(pid, NULL, 0);
 		exit(EXIT_SUCCESS);
 	}
-	free(my.list);
+	free(list);
 }
 
 // MODKEY+keys
 void handle_keypress(XEvent *ev)
 {
 	event_log("KeyPress", ev->xany.window);
-	XWindowAttributes attr;
-
-	// this will be a root window as we only bind buttons on those
-	window_get_attributes(ev->xany.window, &attr);
 	KeySym key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
 
-	client *c = NULL;
+	int i; client *c = NULL;
 
 	if (key == XK_Tab)
 	{
@@ -1775,29 +1653,15 @@ void handle_keypress(XEvent *ev)
 	}
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
-	else if (key == XK_1) app_find_or_start(attr.root, config_key_1);
-	else if (key == XK_2) app_find_or_start(attr.root, config_key_2);
-	else if (key == XK_3) app_find_or_start(attr.root, config_key_3);
-	else if (key == XK_4) app_find_or_start(attr.root, config_key_4);
-	else if (key == XK_5) app_find_or_start(attr.root, config_key_5);
-	else if (key == XK_6) app_find_or_start(attr.root, config_key_6);
-	else if (key == XK_7) app_find_or_start(attr.root, config_key_7);
-	else if (key == XK_8) app_find_or_start(attr.root, config_key_8);
-	else if (key == XK_9) app_find_or_start(attr.root, config_key_9);
+	else if ((i = in_array_keysym(config_apps_keysyms, key)) && i >= 0)
+		app_find_or_start(ev->xany.window, config_apps_patterns[i]);
 
-	else if (key == XK_F1) tag_raise(TAG1);
-	else if (key == XK_F2) tag_raise(TAG2);
-	else if (key == XK_F3) tag_raise(TAG3);
-	else if (key == XK_F4) tag_raise(TAG4);
-	else if (key == XK_F5) tag_raise(TAG5);
-	else if (key == XK_F6) tag_raise(TAG6);
-	else if (key == XK_F7) tag_raise(TAG7);
-	else if (key == XK_F8) tag_raise(TAG8);
-	else if (key == XK_F9) tag_raise(TAG9);
+	else if ((i = in_array_keysym(config_tags_keysyms, key)) && i >= 0)
+		tag_raise(1<<i);
 
 	else
 	// following only relevant with a focused window
-	if ((c = window_active_client(attr.root)) && c)
+	if ((c = window_active_client(ev->xany.window)) && c)
 	{
 		client_descriptive_data(c);
 		client_extended_data(c);
@@ -1811,14 +1675,10 @@ void handle_keypress(XEvent *ev)
 
 		// four basic window sizes
 		// full screen
-		int width1  = screen_width/3;
-		int height1 = screen_height/3;
-		int width2  = screen_width/2;
-		int height2 = screen_height/2;
-		int width3  = screen_width-width1;
-		int height3 = screen_height-height1;
-		int width4  = screen_width;
-		int height4 = screen_height;
+		int width1  = screen_width/3;      int height1 = screen_height/3;
+		int width2  = screen_width/2;      int height2 = screen_height/2;
+		int width3  = screen_width-width1; int height3 = screen_height-height1;
+		int width4  = screen_width;        int height4 = screen_height;
 
 		// final resize/move params. smart = intelligently bump / center / shrink
 		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
@@ -2067,10 +1927,11 @@ void handle_createnotify(XEvent *ev)
 // we don't track window state internally much, so this is just for info
 void handle_destroynotify(XEvent *ev)
 {
-	event_log("DestroyNotify", ev->xdestroywindow.window);
-	window_purge(ev->xdestroywindow.window);
-	if (window_is_root(ev->xdestroywindow.event))
-		ewmh_client_list(ev->xdestroywindow.event);
+	Window w = ev->xdestroywindow.window;
+	event_log("DestroyNotify", w);
+	// remove any cached data on a window
+	winlist_forget(windows, w);
+	winlist_forget(windows_activated, w);
 }
 
 // very loose with configure requests
@@ -2146,7 +2007,7 @@ void handle_maprequest(XEvent *ev)
 		}
 		client_raise(c, 0);
 	}
-	XMapWindow(display, c->window);
+	XMapWindow(display, ev->xmaprequest.window);
 }
 
 // a newly mapped top-level window automatically takes focus
@@ -2203,12 +2064,9 @@ void handle_clientmessage(XEvent *ev)
 			if (m->message_type == netatoms[_NET_MOVERESIZE_WINDOW] &&
 				(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
 			{
-				client_extended_data(c);
-				client_moveresize(c, 0,
-					m->data.l[1] >= 0 ? m->data.l[1]: c->x,
-					m->data.l[2] >= 0 ? m->data.l[2]: c->y,
-					m->data.l[3] >= 1 ? m->data.l[3]: c->sw,
-					m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
+				client_extended_data(c); client_moveresize(c, 0,
+					m->data.l[1] >= 0 ? m->data.l[1]: c->x,  m->data.l[2] >= 0 ? m->data.l[2]: c->y,
+					m->data.l[3] >= 1 ? m->data.l[3]: c->sw, m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
 			}
 			else
 			if (m->message_type == netatoms[_NET_WM_STATE])
@@ -2283,19 +2141,14 @@ void setup_screen(int scr)
 	const KeySym keys[] = {
 		XK_Right, XK_Left, XK_Up, XK_Down, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Insert, XK_Delete,
 		XK_backslash, XK_bracketleft, XK_bracketright, XK_semicolon, XK_apostrophe, XK_Return,
-		XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, XK_t,
-		XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_i
+		XK_t, XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_i
 	};
 
 	// bind all MODKEY+ combos
 	XUngrabKey(display, AnyKey, AnyModifier, root);
 	for (i = 0; i < sizeof(keys)/sizeof(KeySym); i++) grab_key(root, keys[i]);
-
-	if (config_key_1) grab_key(root, XK_1); if (config_key_2) grab_key(root, XK_2);
-	if (config_key_3) grab_key(root, XK_3); if (config_key_4) grab_key(root, XK_4);
-	if (config_key_5) grab_key(root, XK_5); if (config_key_6) grab_key(root, XK_6);
-	if (config_key_7) grab_key(root, XK_7); if (config_key_8) grab_key(root, XK_8);
-	if (config_key_9) grab_key(root, XK_9);
+	for (i = 0; i < sizeof(config_apps_keysyms)/sizeof(KeySym); i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
+	for (i = 0; i < sizeof(config_tags_keysyms)/sizeof(KeySym); i++) grab_key(root, config_tags_keysyms[i]);
 
 	// grab mouse buttons for click-to-focus. these get passed through to the windows
 	// not binding on button4 which is usually wheel scroll
@@ -2331,7 +2184,7 @@ int main(int argc, char *argv[])
 	if(!(display = XOpenDisplay(0)))
 	{
 		fprintf(stderr, "cannot open display!\n");
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	cache_client = winlist_new();
@@ -2345,11 +2198,9 @@ int main(int argc, char *argv[])
 	// determine numlock mask so we can bind on keys with and without it
 	XModifierKeymap *modmap = XGetModifierMapping(display);
 	for (i = 0; i < 8; i++)
-	{
 		for (j = 0; j < (int)modmap->max_keypermod; j++)
 			if (modmap->modifiermap[i*modmap->max_keypermod+j] == XKeysymToKeycode(display, XK_Num_Lock))
 				NumlockMask = (1<<i);
-	}
 	XFreeModifiermap(modmap);
 
 	// determine modkey
@@ -2388,12 +2239,11 @@ int main(int argc, char *argv[])
 	config_launcher = find_arg_str(argc, argv, "-launcher", LAUNCHER);
 
 	// app_find_or_start() keys
-	config_key_1 = find_arg_str(argc, argv, "-1", NULL); config_key_2 = find_arg_str(argc, argv, "-2", NULL);
-	config_key_3 = find_arg_str(argc, argv, "-3", NULL); config_key_4 = find_arg_str(argc, argv, "-4", NULL);
-	config_key_5 = find_arg_str(argc, argv, "-5", NULL); config_key_6 = find_arg_str(argc, argv, "-6", NULL);
-	config_key_7 = find_arg_str(argc, argv, "-7", NULL); config_key_8 = find_arg_str(argc, argv, "-8", NULL);
-	config_key_9 = find_arg_str(argc, argv, "-9", NULL);
-
+	for (i = 0; i < sizeof(config_apps_keysyms)/sizeof(KeySym); i++)
+	{
+		char tmp[3]; sprintf(tmp, "-%d", i);
+		config_apps_patterns[i] = find_arg_str(argc, argv, tmp, NULL);
+	}
 	// X atom values
 	for (i = 0; i < ATOMS; i++) atoms[i] = XInternAtom(display, atom_names[i], False);
 	for (i = 0; i < NETATOMS; i++) netatoms[i] = XInternAtom(display, netatom_names[i], False);
