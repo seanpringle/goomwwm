@@ -259,138 +259,79 @@ winlist *cache_inplay;
 
 static int (*xerror)(Display *, XErrorEvent *);
 
-// atoms that we care about
-enum {
-	WM_PROTOCOLS,
-	WM_DELETE_WINDOW,
-	WM_STATE,
-	WM_TAKE_FOCUS,
-	WM_NAME,
-	WM_CLASS,
-	WM_WINDOW_ROLE,
-	ATOMS
-};
-const char *atom_names[] = {
-	[WM_PROTOCOLS] = "WM_PROTOCOLS",
-	[WM_DELETE_WINDOW] = "WM_DELETE_WINDOW",
-	[WM_STATE] = "WM_STATE",
-	[WM_TAKE_FOCUS] = "WM_TAKE_FOCUS",
-	[WM_NAME] = "WM_NAME",
-	[WM_CLASS] = "WM_CLASS",
-	[WM_WINDOW_ROLE] = "WM_WINDOW_ROLE",
-};
-enum {
-	NET_SUPPORTED,
-	NET_SUPPORTING_WM_CHECK,
-	NET_WM_NAME,
-	NET_WM_PID,
-	NET_CLIENT_LIST,
-	NET_CLIENT_LIST_STACKING,
-	NET_NUMBER_OF_DESKTOPS,
-	NET_CURRENT_DESKTOP,
-	NET_DESKTOP_GEOMETRY,
-	NET_DESKTOP_VIEWPORT,
-	NET_WORKAREA,
-	NET_ACTIVE_WINDOW,
-	NET_CLOSE_WINDOW,
-	NET_MOVERESIZE_WINDOW,
-	NET_WM_WINDOW_TYPE,
-	NET_WM_WINDOW_TYPE_DESKTOP,
-	NET_WM_WINDOW_TYPE_DOCK,
-	NET_WM_WINDOW_TYPE_SPLASH,
-	NET_WM_WINDOW_TYPE_UTILITY,
-	NET_WM_WINDOW_TYPE_TOOLBAR,
-	NET_WM_WINDOW_TYPE_MENU,
-	NET_WM_WINDOW_TYPE_DIALOG,
-	NET_WM_WINDOW_TYPE_NORMAL,
-	NET_WM_STATE,
-	NET_WM_STATE_MODAL,
-	NET_WM_STATE_STICKY,
-	NET_WM_STATE_MAXIMIZED_VERT,
-	NET_WM_STATE_MAXIMIZED_HORZ,
-	NET_WM_STATE_SHADED,
-	NET_WM_STATE_SKIP_TASKBAR,
-	NET_WM_STATE_SKIP_PAGER,
-	NET_WM_STATE_HIDDEN,
-	NET_WM_STATE_FULLSCREEN,
-	NET_WM_STATE_ABOVE,
-	NET_WM_STATE_BELOW,
-	NET_WM_STATE_DEMANDS_ATTENTION,
-	NET_WM_STATE_ADD,
-	NET_WM_STATE_REMOVE,
-	NET_WM_STATE_TOGGLE,
-	NET_WM_ALLOWED_ACTIONS,
-	NET_WM_ACTION_MOVE,
-	NET_WM_ACTION_RESIZE,
-	NET_WM_ACTION_MINIMIZE,
-	NET_WM_ACTION_SHADE,
-	NET_WM_ACTION_STICK,
-	NET_WM_ACTION_MAXIMIZE_VERT,
-	NET_WM_ACTION_MAXIMIZE_HORZ,
-	NET_WM_ACTION_FULLSCREEN,
-	NET_WM_ACTION_CHANGE_DESKTOP,
-	NET_WM_ACTION_CLOSE,
-	NET_WM_STRUT,
-	NET_WM_STRUT_PARTIAL,
-	NET_WM_DESKTOP,
-	NETATOMS
-};
-const char *netatom_names[] = {
-	[NET_SUPPORTED] = "_NET_SUPPORTED",
-	[NET_SUPPORTING_WM_CHECK] = "_NET_SUPPORTING_WM_CHECK",
-	[NET_WM_NAME] = "_NET_WM_NAME",
-	[NET_WM_PID] = "_NET_WM_PID",
-	[NET_CLIENT_LIST] = "_NET_CLIENT_LIST",
-	[NET_CLIENT_LIST_STACKING] = "_NET_CLIENT_LIST_STACKING",
-	[NET_NUMBER_OF_DESKTOPS] = "_NET_NUMBER_OF_DESKTOPS",
-	[NET_CURRENT_DESKTOP] = "_NET_CURRENT_DESKTOP",
-	[NET_DESKTOP_GEOMETRY] = "_NET_DESKTOP_GEOMETRY",
-	[NET_DESKTOP_VIEWPORT] = "_NET_DESKTOP_VIEWPORT",
-	[NET_WORKAREA] = "_NET_WORKAREA",
-	[NET_ACTIVE_WINDOW] = "_NET_ACTIVE_WINDOW",
-	[NET_CLOSE_WINDOW] = "_NET_CLOSE_WINDOW",
-	[NET_MOVERESIZE_WINDOW] = "_NET_MOVERESIZE_WINDOW",
-	[NET_WM_WINDOW_TYPE] = "_NET_WM_WINDOW_TYPE",
-	[NET_WM_WINDOW_TYPE_DESKTOP] = "_NET_WM_WINDOW_TYPE_DESKTOP",
-	[NET_WM_WINDOW_TYPE_DOCK] = "_NET_WM_WINDOW_TYPE_DOCK",
-	[NET_WM_WINDOW_TYPE_SPLASH] = "_NET_WM_WINDOW_TYPE_SPLASH",
-	[NET_WM_WINDOW_TYPE_UTILITY] = "_NET_WM_WINDOW_TYPE_UTILITY",
-	[NET_WM_WINDOW_TYPE_TOOLBAR] = "_NET_WM_WINDOW_TYPE_TOOLBAR",
-	[NET_WM_WINDOW_TYPE_MENU] = "_NET_WM_WINDOW_TYPE_MENU",
-	[NET_WM_WINDOW_TYPE_DIALOG] = "_NET_WM_WINDOW_TYPE_DIALOG",
-	[NET_WM_WINDOW_TYPE_NORMAL] = "_NET_WM_WINDOW_TYPE_NORMAL",
-	[NET_WM_STATE] = "_NET_WM_STATE",
-	[NET_WM_STATE_MODAL] = "_NET_WM_STATE_MODAL",
-	[NET_WM_STATE_STICKY] = "_NET_WM_STATE_STICKY",
-	[NET_WM_STATE_MAXIMIZED_VERT] = "_NET_WM_STATE_MAXIMIZED_VERT",
-	[NET_WM_STATE_MAXIMIZED_HORZ] = "_NET_WM_STATE_MAXIMIZED_HORZ",
-	[NET_WM_STATE_SHADED] = "_NET_WM_STATE_SHADED",
-	[NET_WM_STATE_SKIP_TASKBAR] = "_NET_WM_STATE_SKIP_TASKBAR",
-	[NET_WM_STATE_SKIP_PAGER] = "_NET_WM_STATE_SKIP_PAGER",
-	[NET_WM_STATE_HIDDEN] = "_NET_WM_STATE_HIDDEN",
-	[NET_WM_STATE_FULLSCREEN] = "_NET_WM_STATE_FULLSCREEN",
-	[NET_WM_STATE_ABOVE] = "_NET_WM_STATE_ABOVE",
-	[NET_WM_STATE_BELOW] = "_NET_WM_STATE_BELOW",
-	[NET_WM_STATE_DEMANDS_ATTENTION] = "_NET_WM_STATE_DEMANDS_ATTENTION",
-	[NET_WM_STATE_ADD] = "_NET_WM_STATE_ADD",
-	[NET_WM_STATE_REMOVE] = "_NET_WM_STATE_REMOVE",
-	[NET_WM_STATE_TOGGLE] = "_NET_WM_STATE_TOGGLE",
-	[NET_WM_ALLOWED_ACTIONS] = "_NET_WM_ALLOWED_ACTIONS",
-	[NET_WM_ACTION_MOVE] = "_NET_WM_ACTION_MOVE",
-	[NET_WM_ACTION_RESIZE] = "_NET_WM_ACTION_RESIZE",
-	[NET_WM_ACTION_MINIMIZE] = "_NET_WM_ACTION_MINIMIZE",
-	[NET_WM_ACTION_SHADE] = "_NET_WM_ACTION_SHADE",
-	[NET_WM_ACTION_STICK] = "_NET_WM_ACTION_STICK",
-	[NET_WM_ACTION_MAXIMIZE_VERT] = "_NET_WM_ACTION_MAXIMIZE_VERT",
-	[NET_WM_ACTION_MAXIMIZE_HORZ] = "_NET_WM_ACTION_MAXIMIZE_HORZ",
-	[NET_WM_ACTION_FULLSCREEN] = "_NET_WM_ACTION_FULLSCREEN",
-	[NET_WM_ACTION_CHANGE_DESKTOP] = "_NET_WM_ACTION_CHANGE_DESKTOP",
-	[NET_WM_ACTION_CLOSE] = "_NET_WM_ACTION_CLOSE",
-	[NET_WM_STRUT] = "_NET_WM_STRUT",
-	[NET_WM_STRUT_PARTIAL] = "_NET_WM_STRUT_PARTIAL",
-	[NET_WM_DESKTOP] = "_NET_WM_DESKTOP",
-};
+#define ATOM_ENUM(x) x
+#define ATOM_CHAR(x) #x
+
+#define ICCCM_ATOMS(X) \
+	X(WM_DELETE_WINDOW),\
+	X(WM_STATE),\
+	X(WM_TAKE_FOCUS),\
+	X(WM_NAME),\
+	X(WM_CLASS),\
+	X(WM_WINDOW_ROLE),\
+	X(WM_PROTOCOLS)
+
+enum { ICCCM_ATOMS(ATOM_ENUM), ATOMS };
+const char *atom_names[] = { ICCCM_ATOMS(ATOM_CHAR) };
 Atom atoms[ATOMS];
+
+#define EWMH_ATOMS(X) \
+	X(_NET_SUPPORTING_WM_CHECK),\
+	X(_NET_WM_NAME),\
+	X(_NET_WM_PID),\
+	X(_NET_CLIENT_LIST),\
+	X(_NET_CLIENT_LIST_STACKING),\
+	X(_NET_NUMBER_OF_DESKTOPS),\
+	X(_NET_CURRENT_DESKTOP),\
+	X(_NET_DESKTOP_GEOMETRY),\
+	X(_NET_DESKTOP_VIEWPORT),\
+	X(_NET_WORKAREA),\
+	X(_NET_ACTIVE_WINDOW),\
+	X(_NET_CLOSE_WINDOW),\
+	X(_NET_MOVERESIZE_WINDOW),\
+	X(_NET_WM_WINDOW_TYPE),\
+	X(_NET_WM_WINDOW_TYPE_DESKTOP),\
+	X(_NET_WM_WINDOW_TYPE_DOCK),\
+	X(_NET_WM_WINDOW_TYPE_SPLASH),\
+	X(_NET_WM_WINDOW_TYPE_UTILITY),\
+	X(_NET_WM_WINDOW_TYPE_TOOLBAR),\
+	X(_NET_WM_WINDOW_TYPE_MENU),\
+	X(_NET_WM_WINDOW_TYPE_DIALOG),\
+	X(_NET_WM_WINDOW_TYPE_NORMAL),\
+	X(_NET_WM_STATE),\
+	X(_NET_WM_STATE_MODAL),\
+	X(_NET_WM_STATE_STICKY),\
+	X(_NET_WM_STATE_MAXIMIZED_VERT),\
+	X(_NET_WM_STATE_MAXIMIZED_HORZ),\
+	X(_NET_WM_STATE_SHADED),\
+	X(_NET_WM_STATE_SKIP_TASKBAR),\
+	X(_NET_WM_STATE_SKIP_PAGER),\
+	X(_NET_WM_STATE_HIDDEN),\
+	X(_NET_WM_STATE_FULLSCREEN),\
+	X(_NET_WM_STATE_ABOVE),\
+	X(_NET_WM_STATE_BELOW),\
+	X(_NET_WM_STATE_DEMANDS_ATTENTION),\
+	X(_NET_WM_STATE_ADD),\
+	X(_NET_WM_STATE_REMOVE),\
+	X(_NET_WM_STATE_TOGGLE),\
+	X(_NET_WM_ALLOWED_ACTIONS),\
+	X(_NET_WM_ACTION_MOVE),\
+	X(_NET_WM_ACTION_RESIZE),\
+	X(_NET_WM_ACTION_MINIMIZE),\
+	X(_NET_WM_ACTION_SHADE),\
+	X(_NET_WM_ACTION_STICK),\
+	X(_NET_WM_ACTION_MAXIMIZE_VERT),\
+	X(_NET_WM_ACTION_MAXIMIZE_HORZ),\
+	X(_NET_WM_ACTION_FULLSCREEN),\
+	X(_NET_WM_ACTION_CHANGE_DESKTOP),\
+	X(_NET_WM_ACTION_CLOSE),\
+	X(_NET_WM_STRUT),\
+	X(_NET_WM_STRUT_PARTIAL),\
+	X(_NET_WM_DESKTOP),\
+	X(_NET_SUPPORTED)
+
+enum { EWMH_ATOMS(ATOM_ENUM), NETATOMS };
+const char *netatom_names[] = { EWMH_ATOMS(ATOM_CHAR) };
 Atom netatoms[NETATOMS];
 
 #define ADD 1
@@ -486,8 +427,7 @@ unsigned int tag_to_desktop(unsigned int tag)
 
 unsigned int desktop_to_tag(unsigned int desktop)
 {
-	if (desktop == 0xffffffff) return 0;
-	return 1<<desktop;
+	return (desktop == 0xffffffff) ? 0: 1<<desktop;
 }
 
 // check if a window id matches a known root window
@@ -677,7 +617,7 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 		{
 			unsigned long *strut; Atom a; int b;
 			unsigned long c, d; unsigned char *res;
-			if (XGetWindowProperty(display, win, netatoms[NET_WM_STRUT_PARTIAL], 0L, 12,
+			if (XGetWindowProperty(display, win, netatoms[_NET_WM_STRUT_PARTIAL], 0L, 12,
 				False, XA_CARDINAL, &a, &b, &c, &d, &res) == Success && res)
 			{
 				strut = (unsigned long*)res;
@@ -707,7 +647,7 @@ void client_add_state(client *c, Atom state)
 	if (c->states < CLIENTSTATE && !client_has_state(c, state))
 	{
 		c->state[c->states++] = state;
-		window_set_atom_prop(c->window, netatoms[NET_WM_STATE], c->state, c->states);
+		window_set_atom_prop(c->window, netatoms[_NET_WM_STATE], c->state, c->states);
 	}
 }
 void client_remove_state(client *c, Atom state)
@@ -716,7 +656,7 @@ void client_remove_state(client *c, Atom state)
 	Atom newstate[CLIENTSTATE]; int i, n;
 	for (i = 0, n = 0; i < c->states; i++) if (c->state[i] != state) newstate[n++] = c->state[i];
 	memmove(c->state, newstate, sizeof(Atom)*n); c->states = n;
-	window_set_atom_prop(c->window, netatoms[NET_WM_STATE], c->state, c->states);
+	window_set_atom_prop(c->window, netatoms[_NET_WM_STATE], c->state, c->states);
 }
 void client_set_state(client *c, Atom state, int on)
 {
@@ -745,19 +685,19 @@ client* window_client(Window win)
 	XGetTransientForHint(display, win, &c->trans);
 
 	c->visible = c->xattr.map_state == IsViewable ?1:0;
-	c->states  = window_get_atom_prop(win, netatoms[NET_WM_STATE], c->state, CLIENTSTATE);
-	window_get_atom_prop(win, netatoms[NET_WM_WINDOW_TYPE], &c->type, 1);
+	c->states  = window_get_atom_prop(win, netatoms[_NET_WM_STATE], c->state, CLIENTSTATE);
+	window_get_atom_prop(win, netatoms[_NET_WM_WINDOW_TYPE], &c->type, 1);
 
 	if (c->type == None) c->type = (c->trans != None)
 		// trasients default to dialog
-		? netatoms[NET_WM_WINDOW_TYPE_DIALOG]
+		? netatoms[_NET_WM_WINDOW_TYPE_DIALOG]
 		// non-transients default to normal
-		: netatoms[NET_WM_WINDOW_TYPE_NORMAL];
+		: netatoms[_NET_WM_WINDOW_TYPE_NORMAL];
 
 	c->manage = c->xattr.override_redirect == False
-		&& c->type != netatoms[NET_WM_WINDOW_TYPE_DESKTOP]
-		&& c->type != netatoms[NET_WM_WINDOW_TYPE_DOCK]
-		&& c->type != netatoms[NET_WM_WINDOW_TYPE_SPLASH]
+		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DESKTOP]
+		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DOCK]
+		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_SPLASH]
 		?1:0;
 
 	c->active = c->manage && c->visible && windows_activated->len
@@ -793,7 +733,7 @@ void client_descriptive_data(client *c)
 	if (!c || c->title[0] || c->class[0]) return;
 
 	char *name;
-	if ((name = window_get_text_prop(c->window, netatoms[NET_WM_NAME])) && name)
+	if ((name = window_get_text_prop(c->window, netatoms[_NET_WM_NAME])) && name)
 	{
 		snprintf(c->title, CLIENTTITLE, "%s", name);
 		free(name);
@@ -906,12 +846,12 @@ void ewmh_client_list(Window root)
 	int i; Window w; client *c;
 
 	winlist_ascend(windows_in_play(root), i, w)
-		if ((c = window_client(w)) && c->manage && c->visible && !client_has_state(c, netatoms[NET_WM_STATE_SKIP_TASKBAR]))
+		if ((c = window_client(w)) && c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
 			winlist_append(relevant, w, NULL);
-	XChangeProperty(display, root, netatoms[NET_CLIENT_LIST_STACKING], XA_WINDOW, 32, PropModeReplace, (unsigned char*)relevant->array, relevant->len);
+	XChangeProperty(display, root, netatoms[_NET_CLIENT_LIST_STACKING], XA_WINDOW, 32, PropModeReplace, (unsigned char*)relevant->array, relevant->len);
 
 	winlist_ascend(windows, i, w) if (winlist_forget(relevant, w)) winlist_append(mapped, w, NULL);
-	XChangeProperty(display, root, netatoms[NET_CLIENT_LIST], XA_WINDOW, 32, PropModeReplace, (unsigned char*)mapped->array, mapped->len);
+	XChangeProperty(display, root, netatoms[_NET_CLIENT_LIST], XA_WINDOW, 32, PropModeReplace, (unsigned char*)mapped->array, mapped->len);
 
 	winlist_free(mapped);
 	winlist_free(relevant);
@@ -920,7 +860,7 @@ void ewmh_client_list(Window root)
 // update _NET_ACTIVE_WINDOW
 void ewmh_active_window(Window root, Window w)
 {
-	XChangeProperty(display, root, netatoms[NET_ACTIVE_WINDOW], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&w, 1);
+	XChangeProperty(display, root, netatoms[_NET_ACTIVE_WINDOW], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&w, 1);
 }
 
 // if a client supports a WM_PROTOCOLS type atom, dispatch an event
@@ -962,9 +902,9 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	workarea monitor; monitor_dimensions_struts(c->xattr.screen, fx, fy, &monitor);
 
 	// ensure we match maxv/maxh mode
-	if (client_has_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]))
+	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 		{ fx = monitor.x; fw = monitor.w; }
-	if (client_has_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]))
+	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 		{ fy = monitor.y; fh = monitor.h; }
 
 	// process size hints
@@ -1017,7 +957,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	}
 
 	// true fullscreen without struts is done in client_fullscreen()
-	client_remove_state(c, netatoms[NET_WM_STATE_FULLSCREEN]);
+	client_remove_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
 
 	// compensate for border on non-fullscreen windows
 	if (fw < monitor.w || fh < monitor.h)
@@ -1306,7 +1246,7 @@ struct client_raise_data {
 	winlist *stack;
 };
 
-// client_raise interator checking NET_WM_STATE
+// client_raise interator checking _NET_WM_STATE
 int client_raise_state_cb(int i, Window w, void *p)
 {
 	struct client_raise_data *search = p;
@@ -1319,7 +1259,7 @@ int client_raise_state_cb(int i, Window w, void *p)
 	return 0;
 }
 
-// client_raise interator checking NET_WM_WINDOW_TYPE
+// client_raise interator checking _NET_WM_WINDOW_TYPE
 int client_raise_type_cb(int i, Window w, void *p)
 {
 	struct client_raise_data *search = p;
@@ -1343,9 +1283,9 @@ void client_raise(client *c, int priority)
 		// locate windows with _NET_WM_STATE_ABOVE and/or _NET_WM_WINDOW_TYPE_DOCK to raise them first
 		struct client_raise_data search; search.stack = stack;
 		winlist *inplay = windows_in_play(c->xattr.root);
-		search.state = netatoms[NET_WM_STATE_ABOVE];
+		search.state = netatoms[_NET_WM_STATE_ABOVE];
 		winlist_iterate_down(inplay, client_raise_state_cb, &search);
-		search.type = netatoms[NET_WM_WINDOW_TYPE_DOCK];
+		search.type = netatoms[_NET_WM_WINDOW_TYPE_DOCK];
 		winlist_iterate_down(inplay, client_raise_type_cb, &search);
 	}
 	// locate our family
@@ -1367,19 +1307,19 @@ void client_review_border(client *c)
 	XSetWindowBorderWidth(display, c->window, c->is_full ? 0:config_border_width);
 }
 
-// set allowed NET_WM_STATE_* client messages
+// set allowed _NET_WM_STATE_* client messages
 void client_review_nws_actions(client *c)
 {
 	Atom allowed[7] = {
-		netatoms[NET_WM_ACTION_MOVE],
-		netatoms[NET_WM_ACTION_RESIZE],
-		netatoms[NET_WM_ACTION_FULLSCREEN],
-		netatoms[NET_WM_ACTION_CLOSE],
-		netatoms[NET_WM_ACTION_STICK],
-		netatoms[NET_WM_ACTION_MAXIMIZE_HORZ],
-		netatoms[NET_WM_ACTION_MAXIMIZE_VERT],
+		netatoms[_NET_WM_ACTION_MOVE],
+		netatoms[_NET_WM_ACTION_RESIZE],
+		netatoms[_NET_WM_ACTION_FULLSCREEN],
+		netatoms[_NET_WM_ACTION_CLOSE],
+		netatoms[_NET_WM_ACTION_STICK],
+		netatoms[_NET_WM_ACTION_MAXIMIZE_HORZ],
+		netatoms[_NET_WM_ACTION_MAXIMIZE_VERT],
 	};
-	window_set_atom_prop(c->window, netatoms[NET_WM_ALLOWED_ACTIONS], allowed, 7);
+	window_set_atom_prop(c->window, netatoms[_NET_WM_ALLOWED_ACTIONS], allowed, 7);
 }
 
 // if client is in a screen corner, track it...
@@ -1402,10 +1342,10 @@ void client_review_desktop(client *c)
 {
 	unsigned long d;
 	// no desktop set. give it one
-	if (!window_get_cardinal_prop(c->window, netatoms[NET_WM_DESKTOP], &d, 1))
+	if (!window_get_cardinal_prop(c->window, netatoms[_NET_WM_DESKTOP], &d, 1))
 	{
 		d = tag_to_desktop(c->cache->tags);
-		window_set_cardinal_prop(c->window, netatoms[NET_WM_DESKTOP], &d, 1);
+		window_set_cardinal_prop(c->window, netatoms[_NET_WM_DESKTOP], &d, 1);
 	}
 	else
 	// window has a desktop set. convert it to tag
@@ -1433,7 +1373,7 @@ void client_activate(client *c)
 	winlist_ascend(windows_in_play(c->xattr.root), i, w)
 		if (w != c->window) XSetWindowBorder(display, w, config_border_blur);
 	// setup ourself
-	client_raise(c, client_has_state(c, netatoms[NET_WM_STATE_FULLSCREEN]));
+	client_raise(c, client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]));
 	client_focus(c);
 	XSetWindowBorder(display, c->window, config_border_focus);
 	// update focus history order
@@ -1454,8 +1394,8 @@ void client_state(client *c, long state)
 	else
 	if (state == WithdrawnState)
 	{
-		window_unset_prop(c->window, netatoms[NET_WM_STATE]);
-		window_unset_prop(c->window, netatoms[NET_WM_DESKTOP]);
+		window_unset_prop(c->window, netatoms[_NET_WM_STATE]);
+		window_unset_prop(c->window, netatoms[_NET_WM_DESKTOP]);
 		winlist_forget(windows_activated, c->window);
 	}
 }
@@ -1501,9 +1441,9 @@ void tag_raise(unsigned int tag)
 
 		// locate windows with _NET_WM_STATE_ABOVE and/or _NET_WM_WINDOW_TYPE_DOCK to raise them first
 		struct client_raise_data search; search.stack = stack;
-		search.state = netatoms[NET_WM_STATE_ABOVE];
+		search.state = netatoms[_NET_WM_STATE_ABOVE];
 		winlist_iterate_down(inplay, client_raise_state_cb, &search);
-		search.type = netatoms[NET_WM_WINDOW_TYPE_DOCK];
+		search.type = netatoms[_NET_WM_WINDOW_TYPE_DOCK];
 		winlist_iterate_down(inplay, client_raise_type_cb, &search);
 
 		// locate all windows in the tag, and the top one to be focused
@@ -1526,9 +1466,9 @@ void tag_raise(unsigned int tag)
 
 		// update current desktop on all roots
 		current_tag = tag; unsigned long d = tag_to_desktop(current_tag);
-		window_set_cardinal_prop(RootWindow(display, scr), netatoms[NET_CURRENT_DESKTOP], &d, 1);
+		window_set_cardinal_prop(RootWindow(display, scr), netatoms[_NET_CURRENT_DESKTOP], &d, 1);
 
-		// focus the top-most non-NET_WM_STATE_ABOVE managable client in the tag
+		// focus the top-most non-_NET_WM_STATE_ABOVE managable client in the tag
 		if (focus != None)
 		{
 			client *c = window_client(focus);
@@ -1550,11 +1490,11 @@ void client_toggle_tag(client *c, unsigned int tag)
 		c->cache->tags |= tag;
 		client_flash(c, config_flash_on, config_flash_ms);
 	}
-	// update NET_WM_DESKTOP using lowest tag number.
+	// update _NET_WM_DESKTOP using lowest tag number.
 	// this is a bit of a fudge as we can have windows on multiple
 	// tags/desktops, without being specifically sticky... oh well.
 	unsigned long d = tag_to_desktop(c->cache->tags);
-	window_set_cardinal_prop(c->window, netatoms[NET_WM_DESKTOP], &d, 1);
+	window_set_cardinal_prop(c->window, netatoms[_NET_WM_DESKTOP], &d, 1);
 	ewmh_client_list(c->xattr.root);
 }
 
@@ -1581,14 +1521,14 @@ void monitor_active(Screen *screen, workarea *mon)
 // go fullscreen on current monitor
 void client_nws_fullscreen(client *c, int action)
 {
-	int state = client_has_state(c, netatoms[NET_WM_STATE_FULLSCREEN]);
+	int state = client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
 		client_save_position(c);
 		// no struts!
 		workarea monitor; monitor_dimensions(c->xattr.screen, c->xattr.x, c->xattr.y, &monitor);
-		client_set_state(c, netatoms[NET_WM_STATE_FULLSCREEN], 1);
+		client_set_state(c, netatoms[_NET_WM_STATE_FULLSCREEN], 1);
 		// not client_moveresize! that would get tricky and recheck struts
 		XMoveResizeWindow(display, c->window, monitor.x, monitor.y, monitor.w, monitor.h);
 	}
@@ -1605,18 +1545,18 @@ void client_nws_fullscreen(client *c, int action)
 // raise above other windows
 void client_nws_above(client *c, int action)
 {
-	int state = client_has_state(c, netatoms[NET_WM_STATE_ABOVE]);
+	int state = client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]);
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
-		client_add_state(c, netatoms[NET_WM_STATE_ABOVE]);
+		client_add_state(c, netatoms[_NET_WM_STATE_ABOVE]);
 		client_raise(c, 0);
 		client_flash(c, config_flash_on, config_flash_ms);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
-		client_remove_state(c, netatoms[NET_WM_STATE_ABOVE]);
+		client_remove_state(c, netatoms[_NET_WM_STATE_ABOVE]);
 		client_flash(c, config_flash_off, config_flash_ms);
 	}
 }
@@ -1625,19 +1565,19 @@ void client_nws_above(client *c, int action)
 void client_nws_maxvert(client *c, int action)
 {
 	client_extended_data(c);
-	int state = client_has_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
+	int state = client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
 		client_save_position_vert(c);
-		client_add_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
+		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
 		client_flash(c, config_flash_on, config_flash_ms);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
-		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_restore_position_vert(c, 0, c->monitor.y + (c->monitor.h/4), c->monitor.h/2);
 		client_flash(c, config_flash_off, config_flash_ms);
 	}
@@ -1647,19 +1587,19 @@ void client_nws_maxvert(client *c, int action)
 void client_nws_maxhorz(client *c, int action)
 {
 	client_extended_data(c);
-	int state = client_has_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
+	int state = client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
 		client_save_position_horz(c);
-		client_add_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
+		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->sh);
 		client_flash(c, config_flash_on, config_flash_ms);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
-		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_restore_position_horz(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.w/2);
 		client_flash(c, config_flash_off, config_flash_ms);
 	}
@@ -1669,9 +1609,9 @@ void client_nws_maxhorz(client *c, int action)
 void client_nws_review(client *c)
 {
 	client_extended_data(c);
-	if (client_has_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]))
+	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->sh);
-	if (client_has_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]))
+	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
 }
 
@@ -1761,8 +1701,8 @@ int window_switcher_cb_format(int idx, Window w, void *p)
 	struct window_switcher_data *my = p;
 	client *c = window_client(w);
 	if (c && c->manage && c->visible
-		&& !client_has_state(c, netatoms[NET_WM_STATE_SKIP_PAGER]
-		&& !client_has_state(c, netatoms[NET_WM_STATE_SKIP_TASKBAR])))
+		&& !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_PAGER]
+		&& !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR])))
 	{
 		client_descriptive_data(c);
 		if (!my->tag || (c->cache && c->cache->tags & my->tag))
@@ -1806,7 +1746,7 @@ void window_switcher(Window root, unsigned int tag)
 			{
 				my.list[my.used] = '\0';
 				Window w = (Window)strtol(my.list, NULL, 16);
-				window_send_message(root, w, netatoms[NET_ACTIVE_WINDOW], 2, // 2 = pager
+				window_send_message(root, w, netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
 					SubstructureNotifyMask | SubstructureRedirectMask);
 			}
 		}
@@ -1932,8 +1872,8 @@ void handle_keypress(XEvent *ev)
 				else if (is2) { fw = width3; fh = height3; }
 				else if (is3) { fw = width4; fh = height4; }
 				else { fw = width4; fh = height4; }
-				client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
-				client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
+				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 				smart = 1;
 			}
 			else
@@ -1943,8 +1883,8 @@ void handle_keypress(XEvent *ev)
 				if (is4) { fw = width3; fh = height3; }
 				else if (is3) { fw = width2; fh = height2; }
 				else { fw = width1; fh = height1; }
-				client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
-				client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
+				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 				smart = 1;
 			}
 			else
@@ -1954,7 +1894,7 @@ void handle_keypress(XEvent *ev)
 				fx = screen_x + c->sx; fy = screen_y + c->sy; fw = c->sw;
 				if (key == XK_Home) { if (ish0) fh = height1; else if (ish1) fh = height2; else if (ish2) fh = height3; else fh = height4; }
 				if (key == XK_End)  { if (ish4) fh = height3; else if (ish3) fh = height2; else fh = height1; }
-				client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
+				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 				smart = 1;
 			}
 			else
@@ -1964,7 +1904,7 @@ void handle_keypress(XEvent *ev)
 				fx = screen_x + c->sx; fy = screen_y + c->sy; fh = c->sh;
 				if (key == XK_Insert) { if (isw0) fw = width1; else if (isw1) fw = width2; else if (isw2) fw = width3; else fw = width4; }
 				if (key == XK_Delete) { if (isw4) fw = width3; else if (isw3) fw = width2; else fw = width1; }
-				client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
+				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 				smart = 1;
 			}
 		}
@@ -2106,8 +2046,8 @@ void handle_motionnotify(XEvent *ev)
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
 
 		// who knows where we've ended up. clear states
-		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_HORZ]);
-		client_remove_state(c, netatoms[NET_WM_STATE_MAXIMIZED_VERT]);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 	}
 }
 
@@ -2180,11 +2120,11 @@ void handle_maprequest(XEvent *ev)
 	client *c = window_client(ev->xmaprequest.window);
 	if (c && c->manage)
 	{
-		if (!client_has_state(c, netatoms[NET_WM_STATE_STICKY]) && !c->x && !c->y)
+		if (!client_has_state(c, netatoms[_NET_WM_STATE_STICKY]) && !c->x && !c->y)
 		{
 			client_extended_data(c);
 			// adjust for borders on remembered co-ords
-			if (c->type == netatoms[NET_WM_WINDOW_TYPE_NORMAL])
+			if (c->type == netatoms[_NET_WM_WINDOW_TYPE_NORMAL])
 				{ c->w += config_border_width*2; c->h += config_border_width*2; }
 
 			client *p = NULL;
@@ -2247,20 +2187,20 @@ void handle_clientmessage(XEvent *ev)
 	event_log("ClientMessage", ev->xclient.window);
 	XClientMessageEvent *m = &ev->xclient;
 
-	if (m->message_type == netatoms[NET_CURRENT_DESKTOP])
+	if (m->message_type == netatoms[_NET_CURRENT_DESKTOP])
 		tag_raise(desktop_to_tag(MAX(0, MIN(TAGS, m->data.l[0]))));
 	else
 	{
 		client *c = window_client(m->window);
 		if (c && c->manage && c->visible)
 		{
-			if (m->message_type == netatoms[NET_ACTIVE_WINDOW])
+			if (m->message_type == netatoms[_NET_ACTIVE_WINDOW])
 				client_activate(c);
 			else
-			if (m->message_type == netatoms[NET_CLOSE_WINDOW])
+			if (m->message_type == netatoms[_NET_CLOSE_WINDOW])
 				client_close(c);
 			else
-			if (m->message_type == netatoms[NET_MOVERESIZE_WINDOW] &&
+			if (m->message_type == netatoms[_NET_MOVERESIZE_WINDOW] &&
 				(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
 			{
 				client_extended_data(c);
@@ -2271,14 +2211,14 @@ void handle_clientmessage(XEvent *ev)
 					m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
 			}
 			else
-			if (m->message_type == netatoms[NET_WM_STATE])
+			if (m->message_type == netatoms[_NET_WM_STATE])
 			{
 				int i; for (i = 1; i < 2; i++)
 				{
-					if (m->data.l[i] == netatoms[NET_WM_STATE_FULLSCREEN])
+					if (m->data.l[i] == netatoms[_NET_WM_STATE_FULLSCREEN])
 						client_nws_fullscreen(c, m->data.l[0]);
 					else
-					if (m->data.l[i] == netatoms[NET_WM_STATE_ABOVE])
+					if (m->data.l[i] == netatoms[_NET_WM_STATE_ABOVE])
 						client_nws_above(c, m->data.l[0]);
 				}
 			}
@@ -2294,7 +2234,7 @@ void handle_propertynotify(XEvent *ev)
 	client *c = window_client(p->window);
 	if (c && c->visible && c->manage)
 	{
-		if (p->atom == atoms[WM_NAME] || p->atom == netatoms[NET_WM_NAME])
+		if (p->atom == atoms[WM_NAME] || p->atom == netatoms[_NET_WM_NAME])
 			ewmh_client_list(c->xattr.root);
 	}
 }
@@ -2324,20 +2264,20 @@ void setup_screen(int scr)
 	unsigned long pid = getpid();
 
 	// EWMH
-	XChangeProperty(display, root, netatoms[NET_SUPPORTED], XA_ATOM, 32, PropModeReplace, (unsigned char*)netatoms, NETATOMS);
+	XChangeProperty(display, root, netatoms[_NET_SUPPORTED], XA_ATOM, 32, PropModeReplace, (unsigned char*)netatoms, NETATOMS);
 
 	// ewmh supporting wm
-	XChangeProperty(display, root,       netatoms[NET_SUPPORTING_WM_CHECK], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&supporting, 1);
-	XChangeProperty(display, supporting, netatoms[NET_SUPPORTING_WM_CHECK], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&supporting, 1);
-	XChangeProperty(display, supporting, netatoms[NET_WM_NAME], XA_STRING,    8, PropModeReplace, (const unsigned char*)"GoomwWM", 6);
-	XChangeProperty(display, supporting, netatoms[NET_WM_PID],  XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&pid, 1);
+	XChangeProperty(display, root,       netatoms[_NET_SUPPORTING_WM_CHECK], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&supporting, 1);
+	XChangeProperty(display, supporting, netatoms[_NET_SUPPORTING_WM_CHECK], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&supporting, 1);
+	XChangeProperty(display, supporting, netatoms[_NET_WM_NAME], XA_STRING,    8, PropModeReplace, (const unsigned char*)"GoomwWM", 6);
+	XChangeProperty(display, supporting, netatoms[_NET_WM_PID],  XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&pid, 1);
 
 	// one desktop. want more space? buy more monitors and use xinerama :)
-	XChangeProperty(display, root, netatoms[NET_NUMBER_OF_DESKTOPS], XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&desktops, 1);
-	XChangeProperty(display, root, netatoms[NET_CURRENT_DESKTOP],    XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&desktop, 1);
-	XChangeProperty(display, root, netatoms[NET_DESKTOP_GEOMETRY],   XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea[2], 2);
-	XChangeProperty(display, root, netatoms[NET_DESKTOP_VIEWPORT],   XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea, 2);
-	XChangeProperty(display, root, netatoms[NET_WORKAREA],           XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea, 4);
+	XChangeProperty(display, root, netatoms[_NET_NUMBER_OF_DESKTOPS], XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&desktops, 1);
+	XChangeProperty(display, root, netatoms[_NET_CURRENT_DESKTOP],    XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&desktop, 1);
+	XChangeProperty(display, root, netatoms[_NET_DESKTOP_GEOMETRY],   XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea[2], 2);
+	XChangeProperty(display, root, netatoms[_NET_DESKTOP_VIEWPORT],   XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea, 2);
+	XChangeProperty(display, root, netatoms[_NET_WORKAREA],           XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea, 4);
 
 	// MODKEY+
 	const KeySym keys[] = {
