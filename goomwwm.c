@@ -241,7 +241,7 @@ unsigned int config_modkey, config_ignore_modkeys,
 	config_border_width, config_flash_width, config_flash_ms;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
-KeySym config_apps_keysyms[] = { XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, XK_0, 0 };
+KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };
 KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, 0 };
 
 int in_array_keysym(KeySym *array, KeySym code)
@@ -1653,10 +1653,10 @@ void handle_keypress(XEvent *ev)
 	}
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
-	else if ((i = in_array_keysym(config_apps_keysyms, key)) && i >= 0)
+	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0)
 		app_find_or_start(ev->xany.window, config_apps_patterns[i]);
 
-	else if ((i = in_array_keysym(config_tags_keysyms, key)) && i >= 0)
+	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0)
 		tag_raise(1<<i);
 
 	else
@@ -1932,6 +1932,8 @@ void handle_destroynotify(XEvent *ev)
 	// remove any cached data on a window
 	winlist_forget(windows, w);
 	winlist_forget(windows_activated, w);
+	if (window_is_root(ev->xdestroywindow.event))
+		ewmh_client_list(ev->xdestroywindow.event);
 }
 
 // very loose with configure requests
@@ -2031,15 +2033,14 @@ void handle_unmapnotify(XEvent *ev)
 	event_log("UnmapNotify", ev->xunmap.window);
 	client *c = window_client(ev->xunmap.window);
 	// was it a top-level app window that closed?
-	if (c && c->manage)
+	if (c && c->manage) client_state(c, WithdrawnState);
+	if (window_is_root(ev->xunmap.event))
 	{
-		client_state(c, WithdrawnState);
-		ewmh_client_list(c->xattr.root);
+		// was it the active window?
+		if (windows_activated->len && ev->xunmap.window == windows_activated->array[windows_activated->len-1])
+			window_active_client(ev->xunmap.event);
+		ewmh_client_list(ev->xunmap.event);
 	}
-	// was it the active window?
-	if (window_is_root(ev->xunmap.event) && windows_activated->len
-		&& ev->xunmap.window == windows_activated->array[windows_activated->len-1])
-		window_active_client(ev->xunmap.event);
 }
 
 // ClientMessage
@@ -2147,8 +2148,8 @@ void setup_screen(int scr)
 	// bind all MODKEY+ combos
 	XUngrabKey(display, AnyKey, AnyModifier, root);
 	for (i = 0; i < sizeof(keys)/sizeof(KeySym); i++) grab_key(root, keys[i]);
-	for (i = 0; i < sizeof(config_apps_keysyms)/sizeof(KeySym); i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
-	for (i = 0; i < sizeof(config_tags_keysyms)/sizeof(KeySym); i++) grab_key(root, config_tags_keysyms[i]);
+	for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
+	for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
 
 	// grab mouse buttons for click-to-focus. these get passed through to the windows
 	// not binding on button4 which is usually wheel scroll
@@ -2239,7 +2240,7 @@ int main(int argc, char *argv[])
 	config_launcher = find_arg_str(argc, argv, "-launcher", LAUNCHER);
 
 	// app_find_or_start() keys
-	for (i = 0; i < sizeof(config_apps_keysyms)/sizeof(KeySym); i++)
+	for (i = 0; config_apps_keysyms[i]; i++)
 	{
 		char tmp[3]; sprintf(tmp, "-%d", i);
 		config_apps_patterns[i] = find_arg_str(argc, argv, tmp, NULL);
