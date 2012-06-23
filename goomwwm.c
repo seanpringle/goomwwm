@@ -228,8 +228,8 @@ typedef struct {
 #define FLASHON "Dark Green"
 #define FLASHOFF "Dark Red"
 #define SWITCHER NULL
-#define SWITCHER_BUILTIN "dmenu -i -l 25 -wp 60 -hc -vc -fn -*-terminus-medium-r-*-*-24-*-*-*-*-*-*-*"
-//#define SWITCHER_BUILTIN "dmenu -i -l 25 -fn -*-terminus-medium-r-*-*-24-*-*-*-*-*-*-*"
+//#define SWITCHER_BUILTIN "dmenu -i -l 25 -wp 60 -hc -vc -fn -*-terminus-medium-r-*-*-24-*-*-*-*-*-*-*"
+#define SWITCHER_BUILTIN "dmenu -i -l 25 -fn -*-terminus-medium-r-*-*-24-*-*-*-*-*-*-*"
 #define LAUNCHER "dmenu_run"
 #define FLASHPX 20
 #define FLASHMS 300
@@ -1651,6 +1651,7 @@ void handle_keypress(XEvent *ev)
 		if (config_switcher) exec_cmd(config_switcher);
 		else window_switcher(ev->xany.window, 0);
 	}
+	else if (key == XK_x) exec_cmd(config_launcher);
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
 	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0)
@@ -1685,7 +1686,6 @@ void handle_keypress(XEvent *ev)
 
 		if (key == XK_Escape) client_close(c);
 		else if (key == XK_i) event_client_dump(c);
-		else if (key == XK_x) exec_cmd(config_launcher);
 		else if (key == XK_t) client_toggle_tag(c, current_tag);
 		else if (key == XK_a) client_nws_above(c, TOGGLE);
 		else if (key == XK_backslash) client_nws_fullscreen(c, TOGGLE);
@@ -2009,6 +2009,7 @@ void handle_maprequest(XEvent *ev)
 		}
 		client_raise(c, 0);
 	}
+	XSync(display, False);
 	XMapWindow(display, ev->xmaprequest.window);
 }
 
@@ -2089,6 +2090,7 @@ void handle_clientmessage(XEvent *ev)
 void handle_propertynotify(XEvent *ev)
 {
 	event_log("PropertyNotify", ev->xproperty.window);
+//	while (XCheckTypedWindowEvent(display, ev->xproperty.window, PropertyNotify, ev));
 	XPropertyEvent *p = &ev->xproperty;
 	client *c = window_client(p->window);
 	if (c && c->visible && c->manage)
@@ -2142,12 +2144,13 @@ void setup_screen(int scr)
 	const KeySym keys[] = {
 		XK_Right, XK_Left, XK_Up, XK_Down, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Insert, XK_Delete,
 		XK_backslash, XK_bracketleft, XK_bracketright, XK_semicolon, XK_apostrophe, XK_Return,
-		XK_t, XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_i
+		XK_t, XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_i,
+		0
 	};
 
 	// bind all MODKEY+ combos
 	XUngrabKey(display, AnyKey, AnyModifier, root);
-	for (i = 0; i < sizeof(keys)/sizeof(KeySym); i++) grab_key(root, keys[i]);
+	for (i = 0; keys[i]; i++) grab_key(root, keys[i]);
 	for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
 	for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
 
