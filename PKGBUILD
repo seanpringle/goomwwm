@@ -10,9 +10,6 @@ license=('MIT')
 depends=('libx11' 'libxft' 'freetype2')
 makedepends=('git')
 provides=('goomwwm')
-optdepends=()
-source=()
-md5sums=()
 
 _gitroot="git://github.com/seanpringle/goomwwm.git"
 _gitname="goomwwm"
