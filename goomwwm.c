@@ -223,6 +223,7 @@ typedef struct {
 	wincache *cache;
 } client;
 
+// just defaults, mostly configurable from command line
 #define BORDER 2
 #define FOCUS "Royal Blue"
 #define BLUR "Dark Gray"
@@ -233,7 +234,7 @@ typedef struct {
 #define FLASHPX 20
 #define FLASHMS 300
 #define MODKEY Mod4Mask
-#define MENUXFTFONT "mono-16"
+#define MENUXFTFONT "mono-14"
 #define MENUWIDTH 50
 #define MENULINES 25
 #define MENUFG "#cccccc"
@@ -259,6 +260,35 @@ int in_array_keysym(KeySym *array, KeySym code)
 		if (array[i] == code) return i;
 	return -1;
 }
+
+#define KEY_ENUM(a,b,c) a
+#define KEY_KSYM(a,b,c) [a] = b
+#define KEY_CARG(a,b,c) #c
+
+// default keybindings
+#define KEYLIST(X) \
+	X(KEY_RIGHT, XK_Right, -right),\
+	X(KEY_LEFT, XK_Left, -left),\
+	X(KEY_UP, XK_Up, -up),\
+	X(KEY_DOWN, XK_Down, -down),\
+	X(KEY_SHRINK, XK_Page_Down, -shrink),\
+	X(KEY_GROW, XK_Page_Up, -grow),\
+	X(KEY_FULLSCREEN, XK_f, -fullscreen),\
+	X(KEY_ABOVE, XK_a, -above),\
+	X(KEY_VMAX, XK_Home, -vmax),\
+	X(KEY_HMAX, XK_End, -hmax),\
+	X(KEY_EXPAND, XK_Return, -expand),\
+	X(KEY_EVMAX, XK_Insert, -evmax),\
+	X(KEY_EHMAX, XK_Delete, -ehmax),\
+	X(KEY_TAG, XK_t, -tag),\
+	X(KEY_SWITCH, XK_Tab, -switch),\
+	X(KEY_TSWITCH, XK_grave, -tswitch),\
+	X(KEY_CLOSE, XK_Escape, -close),\
+	X(KEY_LAUNCH, XK_x, -launch)
+
+enum { KEYLIST(KEY_ENUM) };
+KeySym keymap[] = { KEYLIST(KEY_KSYM), 0 };
+char *keyargs[] = { KEYLIST(KEY_CARG), NULL };
 
 unsigned int NumlockMask = 0;
 Display *display;
@@ -1759,6 +1789,7 @@ int menu(Window root, char **lines)
 	my->xim = XOpenIM(display, NULL, NULL, NULL);
 	my->xic = XCreateIC(my->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, XNClientWindow, my->window, XNFocusWindow, my->window, NULL);
 
+	menu_draw(my);
 	if (!menu_grab(my))
 	{
 		fprintf(stderr, "cannot grab keyboard!\n");
@@ -1854,12 +1885,12 @@ void handle_keypress(XEvent *ev)
 
 	int i; client *c = NULL;
 
-	if (key == XK_Tab)
+	if (key == keymap[KEY_SWITCH])
 	{
 		if (config_switcher) exec_cmd(config_switcher);
 		else window_switcher(ev->xany.window, 0);
 	}
-	else if (key == XK_x) exec_cmd(config_launcher);
+	else if (key == keymap[KEY_LAUNCH]) exec_cmd(config_launcher);
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
 	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0)
@@ -1892,22 +1923,21 @@ void handle_keypress(XEvent *ev)
 		// final resize/move params. smart = intelligently bump / center / shrink
 		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
 
-		if (key == XK_Escape) client_close(c);
-		else if (key == XK_i) event_client_dump(c);
-		else if (key == XK_t) client_toggle_tag(c, current_tag);
-		else if (key == XK_a) client_nws_above(c, TOGGLE);
-		else if (key == XK_backslash) client_nws_fullscreen(c, TOGGLE);
-		else if (key == XK_bracketleft) client_nws_maxhorz(c, TOGGLE);
-		else if (key == XK_bracketright) client_nws_maxvert(c, TOGGLE);
-		else if (key == XK_Return) client_expand(c, HORIZONTAL|VERTICAL);
-		else if (key == XK_semicolon) client_expand(c, HORIZONTAL);
-		else if (key == XK_apostrophe) client_expand(c, VERTICAL);
+		if (key == keymap[KEY_CLOSE]) client_close(c);
+		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag);
+		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
+		else if (key == keymap[KEY_FULLSCREEN]) client_nws_fullscreen(c, TOGGLE);
+		else if (key == keymap[KEY_HMAX]) client_nws_maxhorz(c, TOGGLE);
+		else if (key == keymap[KEY_VMAX]) client_nws_maxvert(c, TOGGLE);
+		else if (key == keymap[KEY_EXPAND]) client_expand(c, HORIZONTAL|VERTICAL);
+		else if (key == keymap[KEY_EHMAX]) client_expand(c, HORIZONTAL);
+		else if (key == keymap[KEY_EVMAX]) client_expand(c, VERTICAL);
 		else
 		// cycle through windows with same WM_CLASS
-		if (key == XK_grave)
+		if (key == keymap[KEY_TSWITCH])
 			window_switcher(c->xattr.root, current_tag);
 		else
-		if (key == XK_Page_Up || key == XK_Page_Down || key == XK_Home || key == XK_End || key == XK_Insert || key == XK_Delete)
+		if (key == keymap[KEY_GROW] || key == keymap[KEY_SHRINK])
 		{
 			smart = 1;
 			// window width zone
@@ -1915,14 +1945,12 @@ void handle_keypress(XEvent *ev)
 			int isw3 = !isw4 && w >= width3 ?1:0;
 			int isw2 = !isw4 && !isw3 && w >= width2 ?1:0;
 			int isw1 = !isw4 && !isw3 && !isw2 && w >= width1 ?1:0;
-			int isw0 = !isw4 && !isw3 && !isw2 && !isw1 ?1:0;
 
 			// window height zone
 			int ish4 = h >= height4 ?1:0;
 			int ish3 = !ish4 && h >= height3 ?1:0;
 			int ish2 = !ish4 && !ish3 && h >= height2 ?1:0;
 			int ish1 = !ish4 && !ish3 && !ish2 && h >= height1 ?1:0;
-			int ish0 = !ish4 && !ish3 && !ish2 && !ish1 ?1:0;
 
 			// window zone ballpark. try to make resize changes intuitive base on window area
 			int is4 = (isw4 && ish4) || (w*h >= width4*height4) ?1:0;
@@ -1932,7 +1960,7 @@ void handle_keypress(XEvent *ev)
 			int is0 = !is4 && !is3 && !is2 && !is1 ?1:0;
 
 			// Page Up/Down makes the focused window larger and smaller respectively
-			if (key == XK_Page_Up)
+			if (key == keymap[KEY_GROW])
 			{
 				fx = screen_x + c->sx; fy = screen_y + c->sy;
 				if (is0) { fw = width1; fh = height1; }
@@ -1945,7 +1973,7 @@ void handle_keypress(XEvent *ev)
 				smart = 1;
 			}
 			else
-			if (key == XK_Page_Down)
+			if (key == keymap[KEY_SHRINK])
 			{
 				fx = screen_x + c->sx; fy = screen_y + c->sy;
 				if (is4) { fw = width3; fh = height3; }
@@ -1953,26 +1981,6 @@ void handle_keypress(XEvent *ev)
 				else { fw = width1; fh = height1; }
 				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
-				smart = 1;
-			}
-			else
-			// Home/End makes the focused window HEIGHT larger and smaller respectively
-			if (key == XK_Home || key == XK_End)
-			{
-				fx = screen_x + c->sx; fy = screen_y + c->sy; fw = c->sw;
-				if (key == XK_Home) { if (ish0) fh = height1; else if (ish1) fh = height2; else if (ish2) fh = height3; else fh = height4; }
-				if (key == XK_End)  { if (ish4) fh = height3; else if (ish3) fh = height2; else fh = height1; }
-				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
-				smart = 1;
-			}
-			else
-			// Insert/Delete makes the focused window WIDTH larger and smaller respectively
-			if (key == XK_Insert || key == XK_Delete)
-			{
-				fx = screen_x + c->sx; fy = screen_y + c->sy; fh = c->sh;
-				if (key == XK_Insert) { if (isw0) fw = width1; else if (isw1) fw = width2; else if (isw2) fw = width3; else fw = width4; }
-				if (key == XK_Delete) { if (isw4) fw = width3; else if (isw3) fw = width2; else fw = width1; }
-				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 				smart = 1;
 			}
 		}
@@ -1985,25 +1993,25 @@ void handle_keypress(XEvent *ev)
 			int cy = (screen_height - h) / 2;
 
 			// monitor switching if window is on an edge
-			if (key == XK_Left && c->is_left)
+			if (key == keymap[KEY_LEFT] && c->is_left)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->monitor.x-c->monitor.l-vague, c->y, &mon);
 				if (mon.x < c->monitor.x) { fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
 			}
 			else
-			if (key == XK_Right && c->is_right)
+			if (key == keymap[KEY_RIGHT] && c->is_right)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
 				if (mon.x > c->monitor.x) { fx = mon.x; fy = y; fw = w; fh = h; }
 			}
 			else
-			if (key == XK_Up && c->is_top)
+			if (key == keymap[KEY_UP] && c->is_top)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y-c->monitor.t-vague, &mon);
 				if (mon.y < c->monitor.y) { fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
 			}
 			else
-			if (key == XK_Down && c->is_bottom)
+			if (key == keymap[KEY_DOWN] && c->is_bottom)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
 				if (mon.y > c->monitor.y) { fx = x; fy = mon.y; fw = w; fh = h; }
@@ -2013,16 +2021,16 @@ void handle_keypress(XEvent *ev)
 			if (!c->is_full)
 			{
 				// move within current monitor
-				if (key == XK_Left && !c->is_maxh)
+				if (key == keymap[KEY_LEFT] && !c->is_maxh)
 					{ fx = screen_x + (wx > (screen_width/2)+vague ? cx: 0); fy = screen_y+y; fw = w; fh = h; }
 				else
-				if (key == XK_Right && !c->is_maxh)
+				if (key == keymap[KEY_RIGHT] && !c->is_maxh)
 					{ fx = screen_x + (wx < (screen_width/2)-vague ? cx: screen_width - w); fy = screen_y+y; fw = w; fh = h; }
 				else
-				if (key == XK_Up && !c->is_maxv)
+				if (key == keymap[KEY_UP] && !c->is_maxv)
 					{ fx = screen_x+x; fy = screen_y + (wy > (screen_height/2)+vague ? cy: 0); fw = w; fh = h; }
 				else
-				if (key == XK_Down && !c->is_maxv)
+				if (key == keymap[KEY_DOWN] && !c->is_maxv)
 					{ fx = screen_x+x; fy = screen_y + (wy < (screen_height/2)-vague ? cy: screen_height - h); fw = w; fh = h; }
 			}
 		}
@@ -2048,6 +2056,7 @@ void handle_buttonpress(XEvent *ev)
 
 	if (ev->xbutton.subwindow != None && (c = window_client(ev->xbutton.subwindow)) && c && c->manage)
 	{
+		if (!c->focus || !c->active) client_activate(c);
 		// check mod4 is the only modifier. if so, it's a legit move/resize event
 		if (state & config_modkey && !(state & config_ignore_modkeys))
 		{
@@ -2058,7 +2067,6 @@ void handle_buttonpress(XEvent *ev)
 		}
 		else
 		{
-			if (!c->focus || !c->active) client_activate(c);
 			// events we havn't snaffled for move/resize may be relevant to the subwindow. replay them
 			XAllowEvents(display, ReplayPointer, CurrentTime);
 		}
@@ -2349,17 +2357,9 @@ void setup_screen(int scr)
 	XChangeProperty(display, root, netatoms[_NET_DESKTOP_VIEWPORT],   XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea, 2);
 	XChangeProperty(display, root, netatoms[_NET_WORKAREA],           XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea, 4);
 
-	// MODKEY+
-	const KeySym keys[] = {
-		XK_Right, XK_Left, XK_Up, XK_Down, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Insert, XK_Delete,
-		XK_backslash, XK_bracketleft, XK_bracketright, XK_semicolon, XK_apostrophe, XK_Return,
-		XK_t, XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_i, XK_m,
-		0
-	};
-
 	// bind all MODKEY+ combos
 	XUngrabKey(display, AnyKey, AnyModifier, root);
-	for (i = 0; keys[i]; i++) grab_key(root, keys[i]);
+	for (i = 0; keymap[i]; i++) grab_key(root, keymap[i]);
 	for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
 	for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
 
@@ -2433,6 +2433,13 @@ int main(int argc, char *argv[])
 	}
 	// use by mouse-handling code
 	config_ignore_modkeys = (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask|LockMask|NumlockMask) & ~config_modkey;
+
+	// custom keys
+	for (i = 0; keyargs[i]; i++)
+	{
+		char *key = find_arg_str(argc, argv, keyargs[i], NULL);
+		if (key) keymap[i] = XStringToKeysym(key);
+	}
 
 	// border colors
 	config_border_focus = XGetColor(display, find_arg_str(argc, argv, "-focus", FOCUS));
