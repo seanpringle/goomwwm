@@ -1080,8 +1080,8 @@ void client_expand(client *c, int directions)
 				for (j = inplay->len-1; j > i; j--)
 				{
 					// if the window intersects with any other window higher in the stack order, it must be at least partially obscured
-					if (allregions[i].w && INTERSECT(o->sx, o->sy, o->sw, o->sh,
-						allregions[i].x, allregions[i].y, allregions[i].w, allregions[i].h))
+					if (allregions[j].w && INTERSECT(o->sx, o->sy, o->sw, o->sh,
+						allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h))
 							{ obscured = 1; break; }
 				}
 				// record a full visible window
@@ -1089,6 +1089,8 @@ void client_expand(client *c, int directions)
 				{
 					regions[relevant].x = o->sx; regions[relevant].y = o->sy;
 					regions[relevant].w = o->sw; regions[relevant].h = o->sh;
+					client_descriptive_data(o);
+					event_note("%s", o->title);
 					relevant++;
 				}
 				allregions[i].x = o->sx; allregions[i].y = o->sy;
@@ -1991,6 +1993,8 @@ void handle_keypress(XEvent *ev)
 			int wx = x + w/2; int wy = y + h/2;
 			int cx = (screen_width  - w) / 2;
 			int cy = (screen_height - h) / 2;
+			// expire the toggle cache
+			c->cache->have_old = 0;
 
 			// monitor switching if window is on an edge
 			if (key == keymap[KEY_LEFT] && c->is_left)
@@ -2190,7 +2194,11 @@ void handle_configurenotify(XEvent *ev)
 {
 	event_log("ConfigureNotify", ev->xconfigure.window);
 	client *c = window_client(ev->xconfigure.window);
-	if (c && c->manage) client_review_border(c);
+	if (c && c->manage)
+	{
+		client_review_border(c);
+		client_review_position(c);
+	}
 }
 
 // map requests are when we get nasty about co-ords and size
