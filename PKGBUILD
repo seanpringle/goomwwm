@@ -9,6 +9,7 @@ url="http://github.com/seanpringle/goomwwm"
 license=('MIT')
 depends=('libx11' 'libxft' 'freetype2')
 makedepends=('git')
+provides=('goomwwm')
 optdepends=()
 source=()
 md5sums=()
