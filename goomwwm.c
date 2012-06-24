@@ -33,6 +33,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <X11/Xproto.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
+#include <X11/Xft/Xft.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -228,17 +229,25 @@ typedef struct {
 #define FLASHON "Dark Green"
 #define FLASHOFF "Dark Red"
 #define SWITCHER NULL
-//#define SWITCHER_BUILTIN "dmenu -i -l 25 -wp 60 -hc -vc -fn -*-terminus-medium-r-*-*-24-*-*-*-*-*-*-*"
-#define SWITCHER_BUILTIN "dmenu -i -l 25 -fn -*-terminus-medium-r-*-*-24-*-*-*-*-*-*-*"
 #define LAUNCHER "dmenu_run"
 #define FLASHPX 20
 #define FLASHMS 300
 #define MODKEY Mod4Mask
+#define MENUXFTFONT "mono-16"
+#define MENUWIDTH 50
+#define MENULINES 25
+#define MENUFG "#cccccc"
+#define MENUBG "#222222"
+#define MENUHLFG "#ffffff"
+#define MENUHLBG "#005577"
 
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus,  config_border_blur,
 	config_flash_on, config_flash_off,
-	config_border_width, config_flash_width, config_flash_ms;
+	config_border_width, config_flash_width, config_flash_ms,
+	config_menu_width, config_menu_lines;
+
+char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
 KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };
@@ -1574,12 +1583,211 @@ void app_find_or_start(Window root, char *pattern)
 	else exec_cmd(pattern);
 }
 
+// built-in filterable popup menu list
+struct localmenu {
+	Window window;
+	GC gc;
+	Pixmap canvas;
+	XftFont *font;
+	XftColor *color;
+	XftDraw *draw;
+	XftColor fg, bg, hlfg, hlbg;
+	unsigned long xbg;
+	char **lines, **filtered;
+	int done, max_lines, num_lines, input_size, line_height;
+	int current, width, height, horz_pad, vert_pad, offset;
+	char *input;
+	XIM xim;
+	XIC xic;
+};
+
+// redraw the popup menu window
+void menu_draw(struct localmenu *my)
+{
+	int i, n;
+	XSetBackground(display, my->gc, my->xbg);
+	XClearWindow(display, my->window);
+
+	// draw text input bar
+	XftDrawRect(my->draw, &my->bg, 0, 0, my->width, my->height);
+	XftDrawStringUtf8(my->draw, &my->fg, my->font, my->horz_pad, my->vert_pad+my->line_height-my->font->descent, (unsigned char*)my->input, strlen(my->input));
+
+	// filter lines by current input text
+	memset(my->filtered, 0, sizeof(char*) * (my->num_lines+1));
+	for (i = 0, n = 0; my->lines[i]; i++)
+	{
+		if (!my->offset || strcasestr(my->lines[i], my->input))
+			my->filtered[n++] = my->lines[i];
+	}
+	// vertical bounds of highlight bar
+	my->current = MAX(0, MIN(my->current, n-1));
+	for (i = 0; my->filtered[i]; i++)
+	{
+		XftColor fg = my->fg;
+		// vertical position of *top* of current line
+		int y = my->vert_pad+(my->line_height*(i+1));
+		// http://en.wikipedia.org/wiki/Typeface#Font_metrics
+		int font_baseline = y + my->line_height - my->font->descent -1;
+		// are we highlighting this line?
+		if (i == my->current)
+		{
+			fg = my->hlfg;
+			XftDrawRect(my->draw, &my->hlbg, my->horz_pad, y, my->width-(my->horz_pad*2), my->line_height);
+		}
+		XftDrawStringUtf8(my->draw, &fg, my->font, my->horz_pad, font_baseline, (unsigned char*)my->filtered[i], strlen(my->filtered[i]));
+	}
+	// double buffering
+	XCopyArea(display, my->canvas, my->window, my->gc, 0, 0, my->width, my->height, 0, 0);
+}
+
+// handle popup menu text input for filtering
+void menu_key(struct localmenu *my, XEvent *ev)
+{
+	char pad[32]; KeySym key; Status stat;
+	int len = XmbLookupString(my->xic, &ev->xkey, pad, sizeof(pad), &key, &stat);
+	if (stat == XBufferOverflow) return;
+	pad[len] = 0;
+
+	key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
+
+	if (key == XK_Escape)
+	{
+		my->input[0] = 0;
+		my->offset = 0;
+		my->done = 1;
+	}
+	else
+	if (key == XK_BackSpace)
+	{
+		if (my->offset > 0)
+			my->input[--(my->offset)] = 0;
+	}
+	else
+	if (key == XK_Up)
+		my->current = MAX(0, my->current-1);
+	else
+	if (key == XK_Down)
+		my->current = MIN(my->max_lines-1, my->current+1);
+	else
+	if (key == XK_Tab)
+	{
+		my->current++;
+		if (my->current >= my->max_lines)
+			my->current = 0;
+	}
+	else
+	if (key == XK_Return)
+	{
+		if (my->filtered)
+		{
+			my->offset = strlen(my->filtered[my->current]);
+			memmove(my->input, my->filtered[my->current], my->offset+1);
+			my->done = 1;
+		}
+	}
+	else
+	if (!iscntrl(*pad))
+		if (my->offset < my->input_size-1)
+			my->input[my->offset++] = *pad;
+	menu_draw(my);
+}
+
+// take over keyboard for popup menu
+int menu_grab(struct localmenu *my)
+{
+	int i;
+	for (i = 0; i < 1000; i++)
+	{
+		if (XGrabKeyboard(display, my->window, True, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
+			return 1;
+		usleep(1000);
+	}
+	return 0;
+}
+
+// menu
+int menu(Window root, char **lines)
+{
+	int i, l, scr;
+	struct localmenu _my, *my = &_my;
+
+	XWindowAttributes *attr = window_get_attributes(root);
+	workarea mon; monitor_active(attr->screen, &mon);
+	scr = XScreenNumberOfScreen(attr->screen);
+
+	// this never fails, afaics. we get some sort of font, no matter what
+	my->font = XftFontOpenName(display, scr, config_menu_font);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_fg, &my->fg);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bg, &my->bg);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlfg, &my->hlfg);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlbg, &my->hlbg);
+	my->line_height = my->font->ascent + my->font->descent +2; // +2 pixel extra line spacing
+
+	for (l = 0, i = 0; lines[i]; i++) l = MAX(l, strlen(lines[i]));
+
+	my->lines       = lines;
+	my->num_lines   = i;
+	my->max_lines   = MIN(config_menu_lines, my->num_lines);
+	my->input_size  = MAX(l, 100);
+	my->filtered    = allocate_clear(sizeof(char*) * (my->num_lines+1));
+	my->input       = allocate_clear((my->input_size+1)*3); // utf8 in copied line
+	my->current     = 0; // index of currently highlighted line
+	my->offset      = 0; // length of text in input buffer
+	my->done        = 0; // bailout flag
+	my->horz_pad    = 5; // horizontal padding
+	my->vert_pad    = 5; // vertical padding
+	my->width       = (mon.w/100)*config_menu_width;
+	my->height      = ((my->line_height) * (my->max_lines+1)) + (my->vert_pad*2);
+	my->xbg         = XGetColor(display, config_menu_bg);
+
+	int x = mon.x + ((mon.w - my->width)/2);
+	int y = mon.y + (mon.h/2) - (my->height/2);
+
+	my->window = XCreateSimpleWindow(display, root, x, y, my->width, my->height, 0, my->xbg, my->xbg);
+	// make it an unmanaged window
+	window_set_atom_prop(my->window, netatoms[_NET_WM_STATE], &netatoms[_NET_WM_STATE_ABOVE], 1);
+	window_set_atom_prop(my->window, netatoms[_NET_WM_WINDOW_TYPE], &netatoms[_NET_WM_WINDOW_TYPE_DOCK], 1);
+	XSelectInput(display, my->window, ExposureMask|KeyPressMask);
+	XMapRaised(display, my->window);
+
+	// drawing environment
+	my->gc     = XCreateGC(display, my->window, 0, 0);
+	my->canvas = XCreatePixmap(display, root, my->width, my->height, DefaultDepth(display, scr));
+	my->draw   = XftDrawCreate(display, my->canvas, DefaultVisual(display, scr), DefaultColormap(display, scr));
+
+	// input keymap->charmap handling
+	my->xim = XOpenIM(display, NULL, NULL, NULL);
+	my->xic = XCreateIC(my->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, XNClientWindow, my->window, XNFocusWindow, my->window, NULL);
+
+	if (!menu_grab(my))
+	{
+		fprintf(stderr, "cannot grab keyboard!\n");
+		return my->max_lines;
+	}
+	// main event loop
+	for(;!my->done;)
+	{
+		XEvent ev;
+		XNextEvent(display, &ev);
+		if (ev.type == Expose)
+			menu_draw(my);
+		else
+		if (ev.type == KeyPress)
+			menu_key(my, &ev);
+	}
+	free(my->filtered);
+	// the list may have been filtered. locate the line that was selected.
+	for (i = 0; my->lines[i] && strcmp(my->lines[i], my->input); i++);
+	free(my->input);
+	return i;
+}
+
 // built-in window switcher
 void window_switcher(Window root, unsigned int tag)
 {
-	char *list = allocate_clear(1024), pattern[50];
-	int i, classfield = 0, maxtags = 0, used = 0;
-	Window w; client *c;
+	char pattern[50], **list = NULL;
+	int i, classfield = 0, maxtags = 0, lines = 0;
+	Window w; client *c; winlist *ids = winlist_new();
 
 	// calc widths of wm_class and tag csv fields
 	winlist_descend(windows_activated, i, w)
@@ -1593,10 +1801,15 @@ void window_switcher(Window root, unsigned int tag)
 					if (c->cache->tags & (1<<j)) t++;
 				maxtags = MAX(maxtags, t);
 				classfield = MAX(classfield, strlen(c->class));
+				winlist_append(ids, c->window, NULL);
+				lines++;
 			}
 		}
 	}
-	sprintf(pattern, "%%08lx  %%%ds  %%%ds  %%s\n", MAX(2, (maxtags*2)-1), MAX(5, classfield));
+	maxtags = MAX(0, (maxtags*2)-1);
+	if (maxtags) sprintf(pattern, "%%-%ds   %%-%ds   %%s", maxtags, MAX(5, classfield));
+	else sprintf(pattern, "%%-%ds   %%s", MAX(5, classfield));
+	list = allocate_clear(sizeof(char*) * (lines+1)); lines = 0;
 	// build the actual list
 	winlist_descend(windows_activated, i, w)
 	{
@@ -1610,32 +1823,27 @@ void window_switcher(Window root, unsigned int tag)
 					if (c->cache->tags & (1<<j)) l += sprintf(tags+l, "%d,", j+1);
 				if (l > 0) tags[l-1] = '\0';
 
-				list = reallocate(list, used + strlen(c->title) + strlen(tags) + strlen(c->class) + classfield + 50);
-				used += sprintf(list + used, pattern, (unsigned long)c->window, tags, c->class, c->title);
+				char *line = allocate(strlen(c->title) + strlen(tags) + strlen(c->class) + classfield + 50);
+				if (maxtags) sprintf(line, pattern, tags, c->class, c->title);
+				else sprintf(line, pattern, c->class, c->title);
+				list[lines++] = line;
 			}
 		}
 	}
-	int in, out;
-	pid_t pid = fork();
-	if (!pid)
+	if (!fork())
 	{
 		display = XOpenDisplay(0);
-		pid = exec_cmd_io(SWITCHER_BUILTIN, &in, &out);
-		if (pid > 0)
+		XSync(display, True);
+		int n = menu(root, list);
+		if (list[n])
 		{
-			write(in, list, used); close(in);
-			used = read(out, list, 10); close(out);
-			if (used > 0)
-			{
-				list[used] = '\0'; Window w = (Window)strtol(list, NULL, 16);
-				window_send_message(root, w, netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
-					SubstructureNotifyMask | SubstructureRedirectMask);
-			}
+			window_send_message(root, ids->array[n], netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
+				SubstructureNotifyMask | SubstructureRedirectMask);
 		}
-		waitpid(pid, NULL, 0);
 		exit(EXIT_SUCCESS);
 	}
-	free(list);
+	for (i = 0; i < lines; i++) free(list[i]);
+	free(list); winlist_free(ids);
 }
 
 // MODKEY+keys
@@ -1962,6 +2170,7 @@ void handle_configurerequest(XEvent *ev)
 				mask = CWX|CWY|CWWidth|CWHeight;
 				wc.x = c->cache->mr_x; wc.y = c->cache->mr_y;
 				wc.width  = c->cache->mr_w; wc.height = c->cache->mr_h;
+				c->cache->have_mr = 0;
 			}
 			XConfigureWindow(display, c->window, mask, &wc);
 		}
@@ -2144,7 +2353,7 @@ void setup_screen(int scr)
 	const KeySym keys[] = {
 		XK_Right, XK_Left, XK_Up, XK_Down, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Insert, XK_Delete,
 		XK_backslash, XK_bracketleft, XK_bracketright, XK_semicolon, XK_apostrophe, XK_Return,
-		XK_t, XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_i,
+		XK_t, XK_Tab, XK_grave, XK_Escape, XK_x, XK_a, XK_i, XK_m,
 		0
 	};
 
@@ -2241,6 +2450,15 @@ int main(int argc, char *argv[])
 	// customizable keys
 	config_switcher = find_arg_str(argc, argv, "-switcher", SWITCHER);
 	config_launcher = find_arg_str(argc, argv, "-launcher", LAUNCHER);
+
+	// window switcher
+	config_menu_width = find_arg_int(argc, argv, "-menuwidth", MENUWIDTH);
+	config_menu_lines = find_arg_int(argc, argv, "-menulines", MENULINES);
+	config_menu_font  = find_arg_str(argc, argv, "-menufont", MENUXFTFONT);
+	config_menu_fg    = find_arg_str(argc, argv, "-menufg", MENUFG);
+	config_menu_bg    = find_arg_str(argc, argv, "-menubg", MENUBG);
+	config_menu_hlfg  = find_arg_str(argc, argv, "-menuhlfg", MENUHLFG);
+	config_menu_hlbg  = find_arg_str(argc, argv, "-menuhlbg", MENUHLBG);
 
 	// app_find_or_start() keys
 	for (i = 0; config_apps_keysyms[i]; i++)
