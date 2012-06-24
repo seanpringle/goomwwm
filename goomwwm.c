@@ -283,6 +283,7 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_TAG, XK_t, -tag),\
 	X(KEY_SWITCH, XK_Tab, -switch),\
 	X(KEY_TSWITCH, XK_grave, -tswitch),\
+	X(KEY_CYCLE, XK_c, -cycle),\
 	X(KEY_CLOSE, XK_Escape, -close),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
@@ -1089,8 +1090,6 @@ void client_expand(client *c, int directions)
 				{
 					regions[relevant].x = o->sx; regions[relevant].y = o->sy;
 					regions[relevant].w = o->sw; regions[relevant].h = o->sh;
-					client_descriptive_data(o);
-					event_note("%s", o->title);
 					relevant++;
 				}
 				allregions[i].x = o->sx; allregions[i].y = o->sy;
@@ -1591,6 +1590,28 @@ void client_nws_review(client *c)
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
 }
 
+// cycle through windows in roughly the same screen position
+void client_cycle(client *c)
+{
+	client_extended_data(c);
+	int i, vague = c->monitor.w/100; Window w; client *o;
+	winlist_ascend(windows_in_play(c->xattr.root), i, w)
+	{
+		if ((o = window_client(w)) && o && o->manage && o->visible)
+		{
+			client_extended_data(o);
+			if (NEAR(c->x, vague, o->x) &&
+				NEAR(c->y, vague, o->y) &&
+				NEAR(c->w, vague, o->w) &&
+				NEAR(c->h, vague, o->h))
+			{
+				client_activate(o);
+				break;
+			}
+		}
+	}
+}
+
 // search and activate first open window matching class/name/title
 void app_find_or_start(Window root, char *pattern)
 {
@@ -1926,6 +1947,7 @@ void handle_keypress(XEvent *ev)
 		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
 
 		if (key == keymap[KEY_CLOSE]) client_close(c);
+		else if (key == keymap[KEY_CYCLE]) client_cycle(c);
 		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag);
 		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
 		else if (key == keymap[KEY_FULLSCREEN]) client_nws_fullscreen(c, TOGGLE);
