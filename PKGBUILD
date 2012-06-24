@@ -1,7 +1,7 @@
 # Contributor: Sean Pringle <sean.pringle@gmail.com>
 
 pkgname=goomwwm-git
-pkgver=20081024
+pkgver=20120625
 pkgrel=1
 pkgdesc="Get out of my way, Window Manager!"
 arch=('i686' 'x86_64')
