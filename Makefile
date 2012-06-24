@@ -1,7 +1,19 @@
-CFLAGS?=-Wall -O2 -g -DDEBUG
+CFLAGS?=-Wall -O2
+LDADD?=-I/usr/include/freetype2 -lX11 -lXinerama -lXft
 
-all:
-	$(CC) $(CFLAGS) -I/usr/include/freetype2 -lX11 -lXinerama -lXft -lXrender -lfreetype -lz -lfontconfig -o goomwwm goomwwm.c
+PREFIX?=/usr
+BINDIR?=$(PREFIX)/bin
+
+all: normal
+
+normal:
+	$(CC) $(CFLAGS) $(LDADD) -o goomwwm goomwwm.c
+
+debug:
+	$(CC) $(CFLAGS) -g -DDEBUG $(LDADD) -o goomwwm-debug goomwwm.c
+
+install: all
+	install -Dm 755 goomwwm $(DESTDIR)$(BINDIR)/goomwwm
 
 clean:
-	rm -f goomwwm
+	rm -f goomwwm goomwwm-debug

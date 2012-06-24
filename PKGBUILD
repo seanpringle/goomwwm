@@ -1,0 +1,43 @@
+# Contributor: Sean Pringle <sean.pringle@gmail.com>
+
+pkgname=goomwwm-git
+pkgver=20081024
+pkgrel=1
+pkgdesc="Get out of my way, Window Manager!"
+arch=('i686' 'x86_64')
+url="http://github.com/seanpringle/goomwwm"
+license=('MIT')
+depends=('libx11' 'libxft' 'freetype2')
+makedepends=('git')
+optdepends=()
+source=()
+md5sums=()
+
+_gitroot="git://github.com/seanpringle/goomwwm.git"
+_gitname="goomwwm"
+
+build() {
+  cd "$srcdir"
+  msg "Connecting to GIT server...."
+
+  if [ -d $_gitname ] ; then
+    cd $_gitname && git pull origin
+    msg "The local files are updated."
+  else
+    git clone $_gitroot
+  fi
+
+  msg "GIT checkout done or server timeout"
+  msg "Starting make..."
+
+  rm -rf "$srcdir/$_gitname-build"
+  git clone "$srcdir/$_gitname" "$srcdir/$_gitname-build"
+  cd "$srcdir/$_gitname-build"
+
+  make
+}
+
+package() {
+  cd "$srcdir/$_gitname-build"
+  make DESTDIR="$pkgdir" PREFIX=/usr install
+}
