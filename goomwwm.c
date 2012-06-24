@@ -1641,7 +1641,23 @@ void client_focusto(client *c, int direction)
 					&& INTERSECT(c->x, c->y, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)))
 			{
 				client_activate(o);
-				break;
+				return;
+			}
+		}
+	}
+	// we didn't find a window immediately adjacent or overlapping. look further
+	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	{
+		if ((o = window_client(w)) && o && o->manage && o->visible)
+		{
+			client_extended_data(o);
+			if ((direction == FOCUSLEFT  && o->x < c->x) ||
+				(direction == FOCUSRIGHT && o->x+o->w > c->x+c->w) ||
+				(direction == FOCUSUP    && o->y < c->y) ||
+				(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h))
+			{
+				client_activate(o);
+				return;
 			}
 		}
 	}
