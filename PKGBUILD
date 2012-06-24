@@ -38,4 +38,7 @@ build() {
 package() {
   cd "$srcdir/$_gitname-build"
   make DESTDIR="$pkgdir" PREFIX=/usr install
+  install -Dm 755 $_gitname "$pkgdir/usr/bin/goomwwm"
+  gzip -c "$_gitname.1" > "$_gitname.1.gz"
+  install -Dm644 "$_gitname.1.gz" "$pkgdir/usr/share/man/man1/$_gitname.1.gz"
 }
