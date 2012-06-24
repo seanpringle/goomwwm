@@ -2422,13 +2422,21 @@ void setup_screen(int scr)
 int main(int argc, char *argv[])
 {
 	int i, j, scr; XEvent ev;
-	signal(SIGCHLD, catch_exit);
 
+	// catch help request
+	if (find_arg(argc, argv, "-help")
+		|| find_arg(argc, argv, "--help")
+		|| find_arg(argc, argv, "-h"))
+	{
+		fprintf(stderr, "See the man page or visit http://github.com/seanpringle/goomwwm\n");
+		return EXIT_FAILURE;
+	}
 	if(!(display = XOpenDisplay(0)))
 	{
 		fprintf(stderr, "cannot open display!\n");
 		return EXIT_FAILURE;
 	}
+	signal(SIGCHLD, catch_exit);
 
 	cache_client = winlist_new();
 	cache_xattr  = winlist_new();
