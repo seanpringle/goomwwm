@@ -65,6 +65,14 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .RB [ \-down
 .IR key ]
+.RB [ \-focusright
+.IR key ]
+.RB [ \-focusleft
+.IR key ]
+.RB [ \-focusup
+.IR key ]
+.RB [ \-focusdown
+.IR key ]
 .RB [ \-grow
 .IR key ]
 .RB [ \-shrink
@@ -120,6 +128,8 @@ Use tags to group and raise windows (like dwm and friends) controlled via the fu
 .IP \(bu 4
 Allow the user to assign important applications to key combinations. Eg, switching to Firefox, or starting it when required, should be as easy as (for example)
 .B Mod4+1.
+.IP \(bu 4
+Supply key combinations to allow moving focus between windows spacially. Eg, focus the first window found to the left.
 .IP \(bu 4
 Have a fast dmenu-like solution for complex window filtering and switching, but more tightly integrated with the Window Manager and centered on screen.
 .RE
@@ -195,6 +205,18 @@ Move the active window up within a 3x3 grid.
 .TP
 .B Mod4-Down
 Move the active window down within a 3x3 grid.
+.TP
+.B Mod4-j
+Switch focus to the left of the active window.
+.TP
+.B Mod4-l
+Switch focus to the right of the active window.
+.TP
+.B Mod4-i
+Switch focus upward from the active window.
+.TP
+.B Mod4-k
+Switch focus downward from the active window.
 .TP
 .B Mod4-t
 Toggle the active window's membership of the current tag.
@@ -325,6 +347,34 @@ Set the border color (X11 named color or hex #rrggbb) for the focused window (de
 .P
 .RS
 goomwwm -focus "Royal Blue"
+.RE
+.TP
+.B -focusleft
+Set an X11 key name to switch focus to left of the active window (default: XK_j).
+.P
+.RS
+goomwwm -focusleft j
+.RE
+.TP
+.B -focusright
+Set an X11 key name to switch focus to right of the active window (default: XK_l).
+.P
+.RS
+goomwwm -focusright l
+.RE
+.TP
+.B -focusup
+Set an X11 key name to switch focus upward form the active window (default: XK_i).
+.P
+.RS
+goomwwm -focusup i
+.RE
+.TP
+.B -focusdown
+Set an X11 key name to switch focus downward form the active window (default: XK_k).
+.P
+.RS
+goomwwm -focusdown k
 .RE
 .TP
 .B -fullscreen

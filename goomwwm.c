@@ -56,6 +56,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define HORIZONTAL 1
 #define VERTICAL 2
 
+#define FOCUSLEFT 1
+#define FOCUSRIGHT 2
+#define FOCUSUP 3
+#define FOCUSDOWN 4
+
 void* allocate(unsigned long bytes)
 {
 	void *ptr = malloc(bytes);
@@ -271,6 +276,10 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_LEFT, XK_Left, -left),\
 	X(KEY_UP, XK_Up, -up),\
 	X(KEY_DOWN, XK_Down, -down),\
+	X(KEY_FOCUSRIGHT, XK_l, -focusright),\
+	X(KEY_FOCUSLEFT, XK_j, -focusleft),\
+	X(KEY_FOCUSUP, XK_i, -focusup),\
+	X(KEY_FOCUSDOWN, XK_k, -focusdown),\
 	X(KEY_SHRINK, XK_Page_Down, -shrink),\
 	X(KEY_GROW, XK_Page_Up, -grow),\
 	X(KEY_FULLSCREEN, XK_f, -fullscreen),\
@@ -1612,6 +1621,32 @@ void client_cycle(client *c)
 	}
 }
 
+// move focus by directions
+void client_focusto(client *c, int direction)
+{
+	client_extended_data(c);
+	int i, vague = c->monitor.w/100; Window w; client *o;
+	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	{
+		if ((o = window_client(w)) && o && o->manage && o->visible)
+		{
+			client_extended_data(o);
+			if ((direction == FOCUSLEFT  && o->x < c->x
+					&& INTERSECT(c->x-vague, c->y, c->sw+vague, c->sh, o->x, o->y, o->sw, o->sh)) ||
+				(direction == FOCUSRIGHT && o->x+o->w > c->x+c->w
+					&& INTERSECT(c->x, c->y, c->sw+vague, c->sh, o->x, o->y, o->sw, o->sh)) ||
+				(direction == FOCUSUP    && o->y < c->y
+					&& INTERSECT(c->x, c->y-vague, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)) ||
+				(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h
+					&& INTERSECT(c->x, c->y, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)))
+			{
+				client_activate(o);
+				break;
+			}
+		}
+	}
+}
+
 // search and activate first open window matching class/name/title
 void app_find_or_start(Window root, char *pattern)
 {
@@ -1956,6 +1991,13 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_EXPAND]) client_expand(c, HORIZONTAL|VERTICAL);
 		else if (key == keymap[KEY_EHMAX]) client_expand(c, HORIZONTAL);
 		else if (key == keymap[KEY_EVMAX]) client_expand(c, VERTICAL);
+
+		// directional focus change
+		else if (key == keymap[KEY_FOCUSLEFT]) client_focusto(c, FOCUSLEFT);
+		else if (key == keymap[KEY_FOCUSRIGHT]) client_focusto(c, FOCUSRIGHT);
+		else if (key == keymap[KEY_FOCUSUP]) client_focusto(c, FOCUSUP);
+		else if (key == keymap[KEY_FOCUSDOWN]) client_focusto(c, FOCUSDOWN);
+
 		else
 		// cycle through windows with same WM_CLASS
 		if (key == keymap[KEY_TSWITCH])
