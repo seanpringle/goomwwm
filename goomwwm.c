@@ -2424,9 +2424,9 @@ int main(int argc, char *argv[])
 	int i, j, scr; XEvent ev;
 
 	// catch help request
-	if (find_arg(argc, argv, "-help")
-		|| find_arg(argc, argv, "--help")
-		|| find_arg(argc, argv, "-h"))
+	if (find_arg(argc, argv, "-help") >= 0
+		|| find_arg(argc, argv, "--help") >= 0
+		|| find_arg(argc, argv, "-h") >= 0)
 	{
 		fprintf(stderr, "See the man page or visit http://github.com/seanpringle/goomwwm\n");
 		return EXIT_FAILURE;
@@ -2438,6 +2438,7 @@ int main(int argc, char *argv[])
 	}
 	signal(SIGCHLD, catch_exit);
 
+	// caches to reduce X server round trips during a single event
 	cache_client = winlist_new();
 	cache_xattr  = winlist_new();
 	cache_inplay = winlist_new();
