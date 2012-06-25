@@ -1599,14 +1599,15 @@ void client_nws_review(client *c)
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
 }
 
-// cycle through windows in roughly the same screen position
+// cycle through tag windows in roughly the same screen position
 void client_cycle(client *c)
 {
 	client_extended_data(c);
 	int i, vague = c->monitor.w/100; Window w; client *o;
 	winlist_ascend(windows_in_play(c->xattr.root), i, w)
 	{
-		if ((o = window_client(w)) && o && o->manage && o->visible)
+		if ((o = window_client(w)) && o && o->manage && o->visible
+			&& (!c->cache->tags || c->cache->tags & o->cache->tags))
 		{
 			client_extended_data(o);
 			if (NEAR(c->x, vague, o->x) &&
@@ -1621,7 +1622,7 @@ void client_cycle(client *c)
 	}
 }
 
-// move focus by directions
+// move focus by direction
 void client_focusto(client *c, int direction)
 {
 	client_extended_data(c);
