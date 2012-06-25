@@ -232,6 +232,7 @@ typedef struct {
 #define BORDER 2
 #define FOCUS "Royal Blue"
 #define BLUR "Dark Gray"
+#define ATTENTION "Red"
 #define FLASHON "Dark Green"
 #define FLASHOFF "Dark Red"
 #define SWITCHER NULL
@@ -248,7 +249,7 @@ typedef struct {
 #define MENUHLBG "#005577"
 
 unsigned int config_modkey, config_ignore_modkeys,
-	config_border_focus,  config_border_blur,
+	config_border_focus, config_border_blur, config_border_attention,
 	config_flash_on, config_flash_off,
 	config_border_width, config_flash_width, config_flash_ms,
 	config_menu_width, config_menu_lines;
@@ -1354,13 +1355,20 @@ void client_full_review(client *c)
 	client_review_desktop(c);
 }
 
+// update client border to blurred
+void client_deactivate(client *c)
+{
+	XSetWindowBorder(display, c->window, client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION])
+		? config_border_attention: config_border_blur);
+}
+
 // raise and focus a client
 void client_activate(client *c)
 {
-	int i; Window w;
+	int i; Window w; client *o;
 	// deactivate everyone else
 	winlist_ascend(windows_in_play(c->xattr.root), i, w)
-		if (w != c->window) XSetWindowBorder(display, w, config_border_blur);
+		if (w != c->window && (o = window_client(w)) && o->manage) client_deactivate(o);
 	// setup ourself
 	client_raise(c, client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]));
 	// focus a window politely if possible
@@ -1368,6 +1376,8 @@ void client_activate(client *c)
 	if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
 	else XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XSetWindowBorder(display, c->window, config_border_focus);
+	// we have recieved attention
+	client_remove_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]);
 	// update focus history order
 	winlist_forget(windows_activated, c->window);
 	winlist_append(windows_activated, c->window, NULL);
@@ -2470,6 +2480,8 @@ void handle_propertynotify(XEvent *ev)
 	{
 		if (p->atom == atoms[WM_NAME] || p->atom == netatoms[_NET_WM_NAME])
 			ewmh_client_list(c->xattr.root);
+		if (p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION] && !c->active)
+			client_deactivate(c);
 	}
 }
 
@@ -2607,8 +2619,9 @@ int main(int argc, char *argv[])
 	}
 
 	// border colors
-	config_border_focus = XGetColor(display, find_arg_str(argc, argv, "-focus", FOCUS));
-	config_border_blur  = XGetColor(display, find_arg_str(argc, argv, "-blur",  BLUR));
+	config_border_focus     = XGetColor(display, find_arg_str(argc, argv, "-focus", FOCUS));
+	config_border_blur      = XGetColor(display, find_arg_str(argc, argv, "-blur",  BLUR));
+	config_border_attention = XGetColor(display, find_arg_str(argc, argv, "-attention", ATTENTION));
 
 	// border width in pixels
 	config_border_width = MAX(0, find_arg_int(argc, argv, "-border", BORDER));
