@@ -105,36 +105,7 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .SH DESCRIPTION
 .I goomwwm
-is an X11 window manager implemented in C as a cleanroom software project with the following aims:
-.IP \(bu 4
-Be fast, lightweight, modeless, minimally decorated, Xinerama-aware, and EWMH compatible wherever possible.
-.IP \(bu 4
-Operate in normal window stacking mode with familiar mouse support for window move, resize, and click-to-focus.
-.IP \(bu 4
-Support fast keyboard-driven window move, resize, and focus operations along with easy manual tiling of normal floating windows.
-.RS
-.IP \(bu 4
-Windows can be moved in a 3x3 grid on each Xinerama screen and quickly resized through several predefined sizes (1/9th, 1/4th, 4/9th, full) which fit together.
-.IP \(bu 4
-As well as the usual ability to maximize fullscreen, horizontally, and vertically, windows can be expanded to fill only adjacent empty space horizontally, vertically, or both.
-.RE
-.IP \(bu 4
-Use the Windows key (Mod4, Super) by default for all key combinations. Many key combinations will be familiar, or very close to familiar, to users of mainstream window managers and operating systems.
-.IP \(bu 4
-Implement a better window-switching solution. Most solutions, such as the traditional Alt-Tab MRU list, simple window stack cycling, or graphical options like Exposé, don't support using muscle memory beyond the top two windows or else have excessive visuals that break the user's train-of-thought. Instead:
-.RS
-.IP \(bu 4
-Use tags to group and raise windows (like dwm and friends) controlled via the function keys.
-.IP \(bu 4
-Allow the user to assign important applications to key combinations. Eg, switching to Firefox, or starting it when required, should be as easy as (for example)
-.B Mod4+1.
-.IP \(bu 4
-Supply key combinations to allow moving focus between windows spacially. Eg, focus the first window found to the left.
-.IP \(bu 4
-Have a fast dmenu-like solution for complex window filtering and switching, but more tightly integrated with the Window Manager and centered on screen.
-.RE
-.IP \(bu 4
-Use window tags instead of virtual desktops, but pretend the latter when possible for EWMH taskbars and pagers.
+is an X11 window manager implemented in C as a cleanroom software project. It manages windows in a minimal floating layout, while providing flexible keyboard-driven controls for window switching, sizing, moving, tagging, and tiling. It is also fast, lightweight, modeless, Xinerama-aware, and EWMH compatible wherever possible.
 .P
 License: MIT/X11
 .SH USAGE
@@ -147,52 +118,58 @@ See options below for custom key combinations. These are the defaults.
 (Mouse!) Resize a window.
 .TP
 .B Mod4-[F1-F9]
-Set the current tag and raise all its windows.
+Set the current tag and raise all its windows. A window may be in multiple tags. For EWMH panel and pager integration tags roughly simulate desktops (always 9), but there will be differences in behavior.
 .TP
 .B Mod4-[1-9]
-Do a case-insensitive keyword search for window by WM_CLASS and title. If found, raise and focus. If not found, start the app.
+Do a case-insensitive keyword search for window by WM_CLASS and title. If found, raise and focus. If not found, try to execute the keyword and start the app. See
+.B -1
+through
+.B -9
+args.
 .TP
 .B Mod4-Tab
-Switch between all windows by popup menu.
+Switch between all windows by popup menu. This is partly based on
+.B dmenu
+but more tightly integrated with the window manager, and centered on screen. Type text to filter the menu entries. Navigate with the arrow keys. Return to select.
 .TP
 .B Mod4-`
 (Grave/Backtick) Switch between all windows in current tag by popup menu.
 .TP
 .B Mod4-c
-Cycle through windows in the same screen position as the active window.
+Cycle through windows in the same screen position and size as the active window.
 .TP
 .B Mod4-Escape
 Close the active window.
 .TP
 .B Mod4-Page_Up
-Grow the active window.
+Grow the active window through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
 .TP
 .B Mod4-Page_Down
-Shrink the active window.
+Shrink the active window through the same four sizes.
 .TP
 .B Mod4-x
 Run the launcher (by default: dmenu_run).
 .TP
 .B Mod4-a
-Toggle _NET_WM_STATE_ABOVE.
+Toggle _NET_WM_STATE_ABOVE for the active window. Corners will flash to acknowledge.
 .TP
 .B Mod4-f
-Toggle _NET_WM_STATE_FULLSCREEN.
+Toggle _NET_WM_STATE_FULLSCREEN for the active window. Corners will flash to acknowledge.
 .TP
 .B Mod4-Home
-Toggle _NET_WM_STATE_MAXIMIXED_HORZ.
+Toggle _NET_WM_STATE_MAXIMIXED_HORZ for the active window. Corners will flash to acknowledge.
 .TP
 .B Mod4-End
-Toggle _NET_WM_STATE_MAXIMIXED_VERT.
+Toggle _NET_WM_STATE_MAXIMIXED_VERT for the active window. Corners will flash to acknowledge.
 .TP
 .B Mod4-Return
-Expand active window to fill surrounding space, without obscuring any fully visible window.
+Expand active window to fill surrounding space without obscuring any fully visible window.
 .TP
 .B Mod4-Insert
-Expand active window vertically to fill adjacent space, without obscuring any fully visible window.
+Expand active window vertically to fill adjacent space without obscuring any fully visible window.
 .TP
 .B Mod4-Delete
-Expand active window horizontally to fill adjacent space, without obscuring any fully visible window.
+Expand active window horizontally to fill adjacent space without obscuring any fully visible window.
 .TP
 .B Mod4-Left
 Move the active window left within a 3x3 grid.
@@ -220,24 +197,22 @@ Switch focus downward from the active window.
 .TP
 .B Mod4-t
 Toggle the active window's membership of the current tag.
+
 .SH OPTIONS
 .P
-.B Note
-: All key combinations use the same global modifier key (default: Mod4). If the modkey is changed with
+All key combinations use the same global modifier key (default: Mod4). If the modkey is changed with
 .B -modkey
-, then all key combinations change. All options below that set a custom key implicitly combine it the modifier key.
+then all key combinations change to use it. All options below that set a custom key implicitly combine it with the modifier key.
 .TP
 .B -1 -2 -3 -4 -5 -6 -7 -8 -9
-Set a number key to a string to be used to search for a window by WM_CLASS or title, and then raise and focus it. If a window is not found, the string supplied will be executed as a shell command to start the application.
-.P
+Set a number key to a keyword to search for a window by WM_CLASS or title, and then raise and focus it. If a window is not found, the string supplied will be executed as a shell command to start the application.
 .RS
+.P
 goomwwm -1 chromium -2 firefox -3 xterm
 .P
-Above,
-.B Mod4-1
-would search for Chromium.
+Above, Mod4-1 would match the top-most Chromium window.
 .P
-Many applications politely set their WM_CLASS to a sane value (eg, Chromium uses Chromium, xterm uses XTerm), or else append their name to their window titles, which nicely matches their binary names using case-insensitive string comparison. This allows us to use the one string to both search and start.
+Many applications politely set their WM_CLASS to a sane value (eg, Chromium uses Chromium, xterm uses XTerm) or append their name to their window titles, which nicely matches their binary names if we use case-insensitive string comparison. This allows us to use the one string to both search and start.
 .P
 Applications that are not so friendly can sometimes be wrapped in a shell script of the appropriate name in your $PATH somewhere.
 .RE
@@ -278,21 +253,21 @@ goomwwm -down Down
 .RE
 .TP
 .B -expand
-Set an X11 key name to expand the active window to fill adjacent space, without obscuring any other fully visible window (default: XK_Return).
+Set an X11 key name to expand the active window to fill adjacent space without obscuring any other fully visible window (default: XK_Return).
 .P
 .RS
 goomwwm -expand Return
 .RE
 .TP
 .B -ehmax
-Set an X11 key name to expand the active window horizontally to fill adjacent space, without obscuring any other fully visible window (default: XK_Delete).
+Set an X11 key name to expand the active window horizontally to fill adjacent space without obscuring any other fully visible window (default: XK_Delete).
 .P
 .RS
 goomwwm -ehmax Delete
 .RE
 .TP
 .B -evmax
-Set an X11 key name to expand the active window vertically to fill adjacent space, without obscuring any other fully visible window (default: XK_Insert).
+Set an X11 key name to expand the active window vertically to fill adjacent space without obscuring any other fully visible window (default: XK_Insert).
 .P
 .RS
 goomwwm -evmax Insert
@@ -385,7 +360,7 @@ goomwwm -fullscreen f
 .RE
 .TP
 .B -grow
-Set an X11 key name to increase the active window size (default: XK_Page_Up).
+Set an X11 key name to increase the active window size (default: XK_Page_Up) through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
 .P
 .RS
 goomwwm -grow Page_Up
@@ -469,7 +444,7 @@ goomwwm -right Right
 .RE
 .TP
 .B -shrink
-Set an X11 key name to decrease the active window size (default: XK_Page_Down).
+Set an X11 key name to decrease the active window size (default: XK_Page_Down) through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
 .P
 .RS
 goomwwm -shrink Page_Down
