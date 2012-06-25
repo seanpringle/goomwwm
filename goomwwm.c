@@ -284,6 +284,7 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_GROW, XK_Page_Up, -grow),\
 	X(KEY_FULLSCREEN, XK_f, -fullscreen),\
 	X(KEY_ABOVE, XK_a, -above),\
+	X(KEY_STICKY, XK_s, -sticky),\
 	X(KEY_VMAX, XK_Home, -vmax),\
 	X(KEY_HMAX, XK_End, -hmax),\
 	X(KEY_EXPAND, XK_Return, -expand),\
@@ -1252,11 +1253,20 @@ void client_raise(client *c, int priority)
 		if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
 			client_stack_family(c, stack);
 
-		// locate windows with _NET_WM_STATE_ABOVE
+		// locate windows with both _NET_WM_STATE_STICKY and _NET_WM_STATE_ABOVE
 		winlist_descend(inplay, i, w)
 		{
 			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
-				&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_ABOVE]))
+				&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
+				&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
+					client_stack_family(o, stack);
+		}
+		// locate windows in one of our tags with _NET_WM_STATE_ABOVE
+		winlist_descend(inplay, i, w)
+		{
+			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
+				&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
+				&& (!c->cache->tags || c->cache->tags & o->cache->tags))
 					client_stack_family(o, stack);
 		}
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
@@ -1383,12 +1393,17 @@ void client_state(client *c, long state)
 }
 
 // locate the currently focused window and build a client for it
-client* window_active_client(Window root)
+client* window_active_client(Window root, unsigned int tag)
 {
 	int i; Window w; client *c = NULL;
-	// look for a visible, previously activated window
-	winlist_descend(windows_activated, i, w)
-		if ((c = window_client(w)) && c && c->manage && c->visible && c->xattr.root == root) break;
+	// look for a visible, previously activated window in the current tag
+	if (tag) winlist_descend(windows_activated, i, w)
+		if ((c = window_client(w)) && c && c->manage && c->visible
+			&& c->cache->tags & tag && c->xattr.root == root) break;
+	// look for a visible, previously activated window anywhere
+	if (!c) winlist_descend(windows_activated, i, w)
+		if ((c = window_client(w)) && c && c->manage && c->visible
+			&& c->xattr.root == root) break;
 	// if we found one, activate it
 	if (c && (!c->focus || !c->active))
 		client_activate(c);
@@ -1415,11 +1430,19 @@ void tag_raise(unsigned int tag)
 		stack = winlist_new();
 		focus = None;
 
-		// locate windows with _NET_WM_STATE_ABOVE
+		// locate windows with _NET_WM_STATE_ABOVE and _NET_WM_STATE_STICKY
 		winlist_descend(inplay, i, w)
 		{
 			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->visible
-				&& c->trans == None && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
+				&& c->trans == None && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])
+				&& client_has_state(c, netatoms[_NET_WM_STATE_STICKY]))
+					client_stack_family(c, stack);
+		}
+		// locate windows with _NET_WM_STATE_ABOVE in this tag
+		winlist_descend(inplay, i, w)
+		{
+			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->visible
+				&& c->trans == None && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]) && c->cache->tags & tag)
 					client_stack_family(c, stack);
 		}
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
@@ -1429,7 +1452,7 @@ void tag_raise(unsigned int tag)
 				&& c->trans == None && c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 					client_stack_family(c, stack);
 		}
-		// locate all windows in the tag, and the top one to be focused
+		// locate all other windows in the tag, and the top one to be focused
 		winlist_descend(inplay, i, w)
 		{
 			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->manage && c->visible
@@ -1486,7 +1509,7 @@ void client_toggle_tag(client *c, unsigned int tag)
 void monitor_active(Screen *screen, workarea *mon)
 {
 	Window root = RootWindow(display, XScreenNumberOfScreen(screen));
-	client *c = window_active_client(root);
+	client *c = window_active_client(root, 0);
 	if (c)
 	{
 		client_extended_data(c);
@@ -1541,6 +1564,25 @@ void client_nws_above(client *c, int action)
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
 		client_remove_state(c, netatoms[_NET_WM_STATE_ABOVE]);
+		client_flash(c, config_flash_off, config_flash_ms);
+	}
+}
+
+// stick to screen
+void client_nws_sticky(client *c, int action)
+{
+	int state = client_has_state(c, netatoms[_NET_WM_STATE_STICKY]);
+
+	if (action == ADD || (action == TOGGLE && !state))
+	{
+		client_add_state(c, netatoms[_NET_WM_STATE_STICKY]);
+		client_raise(c, 0);
+		client_flash(c, config_flash_on, config_flash_ms);
+	}
+	else
+	if (action == REMOVE || (action == TOGGLE && state))
+	{
+		client_remove_state(c, netatoms[_NET_WM_STATE_STICKY]);
 		client_flash(c, config_flash_off, config_flash_ms);
 	}
 }
@@ -1622,11 +1664,12 @@ void client_cycle(client *c)
 	}
 }
 
-// move focus by direction
+// move focus by direction. this is a visual thing, not restricted by tag
 void client_focusto(client *c, int direction)
 {
 	client_extended_data(c);
 	int i, vague = c->monitor.w/100; Window w; client *o;
+	// look for a window immediately adjacent or overlapping
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
 		if ((o = window_client(w)) && o && o->manage && o->visible)
@@ -1646,7 +1689,7 @@ void client_focusto(client *c, int direction)
 			}
 		}
 	}
-	// we didn't find a window immediately adjacent or overlapping. look further
+	// we didn't find a window immediately adjacent or overlapping. look further afield
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
 		if ((o = window_client(w)) && o && o->manage && o->visible)
@@ -1670,8 +1713,22 @@ void app_find_or_start(Window root, char *pattern)
 	if (!pattern) return;
 	winlist *inplay = windows_in_play(root);
 
-	Window w, found = None; client *c;
+	Window w, found = None; client *c = NULL;
 	int i, j, offsets[] = { offsetof(client, name), offsetof(client, class), offsetof(client, title) };
+	// first, try in current_tag only
+	for (i = 0; i < 3 && found == None; i++)
+	{
+		winlist_descend(inplay, j, w)
+		{
+			if ((c = window_client(w)) && c && c->manage && c->visible && c->cache->tags & current_tag)
+			{
+				client_descriptive_data(c);
+				if (!strcasecmp(((char*)c)+offsets[i], pattern))
+					{ found = w; break; }
+			}
+		}
+	}
+	// failing that, search regardless of tag
 	for (i = 0; i < 3 && found == None; i++)
 	{
 		winlist_descend(inplay, j, w)
@@ -1892,7 +1949,7 @@ int menu(Window root, char **lines)
 void window_switcher(Window root, unsigned int tag)
 {
 	char pattern[50], **list = NULL;
-	int i, classfield = 0, maxtags = 0, lines = 0;
+	int i, classfield = 0, maxtags = 0, lines = 0, above = 0, sticky = 0, plen = 0;
 	Window w; client *c; winlist *ids = winlist_new();
 
 	// calc widths of wm_class and tag csv fields
@@ -1903,6 +1960,8 @@ void window_switcher(Window root, unsigned int tag)
 			client_descriptive_data(c);
 			if (!tag || (c->cache && c->cache->tags & tag))
 			{
+				if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) above = 1;
+				if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) sticky = 1;
 				int j, t; for (j = 0, t = 0; j < TAGS; j++)
 					if (c->cache->tags & (1<<j)) t++;
 				maxtags = MAX(maxtags, t);
@@ -1913,8 +1972,9 @@ void window_switcher(Window root, unsigned int tag)
 		}
 	}
 	maxtags = MAX(0, (maxtags*2)-1);
-	if (maxtags) sprintf(pattern, "%%-%ds   %%-%ds   %%s", maxtags, MAX(5, classfield));
-	else sprintf(pattern, "%%-%ds   %%s", MAX(5, classfield));
+	if (above || sticky) plen = sprintf(pattern, "%%-%ds  ", above+sticky);
+	if (maxtags) plen += sprintf(pattern+plen, "%%-%ds  ", maxtags);
+	plen += sprintf(pattern+plen, "%%-%ds   %%s", MAX(5, classfield));
 	list = allocate_clear(sizeof(char*) * (lines+1)); lines = 0;
 	// build the actual list
 	winlist_descend(windows_activated, i, w)
@@ -1929,8 +1989,13 @@ void window_switcher(Window root, unsigned int tag)
 					if (c->cache->tags & (1<<j)) l += sprintf(tags+l, "%d,", j+1);
 				if (l > 0) tags[l-1] = '\0';
 
+				char aos[5]; memset(aos, 0, 5);
+				if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) strcat(aos, "a");
+				if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) strcat(aos, "s");
+
 				char *line = allocate(strlen(c->title) + strlen(tags) + strlen(c->class) + classfield + 50);
-				if (maxtags) sprintf(line, pattern, tags, c->class, c->title);
+				if ((above || sticky) && maxtags) sprintf(line, pattern, aos, tags, c->class, c->title);
+				else if (maxtags) sprintf(line, pattern, tags, c->class, c->title);
 				else sprintf(line, pattern, c->class, c->title);
 				list[lines++] = line;
 			}
@@ -1976,7 +2041,7 @@ void handle_keypress(XEvent *ev)
 
 	else
 	// following only relevant with a focused window
-	if ((c = window_active_client(ev->xany.window)) && c)
+	if ((c = window_active_client(ev->xany.window, 0)) && c)
 	{
 		client_descriptive_data(c);
 		client_extended_data(c);
@@ -2002,6 +2067,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_CYCLE]) client_cycle(c);
 		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag);
 		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
+		else if (key == keymap[KEY_STICKY]) client_nws_sticky(c, TOGGLE);
 		else if (key == keymap[KEY_FULLSCREEN]) client_nws_fullscreen(c, TOGGLE);
 		else if (key == keymap[KEY_HMAX]) client_nws_maxhorz(c, TOGGLE);
 		else if (key == keymap[KEY_VMAX]) client_nws_maxvert(c, TOGGLE);
@@ -2328,6 +2394,7 @@ void handle_mapnotify(XEvent *ev)
 	if (c && c->manage)
 	{
 		client_state(c, NormalState);
+		client_toggle_tag(c, current_tag);
 		client_activate(c);
 		ewmh_client_list(c->xattr.root);
 	}
@@ -2345,7 +2412,7 @@ void handle_unmapnotify(XEvent *ev)
 	{
 		// was it the active window?
 		if (windows_activated->len && ev->xunmap.window == windows_activated->array[windows_activated->len-1])
-			window_active_client(ev->xunmap.event);
+			window_active_client(ev->xunmap.event, current_tag);
 		ewmh_client_list(ev->xunmap.event);
 	}
 }
@@ -2474,7 +2541,7 @@ void setup_screen(int scr)
 		}
 	}
 	// activate and focus top window
-	window_active_client(root);
+	window_active_client(root, 0);
 	ewmh_client_list(root);
 }
 
