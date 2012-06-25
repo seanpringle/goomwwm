@@ -9,6 +9,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR pixels ]
 .RB [ \-focus
 .IR color ]
+.RB [ \-attention
+.IR color ]
 .RB [ \-flashon
 .IR color ]
 .RB [ \-flashoff
@@ -222,6 +224,13 @@ Set an X11 key name to toggle _NET_WM_STATE_ABOVE for the active window (default
 .P
 .RS
 goomwwm -above a
+.RE
+.TP
+.B -attention
+Set the border color (X11 named color or hex #rrggbb) for an inactive window with _NET_WM_STATE_DEMANDS_ATTENTION (default: Red).
+.P
+.RS
+goomwwm -attention Red
 .RE
 .TP
 .B -blur
