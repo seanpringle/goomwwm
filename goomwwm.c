@@ -296,6 +296,7 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_TSWITCH, XK_grave, -tswitch),\
 	X(KEY_CYCLE, XK_c, -cycle),\
 	X(KEY_CLOSE, XK_Escape, -close),\
+	X(KEY_DEBUG, XK_d, -debug),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
 enum { KEYLIST(KEY_ENUM) };
@@ -1082,7 +1083,7 @@ void client_expand(client *c, int directions)
 	winlist_descend(inplay, i, win)
 	{
 		if (win == c->window) continue;
-		if ((o = window_client(win)) && c && c->manage && c->visible)
+		if ((o = window_client(win)) && o && o->manage && o->visible)
 		{
 			client_extended_data(o);
 			// only concerned about windows on this monitor
@@ -2077,6 +2078,7 @@ void handle_keypress(XEvent *ev)
 		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
 
 		if (key == keymap[KEY_CLOSE]) client_close(c);
+		else if (key == keymap[KEY_DEBUG]) event_client_dump(c);
 		else if (key == keymap[KEY_CYCLE]) client_cycle(c);
 		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag);
 		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
