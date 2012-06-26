@@ -827,7 +827,7 @@ void client_extended_data(client *c)
 void event_log(const char *e, Window w)
 {
 	XClassHint chint;
-	fprintf(stderr, "%s: %x", e, (unsigned int)w);
+	fprintf(stderr, "\n%s: %x", e, (unsigned int)w);
 	if (w != None && XGetClassHint(display, w, &chint))
 	{
 		fprintf(stderr, " %s", chint.res_class);
@@ -851,9 +851,11 @@ void event_note(const char *fmt, ...)
 #define event_note(...)
 #endif
 
+#ifdef DEBUG
 // debug
 void event_client_dump(client *c)
 {
+	if (!c) return;
 	client_descriptive_data(c);
 	client_extended_data(c);
 	event_note("%x title: %s", (unsigned int)c->window, c->title);
@@ -861,13 +863,16 @@ void event_client_dump(client *c)
 	event_note("class: %s name: %s", c->class, c->name);
 	event_note("x:%d y:%d w:%d h:%d b:%d override:%d transient:%x", c->xattr.x, c->xattr.y, c->xattr.width, c->xattr.height,
 		c->xattr.border_width, c->xattr.override_redirect ?1:0, (unsigned int)c->trans);
-	event_note("is_full:%d is_left:%d is_top:%d is_right:%d is_bottom:%d is_xcenter:%d is_ycenter:%d is_maxh:%d is_maxv:%d",
+	event_note("is_full:%d is_left:%d is_top:%d is_right:%d is_bottom:%d\n\t\t is_xcenter:%d is_ycenter:%d is_maxh:%d is_maxv:%d",
 		c->is_full, c->is_left, c->is_top, c->is_right, c->is_bottom, c->is_xcenter, c->is_ycenter, c->is_maxh, c->is_maxv);
 	int i, j;
 	for (i = 0; i < NETATOMS; i++) if (c->type  == netatoms[i]) event_note("type:%s", netatom_names[i]);
 	for (i = 0; i < NETATOMS; i++) for (j = 0; j < c->states; j++) if (c->state[j] == netatoms[i]) event_note("state:%s", netatom_names[i]);
 	fflush(stdout);
 }
+#else
+#define event_client_dump(...)
+#endif
 
 // update _NET_CLIENT_LIST
 void ewmh_client_list(Window root)
@@ -2078,7 +2083,9 @@ void handle_keypress(XEvent *ev)
 		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
 
 		if (key == keymap[KEY_CLOSE]) client_close(c);
+#ifdef DEBUG
 		else if (key == keymap[KEY_DEBUG]) event_client_dump(c);
+#endif
 		else if (key == keymap[KEY_CYCLE]) client_cycle(c);
 		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag);
 		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
@@ -2208,7 +2215,6 @@ void handle_keypress(XEvent *ev)
 // MODKEY+keys
 void handle_keyrelease(XEvent *ev)
 {
-	event_log("KeyRelease", ev->xany.window);
 }
 
 // we bind on all mouse buttons on the root window to implement click-to-focus
@@ -2244,19 +2250,18 @@ void handle_buttonpress(XEvent *ev)
 		// events we havn't snaffled for move/resize may be relevant to the subwindow. replay them
 		XAllowEvents(display, ReplayPointer, CurrentTime);
 	}
+	event_client_dump(c);
 }
 
 // only get these if a window move/resize has been started in buttonpress
 void handle_buttonrelease(XEvent *ev)
 {
-	event_log("ButtonRelease", ev->xbutton.subwindow);
 	XUngrabPointer(display, CurrentTime);
 }
 
 // only get these if a window move/resize has been started in buttonpress
 void handle_motionnotify(XEvent *ev)
 {
-	event_log("MotionNotify", ev->xbutton.subwindow);
 	// compress events to reduce window jitter and CPU load
 	while(XCheckTypedEvent(display, MotionNotify, ev));
 	client *c = window_client(ev->xmotion.window);
@@ -2296,7 +2301,6 @@ void handle_motionnotify(XEvent *ev)
 // we dont really care until a window configures and maps, so just watch it
 void handle_createnotify(XEvent *ev)
 {
-	event_log("CreateNotify", ev->xcreatewindow.window);
 	XSelectInput(display, ev->xcreatewindow.window, EnterWindowMask | LeaveWindowMask | FocusChangeMask | PropertyChangeMask);
 	if (winlist_find(windows, ev->xcreatewindow.window) < 0)
 	{
@@ -2310,7 +2314,6 @@ void handle_createnotify(XEvent *ev)
 void handle_destroynotify(XEvent *ev)
 {
 	Window w = ev->xdestroywindow.window;
-	event_log("DestroyNotify", w);
 	// remove any cached data on a window
 	winlist_forget(windows, w);
 	winlist_forget(windows_activated, w);
@@ -2322,10 +2325,11 @@ void handle_destroynotify(XEvent *ev)
 // just let stuff go through mostly unchanged so apps can remember window positions/sizes
 void handle_configurerequest(XEvent *ev)
 {
-	event_log("ConfigureRequest", ev->xconfigurerequest.window);
 	client *c = window_client(ev->xconfigurerequest.window);
 	if (c)
 	{
+		event_log("ConfigureRequest", c->window);
+		event_client_dump(c);
 		XConfigureRequestEvent *e = &ev->xconfigurerequest;
 
 		XWindowChanges wc;
@@ -2354,10 +2358,11 @@ void handle_configurerequest(XEvent *ev)
 // once a window has been configured, apply a border unless it is fullscreen
 void handle_configurenotify(XEvent *ev)
 {
-	event_log("ConfigureNotify", ev->xconfigure.window);
 	client *c = window_client(ev->xconfigure.window);
 	if (c && c->manage)
 	{
+		event_log("ConfigureNotify", c->window);
+		event_client_dump(c);
 		client_review_border(c);
 		client_review_position(c);
 	}
@@ -2366,10 +2371,11 @@ void handle_configurenotify(XEvent *ev)
 // map requests are when we get nasty about co-ords and size
 void handle_maprequest(XEvent *ev)
 {
-	event_log("MapRequest", ev->xmaprequest.window);
 	client *c = window_client(ev->xmaprequest.window);
 	if (c && c->manage)
 	{
+		event_log("MapRequest", c->window);
+		event_client_dump(c);
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_STICKY]) && !c->x && !c->y)
 		{
 			client_extended_data(c);
@@ -2404,10 +2410,10 @@ void handle_maprequest(XEvent *ev)
 // this could be configurable?
 void handle_mapnotify(XEvent *ev)
 {
-	event_log("MapNotify", ev->xmap.window);
 	client *c = window_client(ev->xmap.window);
 	if (c && c->manage)
 	{
+		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
 		client_toggle_tag(c, current_tag);
 		client_activate(c);
@@ -2419,10 +2425,14 @@ void handle_mapnotify(XEvent *ev)
 // find a new one to focus if needed
 void handle_unmapnotify(XEvent *ev)
 {
-	event_log("UnmapNotify", ev->xunmap.window);
 	client *c = window_client(ev->xunmap.window);
 	// was it a top-level app window that closed?
-	if (c && c->manage) client_state(c, WithdrawnState);
+	if (c && c->manage)
+	{
+		event_log("UnmapNotify", c->window);
+		event_client_dump(c);
+		client_state(c, WithdrawnState);
+	}
 	if (window_is_root(ev->xunmap.event))
 	{
 		// was it the active window?
@@ -2445,6 +2455,7 @@ void handle_clientmessage(XEvent *ev)
 		client *c = window_client(m->window);
 		if (c && c->manage && c->visible)
 		{
+			event_client_dump(c);
 			if (m->message_type == netatoms[_NET_ACTIVE_WINDOW])
 				client_activate(c);
 			else
@@ -2477,7 +2488,6 @@ void handle_clientmessage(XEvent *ev)
 // PropertyNotify
 void handle_propertynotify(XEvent *ev)
 {
-	event_log("PropertyNotify", ev->xproperty.window);
 //	while (XCheckTypedWindowEvent(display, ev->xproperty.window, PropertyNotify, ev));
 	XPropertyEvent *p = &ev->xproperty;
 	client *c = window_client(p->window);
@@ -2493,6 +2503,9 @@ void handle_propertynotify(XEvent *ev)
 // grab a MODKEY+key combo
 void grab_key(Window root, KeySym key)
 {
+#ifndef DEBUG
+	if (key == keymap[KEY_DEBUG]) return;
+#endif
 	KeyCode keycode = XKeysymToKeycode(display, key);
 	XUngrabKey(display, keycode, AnyModifier, root);
 	XGrabKey(display, keycode, config_modkey, root, True, GrabModeAsync, GrabModeAsync);
