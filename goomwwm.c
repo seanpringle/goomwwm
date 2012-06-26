@@ -1268,12 +1268,13 @@ void client_raise(client *c, int priority)
 				&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
 					client_stack_family(o, stack);
 		}
-		// locate windows in one of our tags with _NET_WM_STATE_ABOVE
+		// locate windows in the current_tag with _NET_WM_STATE_ABOVE
+		// untagged windows with _NET_WM_STATE_ABOVE are effectively sticky
 		winlist_descend(inplay, i, w)
 		{
 			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
 				&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
-				&& (!c->cache->tags || c->cache->tags & o->cache->tags))
+				&& (!c->cache->tags || current_tag & o->cache->tags))
 					client_stack_family(o, stack);
 		}
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
