@@ -1951,6 +1951,9 @@ int menu(Window root, char **lines)
 	free(my->filtered);
 	// the list may have been filtered. locate the line that was selected.
 	for (i = 0; my->lines[i] && strcmp(my->lines[i], my->input); i++);
+	XftDrawDestroy(my->draw);
+	XFreeGC(display, my->gc);
+	XftFontClose(display, my->font);
 	free(my->input);
 	return i;
 }
@@ -1987,9 +1990,9 @@ void window_switcher(Window root, unsigned int tag)
 	plen += sprintf(pattern+plen, "%%-%ds   %%s", MAX(5, classfield));
 	list = allocate_clear(sizeof(char*) * (lines+1)); lines = 0;
 	// build the actual list
-	winlist_descend(windows_activated, i, w)
+	winlist_ascend(ids, i, w)
 	{
-		if ((c = window_client(w)) && c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
+		if ((c = window_client(w)))
 		{
 			client_descriptive_data(c);
 			if (!tag || (c->cache && c->cache->tags & tag))
