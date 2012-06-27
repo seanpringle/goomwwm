@@ -1,10 +1,10 @@
 CFLAGS?=-Wall -O2
-LDADD?=-I/usr/include/freetype2 -lX11 -lXinerama -lXft
+LDADD?=$(shell pkg-config --cflags --libs x11 xinerama x11 xft)
 
 all: normal
 
 normal:
-	$(CC) $(CFLAGS) $(LDADD) -o goomwwm goomwwm.c
+	$(CC) $(CFLAGS) $(LDADD) $(LDFLAGS) -o goomwwm goomwwm.c
 
 debug:
 	$(CC) $(CFLAGS) -g -DDEBUG $(LDADD) -o goomwwm-debug goomwwm.c
