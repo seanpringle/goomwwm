@@ -234,6 +234,7 @@ typedef struct {
 #define MENUBG "#222222"
 #define MENUHLFG "#ffffff"
 #define MENUHLBG "#005577"
+#define CONFIGFILE ".goomwwmrc"
 
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus, config_border_blur, config_border_attention,
@@ -2729,7 +2730,7 @@ int main(int argc, char *argv[])
 	if (home)
 	{
 		conf_home = allocate_clear(1024);
-		sprintf(conf_home, "%s/.goomwwmrc", home);
+		sprintf(conf_home, "%s/%s", home, CONFIGFILE);
 	}
 
 	// prepare args and merge conf file args
