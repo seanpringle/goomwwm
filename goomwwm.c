@@ -1102,13 +1102,19 @@ void client_expand(client *c, int directions)
 						allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h))
 							{ obscured = 1; break; }
 				}
+#ifdef DEBUG
+				client_descriptive_data(o);
+#endif
 				// record a full visible window
 				if (!obscured)
 				{
 					regions[relevant].x = o->sx; regions[relevant].y = o->sy;
 					regions[relevant].w = o->sw; regions[relevant].h = o->sh;
+					event_note("visible: %x %s", (unsigned int)o->window, o->title);
 					relevant++;
 				}
+				else
+					event_note("invisible: %x %s", (unsigned int)o->window, o->title);
 				allregions[i].x = o->sx; allregions[i].y = o->sy;
 				allregions[i].w = o->sw; allregions[i].h = o->sh;
 			}
@@ -1843,10 +1849,10 @@ void menu_key(struct localmenu *my, XEvent *ev)
 	}
 	else
 	if (key == XK_Up)
-		my->current = MAX(0, my->current-1);
+		my->current = (my->current == 0 ? my->max_lines-1: my->current-1);
 	else
 	if (key == XK_Down)
-		my->current = MIN(my->max_lines-1, my->current+1);
+		my->current = (my->current == my->max_lines-1 ? 0: my->current+1);
 	else
 	if (key == XK_Tab)
 	{
