@@ -107,6 +107,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .RB [ \-vtile
 .IR key ]
+.RB [ \-undo
+.IR key ]
 .RB [ \-launch
 .IR key ]
 .SH DESCRIPTION
@@ -200,6 +202,9 @@ Move the active window up within a 3x3 grid.
 .TP
 .B Mod4-Down
 Move the active window down within a 3x3 grid.
+.TP
+.B Mod4-u
+Undo the last size/position change for the active window. Undo is 10 levels deep.
 .TP
 .B Mod4-j
 Switch focus to the left of the active window.
@@ -522,6 +527,13 @@ Set an X11 key name to move the active window upward in a 3x3 grid (default: XK_
 .P
 .RS
 goomwwm -up Up
+.RE
+.TP
+.B -undo
+Set an X11 key to undo the last size/position change for the active window (default: XK_u). Undo is 10 levels deep.
+.P
+.RS
+goomwwm -undo u
 .RE
 .TP
 .B -vmax

@@ -183,6 +183,15 @@ typedef struct {
 #define BOTTOMLEFT 3
 #define BOTTOMRIGHT 4
 
+#define UNDO 10
+
+typedef struct {
+	int x, y, w, h;
+	int sx, sy, sw, sh;
+	int states;
+	Atom state[CLIENTSTATE];
+} winundo;
+
 // track window stuff
 typedef struct {
 	int have_old;
@@ -193,6 +202,8 @@ typedef struct {
 	int have_closed;
 	int last_corner;
 	unsigned int tags;
+	int undo_levels;
+	winundo undo[UNDO];
 } wincache;
 
 #define TAG1 1
@@ -298,6 +309,7 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_CLOSE, XK_Escape, -close),\
 	X(KEY_HTILE, XK_h, -htile),\
 	X(KEY_VTILE, XK_v, -vtile),\
+	X(KEY_UNDO, XK_u, -undo),\
 	X(KEY_DEBUG, XK_d, -debug),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
@@ -673,6 +685,11 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 	mon->h -= (mon->t+mon->b);
 }
 
+void client_flush_state(client *c)
+{
+	window_set_atom_prop(c->window, netatoms[_NET_WM_STATE], c->state, c->states);
+}
+
 // manipulate client->state
 int client_has_state(client *c, Atom state)
 {
@@ -684,7 +701,7 @@ void client_add_state(client *c, Atom state)
 	if (c->states < CLIENTSTATE && !client_has_state(c, state))
 	{
 		c->state[c->states++] = state;
-		window_set_atom_prop(c->window, netatoms[_NET_WM_STATE], c->state, c->states);
+		client_flush_state(c);
 	}
 }
 void client_remove_state(client *c, Atom state)
@@ -693,7 +710,7 @@ void client_remove_state(client *c, Atom state)
 	Atom newstate[CLIENTSTATE]; int i, n;
 	for (i = 0, n = 0; i < c->states; i++) if (c->state[i] != state) newstate[n++] = c->state[i];
 	memmove(c->state, newstate, sizeof(Atom)*n); c->states = n;
-	window_set_atom_prop(c->window, netatoms[_NET_WM_STATE], c->state, c->states);
+	client_flush_state(c);
 }
 void client_set_state(client *c, Atom state, int on)
 {
@@ -1013,7 +1030,48 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	}
 }
 
+// record a window's size and position in the undo log
+void client_commit(client *c)
+{
+	client_extended_data(c);
+	winundo *undo;
+
+	if (c->cache->undo_levels > 0)
+	{
+		// check if the last undo state matches current state. if so, no point recording
+		undo = &c->cache->undo[c->cache->undo_levels-1];
+		if (undo->x == c->x && undo->y == c->y && undo->w == c->w && undo->h == c->h) return;
+	}
+
+	// LIFO up to UNDO cells deep
+	if (c->cache->undo_levels == UNDO)
+	{
+		memmove(c->cache->undo, &c->cache->undo[1], sizeof(winundo)*(UNDO-1));
+		c->cache->undo_levels--;
+	}
+	undo = &c->cache->undo[c->cache->undo_levels++];
+	undo->x  = c->x;  undo->y  = c->y;  undo->w  = c->w;  undo->h  = c->h;
+	undo->sx = c->sx; undo->sy = c->sy; undo->sw = c->sw; undo->sh = c->sh;
+	for (undo->states = 0; undo->states < c->states; undo->states++)
+		undo->state[undo->states] = c->state[undo->states];
+}
+
+// move/resize a window back to it's last size and position
+void client_rollback(client *c)
+{
+	if (c->cache->undo_levels > 0)
+	{
+		winundo *undo = &c->cache->undo[--c->cache->undo_levels];
+		for (c->states = 0; c->states < undo->states; c->states++)
+			c->state[c->states] = undo->state[c->states];
+		client_flush_state(c);
+		client_moveresize(c, 0, undo->x, undo->y, undo->sw, undo->sh);
+	}
+}
+
 // save co-ords for later flip-back
+// these may MAY BE dulicated in the undo log, but they must remain separate
+// to allow proper toggle behaviour for maxv/maxh
 void client_save_position(client *c)
 {
 	client_extended_data(c);
@@ -1183,6 +1241,7 @@ void client_expand(client *c, int directions)
 		else
 		if (directions & HORIZONTAL)
 			client_save_position_horz(c);
+		client_commit(c);
 		client_moveresize(c, 0, c->monitor.x+x, c->monitor.y+y, w, h);
 	}
 	free(regions); free(allregions);
@@ -1557,6 +1616,7 @@ void client_nws_fullscreen(client *c, int action)
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
+		client_commit(c);
 		client_save_position(c);
 		// no struts!
 		workarea monitor; monitor_dimensions(c->xattr.screen, c->xattr.x, c->xattr.y, &monitor);
@@ -1568,6 +1628,7 @@ void client_nws_fullscreen(client *c, int action)
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
 		client_extended_data(c);
+		client_commit(c);
 		client_restore_position(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.y + (c->monitor.h/4), c->monitor.w/2, c->monitor.h/2);
 	}
 	// fullscreen may need to hide above windows
@@ -1620,6 +1681,7 @@ void client_nws_maxvert(client *c, int action)
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
+		client_commit(c);
 		client_save_position_vert(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
@@ -1628,6 +1690,7 @@ void client_nws_maxvert(client *c, int action)
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
+		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_restore_position_vert(c, 0, c->monitor.y + (c->monitor.h/4), c->monitor.h/2);
 		client_flash(c, config_flash_off, config_flash_ms);
@@ -1642,6 +1705,7 @@ void client_nws_maxhorz(client *c, int action)
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
+		client_commit(c);
 		client_save_position_horz(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->sh);
@@ -1650,6 +1714,7 @@ void client_nws_maxhorz(client *c, int action)
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
+		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_restore_position_horz(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.w/2);
 		client_flash(c, config_flash_off, config_flash_ms);
@@ -1660,10 +1725,18 @@ void client_nws_maxhorz(client *c, int action)
 void client_nws_review(client *c)
 {
 	client_extended_data(c);
+	int commit = 0;
 	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
+	{
 		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->sh);
+		commit = 1;
+	}
 	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
+	{
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
+		commit = 1;
+	}
+	if (commit) client_commit(c);
 }
 
 // cycle through tag windows in roughly the same screen position ang tag
@@ -1703,6 +1776,8 @@ void client_htile(client *c)
 				NEAR(c->w, vague, o->w) &&
 				NEAR(c->h, vague, o->h))
 			{
+				client_commit(c);
+				client_commit(o);
 				client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
 				client_moveresize(o, 0, c->x+(c->sw/2), c->y, c->sw/2, c->sh);
 				break;
@@ -1726,6 +1801,8 @@ void client_vtile(client *c)
 				NEAR(c->w, vague, o->w) &&
 				NEAR(c->h, vague, o->h))
 			{
+				client_commit(c);
+				client_commit(o);
 				client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
 				client_moveresize(o, 0, c->x, c->y+(c->sh/2), c->sw, c->sh/2);
 				break;
@@ -2144,10 +2221,9 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_EXPAND]) client_expand(c, HORIZONTAL|VERTICAL);
 		else if (key == keymap[KEY_EHMAX]) client_expand(c, HORIZONTAL);
 		else if (key == keymap[KEY_EVMAX]) client_expand(c, VERTICAL);
-
-		// splitting
 		else if (key == keymap[KEY_HTILE]) client_htile(c);
 		else if (key == keymap[KEY_VTILE]) client_vtile(c);
+		else if (key == keymap[KEY_UNDO]) client_rollback(c);
 
 		// directional focus change
 		else if (key == keymap[KEY_FOCUSLEFT]) client_focusto(c, FOCUSLEFT);
@@ -2263,7 +2339,11 @@ void handle_keypress(XEvent *ev)
 			}
 		}
 		// final co-ords are fixed. go to it...
-		if (fw > 0 && fh > 0) client_moveresize(c, smart, fx, fy, fw, fh);
+		if (fw > 0 && fh > 0)
+		{
+			client_commit(c);
+			client_moveresize(c, smart, fx, fy, fw, fh);
+		}
 	}
 }
 
@@ -2520,6 +2600,7 @@ void handle_clientmessage(XEvent *ev)
 			if (m->message_type == netatoms[_NET_MOVERESIZE_WINDOW] &&
 				(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
 			{
+				client_commit(c);
 				client_extended_data(c); client_moveresize(c, 0,
 					m->data.l[1] >= 0 ? m->data.l[1]: c->x,  m->data.l[2] >= 0 ? m->data.l[2]: c->y,
 					m->data.l[3] >= 1 ? m->data.l[3]: c->sw, m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
