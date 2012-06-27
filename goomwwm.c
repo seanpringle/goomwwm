@@ -1910,7 +1910,7 @@ struct localmenu {
 	char **lines, **filtered;
 	int done, max_lines, num_lines, input_size, line_height;
 	int current, width, height, horz_pad, vert_pad, offset;
-	char *input;
+	char *input, *selected, *manual;
 	XIM xim;
 	XIC xic;
 };
@@ -1965,11 +1965,7 @@ void menu_key(struct localmenu *my, XEvent *ev)
 	key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
 
 	if (key == XK_Escape)
-	{
-		my->input[0] = 0;
-		my->offset = 0;
 		my->done = 1;
-	}
 	else
 	if (key == XK_BackSpace)
 	{
@@ -1985,17 +1981,19 @@ void menu_key(struct localmenu *my, XEvent *ev)
 	else
 	if (key == XK_Return)
 	{
-		if (my->filtered)
-		{
-			my->offset = strlen(my->filtered[my->current]);
-			memmove(my->input, my->filtered[my->current], my->offset+1);
-			my->done = 1;
-		}
+		if (my->filtered[my->current])
+			my->selected = my->filtered[my->current];
+		else
+		if (my->manual)
+			strcpy(my->manual, my->input);
+		my->done = 1;
 	}
 	else
-	if (!iscntrl(*pad))
-		if (my->offset < my->input_size-1)
-			my->input[my->offset++] = *pad;
+	if (!iscntrl(*pad) && my->offset < my->input_size-1)
+	{
+		my->input[my->offset++] = *pad;
+		my->input[my->offset] = 0;
+	}
 	menu_draw(my);
 }
 
@@ -2013,7 +2011,7 @@ int menu_grab(struct localmenu *my)
 }
 
 // menu
-int menu(Window root, char **lines)
+int menu(Window root, char **lines, char *manual)
 {
 	int i, l, scr;
 	struct localmenu _my, *my = &_my;
@@ -2046,6 +2044,8 @@ int menu(Window root, char **lines)
 	my->width       = (mon.w/100)*config_menu_width;
 	my->height      = ((my->line_height) * (my->max_lines+1)) + (my->vert_pad*2);
 	my->xbg         = XGetColor(display, config_menu_bg);
+	my->selected    = NULL;
+	my->manual      = manual;
 
 	int x = mon.x + ((mon.w - my->width)/2);
 	int y = mon.y + (mon.h/2) - (my->height/2);
@@ -2084,13 +2084,17 @@ int menu(Window root, char **lines)
 			menu_key(my, &ev);
 	}
 	free(my->filtered);
-	// the list may have been filtered. locate the line that was selected.
-	for (i = 0; my->lines[i] && strcmp(my->lines[i], my->input); i++);
 	XftDrawDestroy(my->draw);
 	XFreeGC(display, my->gc);
 	XftFontClose(display, my->font);
+	XUngrabKeyboard(display, CurrentTime);
 	free(my->input);
-	return i;
+
+	if (my->selected)
+		for (i = 0; my->lines[i]; i++)
+			if (my->lines[i] == my->selected)
+				return i;
+	return -1;
 }
 
 // built-in window switcher
@@ -2153,8 +2157,8 @@ void window_switcher(Window root, unsigned int tag)
 	{
 		display = XOpenDisplay(0);
 		XSync(display, True);
-		int n = menu(root, list);
-		if (list[n])
+		int n = menu(root, list, NULL);
+		if (n >= 0 && list[n])
 		{
 			window_send_message(root, ids->array[n], netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
 				SubstructureNotifyMask | SubstructureRedirectMask);
