@@ -2111,6 +2111,13 @@ void handle_keypress(XEvent *ev)
 		else
 		if (key == keymap[KEY_GROW] || key == keymap[KEY_SHRINK])
 		{
+			// a maxh/maxv client stays that way
+			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
+				width1 = width2 = width3 = width4 = screen_width;
+
+			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
+				height1 = height2 = height3 = height4 = screen_height;
+
 			smart = 1;
 			// window width zone
 			int isw4 = w >= width4 ?1:0;
@@ -2140,8 +2147,6 @@ void handle_keypress(XEvent *ev)
 				else if (is2) { fw = width3; fh = height3; }
 				else if (is3) { fw = width4; fh = height4; }
 				else { fw = width4; fh = height4; }
-				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 				smart = 1;
 			}
 			else
@@ -2151,8 +2156,6 @@ void handle_keypress(XEvent *ev)
 				if (is4) { fw = width3; fh = height3; }
 				else if (is3) { fw = width2; fh = height2; }
 				else { fw = width1; fh = height1; }
-				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-				client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 				smart = 1;
 			}
 		}
