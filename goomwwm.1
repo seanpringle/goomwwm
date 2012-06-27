@@ -103,6 +103,10 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .RB [ \-close
 .IR key ]
+.RB [ \-htile
+.IR key ]
+.RB [ \-vtile
+.IR key ]
 .RB [ \-launch
 .IR key ]
 .SH DESCRIPTION
@@ -155,6 +159,12 @@ Grow the active window through four basic sizes that tile well together: 1/9th, 
 .B Mod4-Page_Down
 Shrink the active window through the same four sizes.
 .TP
+.B Mod4-h
+Horizontally tile the active window and the highest window with the same tag, position, and size.
+.TP
+.B Mod4-v
+Vertically tile the active window and the highest window with the same tag, position, and size.
+.TP
 .B Mod4-x
 Run the launcher (by default: dmenu_run).
 .TP
@@ -202,6 +212,9 @@ Switch focus upward from the active window.
 .TP
 .B Mod4-k
 Switch focus downward from the active window.
+.TP
+.B Mod4-t
+Toggle the active window's membership of the current tag.
 .TP
 .B Mod4-t
 Toggle the active window's membership of the current tag.
@@ -395,6 +408,13 @@ Set an X11 key name to toggle _NET_WM_STATE_MAXIMIXED_HORZ for the active window
 goomwwm -hmax End
 .RE
 .TP
+.B -htile
+Set an X11 key to horizontally tile the active window and the highest window with the same tag, position, and size (default: XK_h).
+.P
+.RS
+goomwwm -htile h
+.RE
+.TP
 .B -left
 Set an X11 key name to move the active window to the left in a 3x3 grid (default: XK_Left).
 .P
@@ -512,6 +532,13 @@ Set an X11 key name to toggle _NET_WM_STATE_MAXIMIXED_VERT for the active window
 .P
 .RS
 goomwwm -vmax Home
+.RE
+.TP
+.B -vtile
+Set an X11 key to vertically tile the active window and the highest window with the same tag, position, and size (default: XK_v).
+.P
+.RS
+goomwwm -vtile h
 .RE
 .SH SEE ALSO
 .BR dmenu (1)

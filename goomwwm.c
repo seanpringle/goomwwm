@@ -296,6 +296,8 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_TSWITCH, XK_grave, -tswitch),\
 	X(KEY_CYCLE, XK_c, -cycle),\
 	X(KEY_CLOSE, XK_Escape, -close),\
+	X(KEY_HTILE, XK_h, -htile),\
+	X(KEY_VTILE, XK_v, -vtile),\
 	X(KEY_DEBUG, XK_d, -debug),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
@@ -1664,14 +1666,14 @@ void client_nws_review(client *c)
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
 }
 
-// cycle through tag windows in roughly the same screen position
+// cycle through tag windows in roughly the same screen position ang tag
 void client_cycle(client *c)
 {
 	client_extended_data(c);
 	int i, vague = c->monitor.w/100; Window w; client *o;
 	winlist_ascend(windows_in_play(c->xattr.root), i, w)
 	{
-		if ((o = window_client(w)) && o && o->manage && o->visible
+		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible
 			&& (!c->cache->tags || c->cache->tags & o->cache->tags))
 		{
 			client_extended_data(o);
@@ -1686,6 +1688,55 @@ void client_cycle(client *c)
 		}
 	}
 }
+
+// horizontally tile two windows in the same screen position and tag
+void client_htile(client *c)
+{
+	client_extended_data(c);
+	int i, vague = c->monitor.w/100; Window w; client *o;
+	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	{
+		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible
+			&& (!c->cache->tags || c->cache->tags & o->cache->tags))
+		{
+			client_extended_data(o);
+			if (NEAR(c->x, vague, o->x) &&
+				NEAR(c->y, vague, o->y) &&
+				NEAR(c->w, vague, o->w) &&
+				NEAR(c->h, vague, o->h))
+			{
+				client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
+				client_moveresize(o, 0, c->x+(c->sw/2), c->y, c->sw/2, c->sh);
+				break;
+			}
+		}
+	}
+}
+
+// vertically tile two windows in the same screen position and tag
+void client_vtile(client *c)
+{
+	client_extended_data(c);
+	int i, vague = c->monitor.w/100; Window w; client *o;
+	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	{
+		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible
+			&& (!c->cache->tags || c->cache->tags & o->cache->tags))
+		{
+			client_extended_data(o);
+			if (NEAR(c->x, vague, o->x) &&
+				NEAR(c->y, vague, o->y) &&
+				NEAR(c->w, vague, o->w) &&
+				NEAR(c->h, vague, o->h))
+			{
+				client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
+				client_moveresize(o, 0, c->x, c->y+(c->sh/2), c->sw, c->sh/2);
+				break;
+			}
+		}
+	}
+}
+
 
 // move focus by direction. this is a visual thing, not restricted by tag
 void client_focusto(client *c, int direction)
@@ -2096,6 +2147,10 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_EXPAND]) client_expand(c, HORIZONTAL|VERTICAL);
 		else if (key == keymap[KEY_EHMAX]) client_expand(c, HORIZONTAL);
 		else if (key == keymap[KEY_EVMAX]) client_expand(c, VERTICAL);
+
+		// splitting
+		else if (key == keymap[KEY_HTILE]) client_htile(c);
+		else if (key == keymap[KEY_VTILE]) client_vtile(c);
 
 		// directional focus change
 		else if (key == keymap[KEY_FOCUSLEFT]) client_focusto(c, FOCUSLEFT);
