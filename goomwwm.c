@@ -890,6 +890,33 @@ void ewmh_active_window(Window root, Window w)
 	XChangeProperty(display, root, netatoms[_NET_ACTIVE_WINDOW], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&w, 1);
 }
 
+// _NET_DESKTOP stuff, taking _NET_WM_STRUT* into account
+void ewmh_desktop_list(Window root)
+{
+	int i; XWindowAttributes *attr = window_get_attributes(root);
+	// nine desktops. want more space? buy more monitors and use xinerama :)
+	unsigned long desktops = TAGS, area[4*TAGS], geo[2], view[2], desktop;
+
+	// this will return the full X screen, not Xinerama screen
+	workarea mon; monitor_dimensions_struts(attr->screen, -1, -1, &mon);
+
+	for (i = 0; i < TAGS; i++)
+	{
+		area[(i*4)+0] = mon.x; area[(i*4)+1] = mon.y;
+		area[(i*4)+2] = mon.w; area[(i*4)+3] = mon.h;
+	}
+	view[0] = 0; view[1] = 0;
+	geo[0] = DisplayWidth(display, XScreenNumberOfScreen(attr->screen));
+	geo[1] = DisplayHeight(display, XScreenNumberOfScreen(attr->screen));
+	desktop = tag_to_desktop(current_tag);
+
+	window_set_cardinal_prop(root, netatoms[_NET_NUMBER_OF_DESKTOPS], &desktops, 1);
+	window_set_cardinal_prop(root, netatoms[_NET_DESKTOP_GEOMETRY],   geo,  2);
+	window_set_cardinal_prop(root, netatoms[_NET_DESKTOP_VIEWPORT],   view, 2);
+	window_set_cardinal_prop(root, netatoms[_NET_WORKAREA],           area, TAGS*4);
+	window_set_cardinal_prop(root, netatoms[_NET_CURRENT_DESKTOP],    &desktop, 1);
+}
+
 // if a client supports a WM_PROTOCOLS type atom, dispatch an event
 int client_protocol_event(client *c, Atom protocol)
 {
@@ -2624,9 +2651,6 @@ void grab_key(Window root, KeySym key)
 void setup_screen(int scr)
 {
 	int i; Window w, root = RootWindow(display, scr);
-
-	unsigned long desktops = TAGS, desktop = 0;
-	unsigned long workarea[4] = { 0, 0, DisplayWidth(display, scr), DisplayHeight(display, scr) };
 	Window supporting = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
 	unsigned long pid = getpid();
 
@@ -2638,13 +2662,6 @@ void setup_screen(int scr)
 	XChangeProperty(display, supporting, netatoms[_NET_SUPPORTING_WM_CHECK], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&supporting, 1);
 	XChangeProperty(display, supporting, netatoms[_NET_WM_NAME], XA_STRING,    8, PropModeReplace, (const unsigned char*)"GoomwWM", 6);
 	XChangeProperty(display, supporting, netatoms[_NET_WM_PID],  XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&pid, 1);
-
-	// one desktop. want more space? buy more monitors and use xinerama :)
-	XChangeProperty(display, root, netatoms[_NET_NUMBER_OF_DESKTOPS], XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&desktops, 1);
-	XChangeProperty(display, root, netatoms[_NET_CURRENT_DESKTOP],    XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&desktop, 1);
-	XChangeProperty(display, root, netatoms[_NET_DESKTOP_GEOMETRY],   XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea[2], 2);
-	XChangeProperty(display, root, netatoms[_NET_DESKTOP_VIEWPORT],   XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea, 2);
-	XChangeProperty(display, root, netatoms[_NET_WORKAREA],           XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&workarea, 4);
 
 	// bind all MODKEY+ combos
 	XUngrabKey(display, AnyKey, AnyModifier, root);
@@ -2676,6 +2693,7 @@ void setup_screen(int scr)
 	// activate and focus top window
 	window_active_client(root, 0);
 	ewmh_client_list(root);
+	ewmh_desktop_list(root);
 }
 
 int main(int argc, char *argv[])
