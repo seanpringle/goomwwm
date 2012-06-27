@@ -1851,15 +1851,8 @@ void menu_key(struct localmenu *my, XEvent *ev)
 	if (key == XK_Up)
 		my->current = (my->current == 0 ? my->max_lines-1: my->current-1);
 	else
-	if (key == XK_Down)
+	if (key == XK_Down || key == XK_Tab)
 		my->current = (my->current == my->max_lines-1 ? 0: my->current+1);
-	else
-	if (key == XK_Tab)
-	{
-		my->current++;
-		if (my->current >= my->max_lines)
-			my->current = 0;
-	}
 	else
 	if (key == XK_Return)
 	{
