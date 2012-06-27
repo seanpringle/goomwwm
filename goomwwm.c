@@ -92,39 +92,6 @@ void catch_exit(int sig)
 {
 	while (0 < waitpid(-1, NULL, WNOHANG));
 }
-// execute sub-process and connect its stdin=infp and stdout=outfp
-pid_t exec_cmd_io(const char *command, int *infp, int *outfp)
-{
-	signal(SIGCHLD, catch_exit);
-
-	int p_stdin[2], p_stdout[2];
-	if (pipe(p_stdin) != 0 || pipe(p_stdout) != 0) return -1;
-
-	pid_t pid = fork();
-	// child process
-	if (!pid)
-	{
-		close(p_stdin[WRITE]); dup2(p_stdin[READ], READ);
-		close(p_stdout[READ]); dup2(p_stdout[WRITE], WRITE);
-		execlp("/bin/sh", "sh", "-c", command, NULL);
-		exit(EXIT_FAILURE); // should never get here!
-	}
-	else
-	// error in fork
-	if (pid < 0)
-	{
-		close(p_stdin[READ]);  close(p_stdin[WRITE]);
-		close(p_stdout[READ]); close(p_stdout[WRITE]);
-	}
-	else
-	// all good!
-	{
-		if (infp  == NULL) close(p_stdin[WRITE]); else *infp  = p_stdin[WRITE];
-		if (outfp == NULL) close(p_stdout[READ]); else *outfp = p_stdout[READ];
-		close(p_stdin[READ]); close(p_stdout[WRITE]);
-	}
-	return pid;
-}
 // execute sub-process
 pid_t exec_cmd(char *cmd)
 {
