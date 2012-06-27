@@ -88,6 +88,15 @@ void* reallocate(void *ptr, unsigned long bytes)
 	return ptr;
 }
 
+void strtrim(char *str)
+{
+	int i = 0, j = 0;
+	while (isspace(str[i])) i++;
+	while (str[i]) str[i++] = str[j++];
+	while (isspace(str[--j]));
+	str[++j] = '\0';
+}
+
 void catch_exit(int sig)
 {
 	while (0 < waitpid(-1, NULL, WNOHANG));
@@ -2715,6 +2724,52 @@ int main(int argc, char *argv[])
 	}
 	signal(SIGCHLD, catch_exit);
 
+	// prepare to fall back on ~/.goomwwmrc
+	char *conf_home = NULL, *home = getenv("HOME");
+	if (home)
+	{
+		conf_home = allocate_clear(1024);
+		sprintf(conf_home, "%s/.goomwwmrc", home);
+	}
+
+	// prepare args and merge conf file args
+	int ac = argc; char **av = argv, *conf;
+	if ((conf = find_arg_str(argc, argv, "-config", conf_home)))
+	{
+		// new list for both sets of args
+		av = allocate(sizeof(char*) * ac);
+		for (i = 0; i < ac; i++) av[i] = argv[i];
+		// parse config line by line
+		FILE *f = fopen(conf, "r");
+		if (!f)
+			fprintf(stderr, "could not open %s\n", conf);
+		else
+		{
+			char *line = allocate_clear(1024);
+			// yes, +1. see hyphen prepend below
+			while (fgets(line+1, 1023, f))
+			{
+				strtrim(line+1);
+				// comment or empty line
+				if (!line[1] || line[1] == '#') continue;
+				// nope, got a config var!
+				av = reallocate(av, sizeof(char*)*(ac+2));
+				char *p = line; *p++ = '-';
+				// find end of arg name
+				while (*p && !isspace(*p)) p++;
+				*p++ = 0; av[ac++] = strdup(line);
+				// find arg value, if it exists
+				strtrim(p); if (*p) av[ac++] = strdup(p);
+			}
+			fclose(f);
+			free(line);
+		}
+	}
+	free(conf_home);
+#ifdef DEBUG
+	for (i = 0; i < ac; i++) printf("%s\n", av[i]);
+#endif
+
 	// caches to reduce X server round trips during a single event
 	cache_client = winlist_new();
 	cache_xattr  = winlist_new();
@@ -2734,7 +2789,7 @@ int main(int argc, char *argv[])
 
 	// determine modkey
 	config_modkey = MODKEY;
-	char *modkeys = find_arg_str(argc, argv, "-modkey", NULL);
+	char *modkeys = find_arg_str(ac, av, "-modkey", NULL);
 	if (modkeys)
 	{
 		config_modkey = 0;
@@ -2753,42 +2808,42 @@ int main(int argc, char *argv[])
 	// custom keys
 	for (i = 0; keyargs[i]; i++)
 	{
-		char *key = find_arg_str(argc, argv, keyargs[i], NULL);
+		char *key = find_arg_str(ac, av, keyargs[i], NULL);
 		if (key) keymap[i] = XStringToKeysym(key);
 	}
 
 	// border colors
-	config_border_focus     = XGetColor(display, find_arg_str(argc, argv, "-focus", FOCUS));
-	config_border_blur      = XGetColor(display, find_arg_str(argc, argv, "-blur",  BLUR));
-	config_border_attention = XGetColor(display, find_arg_str(argc, argv, "-attention", ATTENTION));
+	config_border_focus     = XGetColor(display, find_arg_str(ac, av, "-focus", FOCUS));
+	config_border_blur      = XGetColor(display, find_arg_str(ac, av, "-blur",  BLUR));
+	config_border_attention = XGetColor(display, find_arg_str(ac, av, "-attention", ATTENTION));
 
 	// border width in pixels
-	config_border_width = MAX(0, find_arg_int(argc, argv, "-border", BORDER));
+	config_border_width = MAX(0, find_arg_int(ac, av, "-border", BORDER));
 
 	// window flashing
-	config_flash_on  = XGetColor(display, find_arg_str(argc, argv, "-flashon",  FLASHON));
-	config_flash_off = XGetColor(display, find_arg_str(argc, argv, "-flashoff", FLASHOFF));
-	config_flash_width = MAX(0, find_arg_int(argc, argv, "-flashpx", FLASHPX));
-	config_flash_ms    = MAX(FLASHMS, find_arg_int(argc, argv, "-flashms", FLASHMS));
+	config_flash_on  = XGetColor(display, find_arg_str(ac, av, "-flashon",  FLASHON));
+	config_flash_off = XGetColor(display, find_arg_str(ac, av, "-flashoff", FLASHOFF));
+	config_flash_width = MAX(0, find_arg_int(ac, av, "-flashpx", FLASHPX));
+	config_flash_ms    = MAX(FLASHMS, find_arg_int(ac, av, "-flashms", FLASHMS));
 
 	// customizable keys
-	config_switcher = find_arg_str(argc, argv, "-switcher", SWITCHER);
-	config_launcher = find_arg_str(argc, argv, "-launcher", LAUNCHER);
+	config_switcher = find_arg_str(ac, av, "-switcher", SWITCHER);
+	config_launcher = find_arg_str(ac, av, "-launcher", LAUNCHER);
 
 	// window switcher
-	config_menu_width = find_arg_int(argc, argv, "-menuwidth", MENUWIDTH);
-	config_menu_lines = find_arg_int(argc, argv, "-menulines", MENULINES);
-	config_menu_font  = find_arg_str(argc, argv, "-menufont", MENUXFTFONT);
-	config_menu_fg    = find_arg_str(argc, argv, "-menufg", MENUFG);
-	config_menu_bg    = find_arg_str(argc, argv, "-menubg", MENUBG);
-	config_menu_hlfg  = find_arg_str(argc, argv, "-menuhlfg", MENUHLFG);
-	config_menu_hlbg  = find_arg_str(argc, argv, "-menuhlbg", MENUHLBG);
+	config_menu_width = find_arg_int(ac, av, "-menuwidth", MENUWIDTH);
+	config_menu_lines = find_arg_int(ac, av, "-menulines", MENULINES);
+	config_menu_font  = find_arg_str(ac, av, "-menufont", MENUXFTFONT);
+	config_menu_fg    = find_arg_str(ac, av, "-menufg", MENUFG);
+	config_menu_bg    = find_arg_str(ac, av, "-menubg", MENUBG);
+	config_menu_hlfg  = find_arg_str(ac, av, "-menuhlfg", MENUHLFG);
+	config_menu_hlbg  = find_arg_str(ac, av, "-menuhlbg", MENUHLBG);
 
 	// app_find_or_start() keys
 	for (i = 0; config_apps_keysyms[i]; i++)
 	{
 		char tmp[3]; sprintf(tmp, "-%d", i);
-		config_apps_patterns[i] = find_arg_str(argc, argv, tmp, NULL);
+		config_apps_patterns[i] = find_arg_str(ac, av, tmp, NULL);
 	}
 	// X atom values
 	for (i = 0; i < ATOMS; i++) atoms[i] = XInternAtom(display, atom_names[i], False);

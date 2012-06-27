@@ -3,6 +3,8 @@
 goomwwm \- Get out of my way, Window Manager!
 .SH SYNOPSIS
 .B goomwwm
+.RB [ \-config
+.IR file ]
 .RB [ \-blur
 .IR color ]
 .RB [ \-border
@@ -273,6 +275,33 @@ Set an X11 key name to gracefully close the active window (default: XK_Escape).
 .P
 .RS
 goomwwm -close Escape
+.RE
+.TP
+.B -config
+Parse extra options from a text file.
+.P
+.RS
+goomwwm -config /path/to/config.txt
+.P
+The file format is any command line options
+.I without
+the leading hyphen. Comments and blank lines are acceptable.
+.RS
+.P
+# a comment
+.br
+1 chromium
+.br
+2 konsole
+.br
+close Escape
+.br
+menufont mono-14
+.RE
+.P
+If it exists,
+.B $HOME/.goomwwmrc
+is automatically parsed.
 .RE
 .TP
 .B -cycle
