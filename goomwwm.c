@@ -247,6 +247,9 @@ typedef struct {
 #define PLACECENTER 2
 #define PLACEPOINTER 3
 
+#define FLASH 1
+#define NOFLASH 0
+
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus, config_border_blur, config_border_attention,
 	config_flash_on, config_flash_off,
@@ -1645,17 +1648,17 @@ void tag_raise(unsigned int tag)
 }
 
 // toggle client in current tag
-void client_toggle_tag(client *c, unsigned int tag)
+void client_toggle_tag(client *c, unsigned int tag, int flash)
 {
 	if (c->cache->tags & tag)
 	{
 		c->cache->tags &= ~tag;
-		client_flash(c, config_flash_off, config_flash_ms);
+		if (flash) client_flash(c, config_flash_off, config_flash_ms);
 	}
 	else
 	{
 		c->cache->tags |= tag;
-		client_flash(c, config_flash_on, config_flash_ms);
+		if (flash) client_flash(c, config_flash_on, config_flash_ms);
 	}
 	// update _NET_WM_DESKTOP using lowest tag number.
 	// this is a bit of a fudge as we can have windows on multiple
@@ -2296,7 +2299,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_DEBUG]) event_client_dump(c);
 #endif
 		else if (key == keymap[KEY_CYCLE]) client_cycle(c);
-		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag);
+		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag, FLASH);
 		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
 		else if (key == keymap[KEY_STICKY]) client_nws_sticky(c, TOGGLE);
 		else if (key == keymap[KEY_FULLSCREEN]) client_nws_fullscreen(c, TOGGLE);
@@ -2699,7 +2702,8 @@ void handle_mapnotify(XEvent *ev)
 	{
 		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
-		client_toggle_tag(c, current_tag);
+		if (!(c->cache->tags & current_tag))
+			client_toggle_tag(c, current_tag, NOFLASH);
 		client_activate(c);
 		ewmh_client_list(c->xattr.root);
 	}
