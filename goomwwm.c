@@ -483,6 +483,8 @@ int pointer_get(Window root, int *x, int *y)
 	return 0;
 }
 
+// for the benefit of EWMH type pagers, tag = desktop
+// but, since a window can have multiple tags... oh well
 unsigned int tag_to_desktop(unsigned int tag)
 {
 	unsigned int i; for (i = 0; i < TAGS; i++) if (tag & (1<<i)) return i;
@@ -520,6 +522,7 @@ XWindowAttributes* window_get_attributes(Window w)
 	return cache_xattr->data[idx];
 }
 
+// retrieve a property of any type from a window
 int window_get_prop(Window w, Atom prop, Atom *type, int *items, void *buffer, int bytes)
 {
 	Atom _type; if (!type) type = &_type;
@@ -539,6 +542,8 @@ int window_get_prop(Window w, Atom prop, Atom *type, int *items, void *buffer, i
 	return 0;
 }
 
+// retrieve a text property from a window
+// technically we could use window_get_prop(), but this is better for character set support
 char* window_get_text_prop(Window w, Atom atom)
 {
 	XTextProperty prop; char *res = NULL;
@@ -589,6 +594,9 @@ void window_unset_prop(Window w, Atom prop)
 	XDeleteProperty(display, w, prop);
 }
 
+// a ClientMessage
+// some things, like the built-in window switcher, use an EWMH ClientMessage
+// also, older WM_PROTOCOLS type stuff calls this
 int window_send_message(Window target, Window subject, Atom atom, unsigned long protocol, unsigned long mask)
 {
     XEvent e; memset(&e, 0, sizeof(XEvent));
@@ -652,8 +660,6 @@ void monitor_dimensions(Screen *screen, int x, int y, workarea *mon)
 void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 {
 	monitor_dimensions(screen, x, y, mon);
-
-	// walk the open apps and check for struts
 	Window root = RootWindow(display, XScreenNumberOfScreen(screen));
 
 	// strut cardinals are relative to the root window size, which is not necessarily the monitor size
@@ -661,6 +667,8 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 	int left = 0, right = 0, top = 0, bottom = 0;
 
 	int i; Window win;
+	// walk the open apps and check for struts
+	// this is fairly lightweight thanks to some caches
 	winlist_ascend(windows_in_play(root), i, win)
 	{
 		XWindowAttributes *attr = window_get_attributes(win);
@@ -671,6 +679,8 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 			if (XGetWindowProperty(display, win, netatoms[_NET_WM_STRUT_PARTIAL], 0L, 12,
 				False, XA_CARDINAL, &a, &b, &c, &d, &res) == Success && res)
 			{
+				// we only pay attention to the first four params
+				// this is no more complex that _NET_WM_STRUT, but newer stuff uses _PARTIAL
 				strut = (unsigned long*)res;
 				left   = MAX(left, strut[0]); right  = MAX(right,  strut[1]);
 				top    = MAX(top,  strut[2]); bottom = MAX(bottom, strut[3]);
@@ -687,12 +697,11 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 	mon->h -= (mon->t+mon->b);
 }
 
+// manipulate client->state
 void client_flush_state(client *c)
 {
 	window_set_atom_prop(c->window, netatoms[_NET_WM_STATE], c->state, c->states);
 }
-
-// manipulate client->state
 int client_has_state(client *c, Atom state)
 {
 	int i; for (i = 0; i < c->states; i++) if (c->state[i] == state) return 1;
@@ -723,6 +732,9 @@ void client_toggle_state(client *c, Atom state)
 	client_set_state(c, state, !client_has_state(c, state));
 }
 
+// the window on top of windows_activated list was the last one we activated
+// assume this is still the active one... seems to work most of the time!
+// if this is wrong, worst case scenario is focus manages to revert to root
 int window_is_active(Window w)
 {
 	return windows_activated->len && w == windows_activated->array[windows_activated->len-1] ?1:0;
@@ -742,6 +754,7 @@ client* window_client(Window win)
 
 	client *c = allocate_clear(sizeof(client));
 	c->window = win;
+	// copy xattr so we don't have to care when stuff is freed
 	memmove(&c->xattr, attr, sizeof(XWindowAttributes));
 	XGetTransientForHint(display, win, &c->trans);
 
@@ -763,6 +776,8 @@ client* window_client(Window win)
 
 	c->active = c->manage && c->visible && window_is_active(c->window) ?1:0;
 
+	// focus seems a really dodgy way to determine the "active" window, but in some
+	// cases checking both ->active and ->focus is necessary to bahave logically
 	Window focus; int rev;
 	XGetInputFocus(display, &focus, &rev);
 	c->focus = focus == win ? 1:0;
@@ -781,6 +796,9 @@ client* window_client(Window win)
 		winlist_append(windows, c->window, cache);
 		idx = windows->len-1;
 	}
+	// the cache is not tightly linked to the window at all
+	// if it's populated, it gets used to make behaviour appear logically
+	// if it's empty, nothing cares that much
 	c->cache = windows->data[idx];
 
 	winlist_append(cache_client, c->window, c);
@@ -814,6 +832,8 @@ void client_descriptive_data(client *c)
 }
 
 // extend client data
+// necessary for anything that is going to move/resize/stack, but expensive to do
+// every time in window_client()
 void client_extended_data(client *c)
 {
 	if (!c || c->w || c->h) return;
@@ -910,6 +930,7 @@ void ewmh_client_list(Window root)
 	winlist *mapped   = winlist_new();
 	int i; Window w; client *c;
 
+	// windows_in_play() returns the stacking order. windows_activated *MAY NOT* have the same order
 	winlist_ascend(windows_in_play(root), i, w)
 		if ((c = window_client(w)) && c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
 			winlist_append(relevant, w, NULL);
@@ -939,6 +960,7 @@ void ewmh_desktop_list(Window root)
 	// this will return the full X screen, not Xinerama screen
 	workarea mon; monitor_dimensions_struts(attr->screen, -1, -1, &mon);
 
+	// figure out the workarea, less struts
 	for (i = 0; i < TAGS; i++)
 	{
 		area[(i*4)+0] = mon.x; area[(i*4)+1] = mon.y;
@@ -1083,7 +1105,6 @@ void client_commit(client *c)
 		undo = &c->cache->undo[c->cache->undo_levels-1];
 		if (undo->x == c->x && undo->y == c->y && undo->w == c->w && undo->h == c->h) return;
 	}
-
 	// LIFO up to UNDO cells deep
 	if (c->cache->undo_levels == UNDO)
 	{
@@ -1097,7 +1118,7 @@ void client_commit(client *c)
 		undo->state[undo->states] = c->state[undo->states];
 }
 
-// move/resize a window back to it's last size and position
+// move/resize a window back to it's last known size and position
 void client_rollback(client *c)
 {
 	if (c->cache->undo_levels > 0)
@@ -1203,19 +1224,13 @@ void client_expand(client *c, int directions)
 						allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h))
 							{ obscured = 1; break; }
 				}
-#ifdef DEBUG
-				client_descriptive_data(o);
-#endif
 				// record a full visible window
 				if (!obscured)
 				{
 					regions[relevant].x = o->sx; regions[relevant].y = o->sy;
 					regions[relevant].w = o->sw; regions[relevant].h = o->sh;
-					event_note("visible: %x %s", (unsigned int)o->window, o->title);
 					relevant++;
 				}
-				else
-					event_note("invisible: %x %s", (unsigned int)o->window, o->title);
 				allregions[i].x = o->sx; allregions[i].y = o->sy;
 				allregions[i].w = o->sw; allregions[i].h = o->sh;
 			}
