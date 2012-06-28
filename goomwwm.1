@@ -326,7 +326,7 @@ goomwwm -close Escape
 Set an X11 key name to contract the active window to fill an underlying space without obscuring any other window that would then be fully visible (default: XK_Contract). Opposite of -expand.
 .P
 .RS
-goomwwm -expand Return
+goomwwm -contract BackSpace
 .RE
 .TP
 .B -down
@@ -478,7 +478,7 @@ goomwwm -hmax End
 .RE
 .TP
 .B -htile
-Set an X11 key to horizontally tile the active window and the highest window with the same tag, position, and size (default: XK_h).
+Set an X11 key to horizontally tile the active window and the next highest window with the same tag, position, and size (default: XK_h). If no other window is found, a gap is created.
 .P
 .RS
 goomwwm -htile h
@@ -652,7 +652,7 @@ goomwwm -vmax Home
 .RE
 .TP
 .B -vtile
-Set an X11 key to vertically tile the active window and the highest window with the same tag, position, and size (default: XK_v).
+Set an X11 key to vertically tile the active window and the next highest window with the same tag, position, and size (default: XK_v). if not other window is found, a gap is created.
 .P
 .RS
 goomwwm -vtile h
