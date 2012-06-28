@@ -288,6 +288,7 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_VMAX, XK_Home, -vmax),\
 	X(KEY_HMAX, XK_End, -hmax),\
 	X(KEY_EXPAND, XK_Return, -expand),\
+	X(KEY_CONTRACT, XK_BackSpace, -contract),\
 	X(KEY_EVMAX, XK_Insert, -evmax),\
 	X(KEY_EHMAX, XK_Delete, -ehmax),\
 	X(KEY_TAG, XK_t, -tag),\
@@ -1194,7 +1195,7 @@ void client_restore_position_vert(client *c, int smart, int y, int h)
 
 // expand a window to take up available space around it on the current monitor
 // do not cover any window that is entirely visible (snap to surrounding edges)
-void client_expand(client *c, int directions)
+void client_expand(client *c, int directions, int x1, int y1, int w1, int h1)
 {
 	client_extended_data(c);
 
@@ -1238,6 +1239,7 @@ void client_expand(client *c, int directions)
 	}
 
 	int n, x = c->sx, y = c->sy, w = c->sw, h = c->sh;
+	if (w1 || h1) { x = x1; y = y1; w = w1; h = h1; }
 
 	if (directions & VERTICAL)
 	{
@@ -1301,6 +1303,21 @@ void client_expand(client *c, int directions)
 		client_moveresize(c, 0, c->monitor.x+x, c->monitor.y+y, w, h);
 	}
 	free(regions); free(allregions);
+}
+
+// shrink to fit into an empty gap underneath. opposite of client_expand()
+void client_contract(client *c, int directions)
+{
+	client_extended_data(c);
+	// cheat and shrink the window absurdly so it becomes just another expansion
+	if (directions & VERTICAL && directions & HORIZONTAL)
+		client_expand(c, directions, c->sx+(c->sw/2), c->sy+(c->sh/2), 5, 5);
+	else
+	if (directions & VERTICAL)
+		client_expand(c, directions, c->sx, c->sy+(c->sh/2), c->sw, 5);
+	else
+	if (directions & HORIZONTAL)
+		client_expand(c, directions, c->sx+(c->sw/2), c->sy, 5, c->sh);
 }
 
 // visually highlight a client to attract attention
@@ -2280,9 +2297,10 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_FULLSCREEN]) client_nws_fullscreen(c, TOGGLE);
 		else if (key == keymap[KEY_HMAX]) client_nws_maxhorz(c, TOGGLE);
 		else if (key == keymap[KEY_VMAX]) client_nws_maxvert(c, TOGGLE);
-		else if (key == keymap[KEY_EXPAND]) client_expand(c, HORIZONTAL|VERTICAL);
-		else if (key == keymap[KEY_EHMAX]) client_expand(c, HORIZONTAL);
-		else if (key == keymap[KEY_EVMAX]) client_expand(c, VERTICAL);
+		else if (key == keymap[KEY_EXPAND]) client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0);
+		else if (key == keymap[KEY_CONTRACT]) client_contract(c, HORIZONTAL|VERTICAL);
+		else if (key == keymap[KEY_EHMAX]) client_expand(c, HORIZONTAL, 0, 0, 0, 0);
+		else if (key == keymap[KEY_EVMAX]) client_expand(c, VERTICAL, 0, 0, 0, 0);
 		else if (key == keymap[KEY_HTILE]) client_htile(c);
 		else if (key == keymap[KEY_VTILE]) client_vtile(c);
 		else if (key == keymap[KEY_UNDO]) client_rollback(c);

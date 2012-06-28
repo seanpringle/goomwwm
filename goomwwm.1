@@ -119,6 +119,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR mode ]
 .RB [ \-placement
 .IR mode ]
+.RB [ \-contract
+.IR key ]
 .SH DESCRIPTION
 .I goomwwm
 is an X11 window manager implemented in C as a cleanroom software project. It manages windows in a minimal floating layout with normal mouse controls, while also providing flexible keyboard-driven controls for window switching, sizing, moving, tagging, and tiling. It is fast, lightweight, modeless, Xinerama-aware, and EWMH compatible wherever possible.
@@ -192,6 +194,9 @@ Toggle _NET_WM_STATE_MAXIMIXED_VERT for the active window. Corners will flash to
 .TP
 .B Mod4-Return
 Expand active window to fill surrounding space without obscuring any fully visible window.
+.TP
+.B Mod4-Backspace
+Contract active window to fill an underlying space without obscuring window that would then be fully visible.
 .TP
 .B Mod4-Insert
 Expand active window vertically to fill adjacent space without obscuring any fully visible window.
@@ -317,6 +322,13 @@ Set an X11 key name to cycle windows in the same tag, position, and size as the 
 goomwwm -close Escape
 .RE
 .TP
+.B -contract
+Set an X11 key name to contract the active window to fill an underlying space without obscuring any other window that would then be fully visible (default: XK_Contract). Opposite of -expand.
+.P
+.RS
+goomwwm -expand Return
+.RE
+.TP
 .B -down
 Set an X11 key name to move the active window downward in a 3x3 grid (default: XK_Down).
 .P
@@ -325,7 +337,7 @@ goomwwm -down Down
 .RE
 .TP
 .B -expand
-Set an X11 key name to expand the active window to fill adjacent space without obscuring any other fully visible window (default: XK_Return).
+Set an X11 key name to expand the active window to fill adjacent space without obscuring any other fully visible window (default: XK_Return). Opposite of -contract.
 .P
 .RS
 goomwwm -expand Return
