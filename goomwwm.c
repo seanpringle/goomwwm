@@ -1841,6 +1841,7 @@ void client_cycle(client *c)
 void client_htile(client *c)
 {
 	client_extended_data(c);
+	client_commit(c);
 	int i, vague = c->monitor.w/100; Window w; client *o;
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
@@ -1856,16 +1857,19 @@ void client_htile(client *c)
 				client_commit(o);
 				client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
 				client_moveresize(o, 0, c->x+(c->sw/2), c->y, c->sw/2, c->sh);
-				break;
+				return;
 			}
 		}
 	}
+	// nothing to tile with. still make a gap for something subsequent
+	client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
 }
 
 // vertically tile two windows in the same screen position and tag
 void client_vtile(client *c)
 {
 	client_extended_data(c);
+	client_commit(c);
 	int i, vague = c->monitor.w/100; Window w; client *o;
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
@@ -1881,10 +1885,12 @@ void client_vtile(client *c)
 				client_commit(o);
 				client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
 				client_moveresize(o, 0, c->x, c->y+(c->sh/2), c->sw, c->sh/2);
-				break;
+				return;
 			}
 		}
 	}
+	// nothing to tile with. still make a gap for something subsequent
+	client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
 }
 
 
