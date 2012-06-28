@@ -2643,7 +2643,10 @@ void handle_clientmessage(XEvent *ev)
 		{
 			event_client_dump(c);
 			if (m->message_type == netatoms[_NET_ACTIVE_WINDOW])
+			{
 				client_activate(c);
+				if (config_raise_mode != RAISEFOCUS) client_raise(c, 0);
+			}
 			else
 			if (m->message_type == netatoms[_NET_CLOSE_WINDOW])
 				client_close(c);
@@ -2692,7 +2695,10 @@ void handle_enternotify(XEvent *ev)
 {
 	// only care about the sloppy modes here
 	if (config_focus_mode == FOCUSCLICK) return;
-	if (ev->xcrossing.type != EnterNotify) return;
+	// ensure it's a proper enter event without keys or buttons down
+	if (ev->xcrossing.type != EnterNotify || ev->xcrossing.state) return;
+	// prevent focus flicker if mouse is moving through multiple windows fast
+	while(XCheckTypedEvent(display, EnterNotify, ev));
 
 	client *c = window_client(ev->xcrossing.window);
 	// FOCUSSLOPPY = any manageable window
