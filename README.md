@@ -14,6 +14,9 @@ Windows are grouped by tags. Activating a tag raises all windows in the tag. A w
 _For more detail, see the included man page._
 
 ![Alt text](http://aerosuidae.net/goomwwm/goomwwm-1.jpg)
+
 ![Alt text](http://aerosuidae.net/goomwwm/goomwwm-2.jpg)
+
 ![Alt text](http://aerosuidae.net/goomwwm/goomwwm-3.jpg)
+
 ![Alt text](http://aerosuidae.net/goomwwm/goomwwm-4.jpg)
