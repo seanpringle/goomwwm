@@ -982,7 +982,7 @@ void ewmh_desktop_list(Window root)
 // if a client supports a WM_PROTOCOLS type atom, dispatch an event
 int client_protocol_event(client *c, Atom protocol)
 {
-	Atom *protocols;
+	Atom *protocols = NULL;
 	int i, found = 0, num_pro = 0;
 	if (XGetWMProtocols(display, c->window, &protocols, &num_pro))
 		for (i = 0; i < num_pro && !found; i++)
@@ -1892,7 +1892,6 @@ void client_vtile(client *c)
 	// nothing to tile with. still make a gap for something subsequent
 	client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
 }
-
 
 // move focus by direction. this is a visual thing, not restricted by tag
 void client_focusto(client *c, int direction)
