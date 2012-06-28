@@ -121,6 +121,10 @@ goomwwm \- Get out of my way, Window Manager!
 .IR mode ]
 .RB [ \-contract
 .IR key ]
+.RB [ \-tagnext
+.IR key ]
+.RB [ \-tagprev
+.IR key ]
 .SH DESCRIPTION
 .I goomwwm
 is an X11 window manager implemented in C as a cleanroom software project. It manages windows in a minimal floating layout with normal mouse controls, while also providing flexible keyboard-driven controls for window switching, sizing, moving, tagging, and tiling. It is fast, lightweight, modeless, Xinerama-aware, and EWMH compatible wherever possible.
@@ -233,6 +237,12 @@ Switch focus downward from the active window.
 .TP
 .B Mod4-t
 Toggle the active window's membership of the current tag.
+.TP
+.B Mod4-m
+Cycle tag forward.
+.TP
+.B Mod4-n
+Cycle tag backward.
 
 .SH OPTIONS
 .P
@@ -628,6 +638,20 @@ Set an X11 key to start display window-switcher showing only windows in the curr
 .P
 .RS
 goomwwm -tswitch grave
+.RE
+.TP
+.B -tagnext
+Set an X11 key to cycle tags forward (default: XK_m).
+.P
+.RS
+goomwwm -tagnext m
+.RE
+.TP
+.B -tagprev
+Set an X11 key to cycle tags in reverse (default: XK_n).
+.P
+.RS
+goomwwm -tagprev n
 .RE
 .TP
 .B -up

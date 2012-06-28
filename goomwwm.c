@@ -302,6 +302,8 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_HTILE, XK_h, -htile),\
 	X(KEY_VTILE, XK_v, -vtile),\
 	X(KEY_UNDO, XK_u, -undo),\
+	X(KEY_TAGNEXT, XK_m, -tagnext),\
+	X(KEY_TAGPREV, XK_n, -tagprev),\
 	X(KEY_DEBUG, XK_d, -debug),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
@@ -603,11 +605,11 @@ void window_unset_prop(Window w, Atom prop)
 // also, older WM_PROTOCOLS type stuff calls this
 int window_send_message(Window target, Window subject, Atom atom, unsigned long protocol, unsigned long mask)
 {
-    XEvent e; memset(&e, 0, sizeof(XEvent));
-    e.xclient.type = ClientMessage;
-    e.xclient.message_type = atom;     e.xclient.window    = subject;
-    e.xclient.data.l[0]    = protocol; e.xclient.data.l[1] = CurrentTime;
-    e.xclient.send_event   = True;     e.xclient.format    = 32;
+	XEvent e; memset(&e, 0, sizeof(XEvent));
+	e.xclient.type = ClientMessage;
+	e.xclient.message_type = atom;     e.xclient.window    = subject;
+	e.xclient.data.l[0]    = protocol; e.xclient.data.l[1] = CurrentTime;
+	e.xclient.send_event   = True;     e.xclient.format    = 32;
 	int r = XSendEvent(display, target, False, mask, &e) ?1:0;
 	XFlush(display);
 	return r;
@@ -2263,6 +2265,7 @@ void handle_keypress(XEvent *ev)
 		else window_switcher(ev->xany.window, 0);
 	}
 	else if (key == keymap[KEY_LAUNCH]) exec_cmd(config_launcher);
+
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
 	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0)
@@ -2270,6 +2273,10 @@ void handle_keypress(XEvent *ev)
 
 	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0)
 		tag_raise(1<<i);
+
+	// tag cycling
+	else if (key == keymap[KEY_TAGNEXT]) tag_raise(current_tag & TAG9 ? TAG1: current_tag<<1);
+	else if (key == keymap[KEY_TAGPREV]) tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
 
 	else
 	// following only relevant with a focused window
