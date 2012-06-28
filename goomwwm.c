@@ -723,6 +723,11 @@ void client_toggle_state(client *c, Atom state)
 	client_set_state(c, state, !client_has_state(c, state));
 }
 
+int window_is_active(Window w)
+{
+	return windows_activated->len && w == windows_activated->array[windows_activated->len-1] ?1:0;
+}
+
 // collect info on any window
 // doesn't have to be a window we'll end up managing
 client* window_client(Window win)
@@ -756,8 +761,7 @@ client* window_client(Window win)
 		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_SPLASH]
 		?1:0;
 
-	c->active = c->manage && c->visible && windows_activated->len
-		&& windows_activated->array[windows_activated->len-1] == c->window ?1:0;
+	c->active = c->manage && c->visible && window_is_active(c->window) ?1:0;
 
 	Window focus; int rev;
 	XGetInputFocus(display, &focus, &rev);
@@ -998,6 +1002,14 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	{
 		fw = MIN(fw, c->xsize.max_width);
 		fh = MIN(fh, c->xsize.max_height);
+	}
+	if (c->xsize.flags & PAspect)
+	{
+		double ratio = (double) fw / fh;
+		double minr = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
+		double maxr = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
+			if (ratio < minr) fh = (int)(fw / minr);
+		else if (ratio > maxr) fw = (int)(fh * maxr);
 	}
 	// bump onto screen. shrink if necessary
 	fw = MAX(1, MIN(fw, monitor.w)); fh = MAX(1, MIN(fh, monitor.h));
@@ -2460,6 +2472,26 @@ void handle_motionnotify(XEvent *ev)
 			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) w = c->monitor.x+c->monitor.w-x-(config_border_width*2);
 			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) h = c->monitor.y+c->monitor.h-y-(config_border_width*2);
 		}
+
+		// process size hints
+		if (c->xsize.flags & PMinSize)
+		{
+			w = MAX(w, c->xsize.min_width);
+			h = MAX(h, c->xsize.min_height);
+		}
+		if (c->xsize.flags & PMaxSize)
+		{
+			w = MIN(w, c->xsize.max_width);
+			h = MIN(h, c->xsize.max_height);
+		}
+		if (c->xsize.flags & PAspect)
+		{
+			double ratio = (double) w / h;
+			double minr = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
+			double maxr = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
+				if (ratio < minr) h = (int)(w / minr);
+			else if (ratio > maxr) w = (int)(h * maxr);
+		}
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
 		// cancel any cached moves done by client_moveresize()
 		c->cache->have_mr = 0;
@@ -2563,11 +2595,9 @@ void handle_maprequest(XEvent *ev)
 			client_moveresize(c, 0, MAX(a.x, x-(c->w/2)), MAX(a.y, y-(c->h/2)), c->w, c->h);
 		}
 		else
-		// sticky windows get to go whereever they want. this is nice for stuff like yakuake
-		// PLACEANY: windows with x=0 y=0 get centered on screen or their parent
+		// PLACEANY: windows which specify position hints are honored, all else gets centered on screen or their parent
 		// PLACECENTER: centering is enforced
-		if (!client_has_state(c, netatoms[_NET_WM_STATE_STICKY]) &&
-			((config_window_placement == PLACEANY && !c->x && !c->y) || (config_window_placement == PLACECENTER)))
+		if ((config_window_placement == PLACEANY && !(c->xsize.flags & (PPosition|USPosition))) || (config_window_placement == PLACECENTER))
 		{
 			client *p = NULL;
 			workarea *m = &c->monitor; workarea a;
@@ -2611,6 +2641,7 @@ void handle_mapnotify(XEvent *ev)
 // find a new one to focus if needed
 void handle_unmapnotify(XEvent *ev)
 {
+	int was_active = window_is_active(ev->xunmap.window);
 	client *c = window_client(ev->xunmap.window);
 	// was it a top-level app window that closed?
 	if (c && c->manage)
@@ -2619,12 +2650,21 @@ void handle_unmapnotify(XEvent *ev)
 		event_client_dump(c);
 		client_state(c, WithdrawnState);
 	}
-	if (window_is_root(ev->xunmap.event))
+	// if window has already been destroyed, above window_client() may have failed
+	// see if this was the active window, and if so, find someone else to take the job
+	if (was_active)
 	{
-		// was it the active window?
-		if (windows_activated->len && ev->xunmap.window == windows_activated->array[windows_activated->len-1])
+		if (window_is_root(ev->xunmap.event))
+		{
 			window_active_client(ev->xunmap.event, current_tag);
-		ewmh_client_list(ev->xunmap.event);
+			ewmh_client_list(ev->xunmap.event);
+		}
+		else
+		if ((c = window_client(ev->xunmap.event)) && c && c->manage)
+		{
+			client_activate(c);
+			ewmh_client_list(c->xattr.root);
+		}
 	}
 }
 
