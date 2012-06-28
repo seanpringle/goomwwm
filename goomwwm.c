@@ -967,8 +967,8 @@ void ewmh_desktop_list(Window root)
 		area[(i*4)+2] = mon.w; area[(i*4)+3] = mon.h;
 	}
 	view[0] = 0; view[1] = 0;
-	geo[0] = DisplayWidth(display, XScreenNumberOfScreen(attr->screen));
-	geo[1] = DisplayHeight(display, XScreenNumberOfScreen(attr->screen));
+	geo[0] = attr->width; //DisplayWidth(display, XScreenNumberOfScreen(attr->screen));
+	geo[1] = attr->height; //DisplayHeight(display, XScreenNumberOfScreen(attr->screen));
 	desktop = tag_to_desktop(current_tag);
 
 	window_set_cardinal_prop(root, netatoms[_NET_NUMBER_OF_DESKTOPS], &desktops, 1);
@@ -1037,8 +1037,8 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	fw = MAX(1, MIN(fw, monitor.w)); fh = MAX(1, MIN(fh, monitor.h));
 	fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
 	fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
-	fw = MAX(1, MIN(fw, monitor.w - fx + monitor.x));
-	fh = MAX(1, MIN(fh, monitor.h - fy + monitor.y));
+	//fw = MAX(1, MIN(fw, monitor.w - fx + monitor.x));
+	//fh = MAX(1, MIN(fh, monitor.h - fy + monitor.y));
 	// put the window in same general position it was before
 	if (smart)
 	{
@@ -1321,7 +1321,7 @@ void client_flash(client *c, unsigned int color, int delay)
 			x1 = c->cache->mr_x; x2 = x1 + c->cache->mr_w - config_flash_width + config_border_width;
 			y1 = c->cache->mr_y; y2 = y1 + c->cache->mr_h - config_flash_width + config_border_width;
 		}
-
+		// four coloured squares in the window's corners
 		Window tl = XCreateSimpleWindow(display, c->xattr.root, x1, y1, config_flash_width, config_flash_width, 0, None, color);
 		Window tr = XCreateSimpleWindow(display, c->xattr.root, x2, y1, config_flash_width, config_flash_width, 0, None, color);
 		Window bl = XCreateSimpleWindow(display, c->xattr.root, x1, y2, config_flash_width, config_flash_width, 0, None, color);
@@ -1350,6 +1350,7 @@ void client_stack_family(client *c, winlist *stack)
 	Window orig = c->window, app = orig;
 
 	// if this is a transient window, find the main app
+	// TODO: this doesn't handle multiple transient levels, like Gimp's save/export sequence
 	if (c->trans)
 	{
 		a = window_client(c->trans);
@@ -1380,6 +1381,7 @@ void client_raise(client *c, int priority)
 	if (!priority)
 	{
 		// if we're above, ensure it
+		// allows cycling between multiple _NET_WM_STATE_ABOVE windows, regardless of their original mapping order
 		if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
 			client_stack_family(c, stack);
 
@@ -1443,8 +1445,8 @@ void client_review_nws_actions(client *c)
 }
 
 // if client is in a screen corner, track it...
-// if we shrink the window form maxv/maxh/fullscreen later,
-// we can have it stick to the original corner rather then re-centering
+// if we shrink the window form maxv/maxh/fullscreen later, we can
+// have it stick to the original corner rather then re-centering
 void client_review_position(client *c)
 {
 	if (c->cache && !c->is_full)
@@ -2152,6 +2154,7 @@ int menu(Window root, char **lines, char *manual)
 // built-in window switcher
 void window_switcher(Window root, unsigned int tag)
 {
+	// TODO: this whole function is messy. build a nicer solution
 	char pattern[50], **list = NULL;
 	int i, classfield = 0, maxtags = 0, lines = 0, above = 0, sticky = 0, plen = 0;
 	Window w; client *c; winlist *ids = winlist_new();
@@ -2578,8 +2581,35 @@ void handle_configurerequest(XEvent *ev)
 // once a window has been configured, apply a border unless it is fullscreen
 void handle_configurenotify(XEvent *ev)
 {
-	client *c = window_client(ev->xconfigure.window);
-	if (c && c->manage)
+	client *c;
+	// we use StructureNotifyMask on root windows. this seems to be a way of detecting XRandR
+	// shenanigans without actually needing to include xrandr or check for it, etc...
+	// TODO: is this a legit assumption?
+	if (window_is_root(ev->xconfigure.window))
+	{
+		Window root = ev->xconfigure.window;
+		event_log("ConfigureNotify", root);
+		event_note("root window change!");
+		ewmh_desktop_list(root);
+		XWindowAttributes *attr = window_get_attributes(root);
+		int i; Window w;
+		// find all windows and ensure they're visible in the new screen layout
+		winlist_ascend(windows_in_play(ev->xconfigure.window), i, w)
+		{
+			if ((c = window_client(w)) && c->manage && c->visible)
+			{
+				client_extended_data(c);
+				// client_moveresize() will handle fine tuning bumping the window on-screen
+				// all we have to do is get x/y in the right ballpark
+				client_moveresize(c, 0,
+					MIN(attr->x+attr->width-1,  MAX(attr->x, c->x)),
+					MIN(attr->y+attr->height-1, MAX(attr->y, c->y)),
+					c->sw, c->sh);
+			}
+		}
+	}
+	else
+	if ((c = window_client(ev->xconfigure.window)) && c->manage)
 	{
 		event_log("ConfigureNotify", c->window);
 		event_client_dump(c);
@@ -2816,7 +2846,7 @@ void setup_screen(int scr)
 	XGrabButton(display, Button3, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
 
 	// become the window manager
-	XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
+	XSelectInput(display, root, StructureNotifyMask | SubstructureRedirectMask | SubstructureNotifyMask);
 
 	// setup any existing windows
 	winlist_ascend(windows_in_play(root), i, w)
