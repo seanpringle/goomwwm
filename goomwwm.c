@@ -236,11 +236,22 @@ typedef struct {
 #define MENUHLBG "#005577"
 #define CONFIGFILE ".goomwwmrc"
 
+#define FOCUSCLICK 1
+#define FOCUSSLOPPY 2
+#define FOCUSSLOPPYTAG 3
+
+#define RAISEFOCUS 1
+#define RAISECLICK 2
+
+#define PLACEANY 1
+#define PLACECENTER 2
+#define PLACEPOINTER 3
+
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus, config_border_blur, config_border_attention,
 	config_flash_on, config_flash_off,
 	config_border_width, config_flash_width, config_flash_ms,
-	config_menu_width, config_menu_lines;
+	config_menu_width, config_menu_lines, config_focus_mode, config_raise_mode, config_window_placement;
 
 char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg;
 
@@ -456,6 +467,18 @@ unsigned int XGetColor(Display *d, const char *name)
 	XColor color;
 	Colormap map = DefaultColormap(d, DefaultScreen(d));
 	return XAllocNamedColor(d, map, name, &color, &color) ? color.pixel: None;
+}
+
+int pointer_get(Window root, int *x, int *y)
+{
+	*x = 0; *y = 0;
+	Window rr, cr; int rxr, ryr, wxr, wyr; unsigned int mr;
+	if (XQueryPointer(display, root, &rr, &cr, &rxr, &ryr, &wxr, &wyr, &mr))
+	{
+		*x = rxr; *y = ryr;
+		return 1;
+	}
+	return 0;
 }
 
 unsigned int tag_to_desktop(unsigned int tag)
@@ -1448,7 +1471,8 @@ void client_activate(client *c)
 	winlist_ascend(windows_in_play(c->xattr.root), i, w)
 		if (w != c->window && (o = window_client(w)) && o->manage) client_deactivate(o);
 	// setup ourself
-	client_raise(c, client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]));
+	if (config_raise_mode == RAISEFOCUS)
+		client_raise(c, client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]));
 	// focus a window politely if possible
 	client_protocol_event(c, atoms[WM_TAKE_FOCUS]);
 	if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
@@ -2372,6 +2396,7 @@ void handle_buttonpress(XEvent *ev)
 	if (ev->xbutton.subwindow != None && (c = window_client(ev->xbutton.subwindow)) && c && c->manage)
 	{
 		if (!c->focus || !c->active) client_activate(c);
+		if (config_raise_mode == RAISECLICK) client_raise(c, 0);
 		// check mod4 is the only modifier. if so, it's a legit move/resize event
 		if (state & config_modkey && !(state & config_ignore_modkeys))
 		{
@@ -2434,6 +2459,8 @@ void handle_motionnotify(XEvent *ev)
 			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) h = c->monitor.y+c->monitor.h-y-(config_border_width*2);
 		}
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
+		// cancel any cached moves done by client_moveresize()
+		c->cache->have_mr = 0;
 
 		// who knows where we've ended up. clear states
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
@@ -2519,13 +2546,26 @@ void handle_maprequest(XEvent *ev)
 	{
 		event_log("MapRequest", c->window);
 		event_client_dump(c);
-		if (!client_has_state(c, netatoms[_NET_WM_STATE_STICKY]) && !c->x && !c->y)
-		{
-			client_extended_data(c);
-			// adjust for borders on remembered co-ords
-			if (c->type == netatoms[_NET_WM_WINDOW_TYPE_NORMAL])
-				{ c->w += config_border_width*2; c->h += config_border_width*2; }
+		client_extended_data(c);
+		// adjust for borders on remembered co-ords
+		if (c->type == netatoms[_NET_WM_WINDOW_TYPE_NORMAL])
+			{ c->w += config_border_width*2; c->h += config_border_width*2; }
 
+		// center window on pointer
+		if (config_window_placement == PLACEPOINTER)
+		{
+			// figure out which monitor holds the pointer, so we can nicely keep the window on-screen
+			int x, y; pointer_get(c->xattr.root, &x, &y);
+			workarea a; monitor_dimensions_struts(c->xattr.screen, x, y, &a);
+			client_moveresize(c, 0, MAX(a.x, x-(c->w/2)), MAX(a.y, y-(c->h/2)), c->w, c->h);
+		}
+		else
+		// sticky windows get to go whereever they want. this is nice for stuff like yakuake
+		// PLACEANY: windows with x=0 y=0 get centered on screen or their parent
+		// PLACECENTER: centering is enforced
+		if (!client_has_state(c, netatoms[_NET_WM_STATE_STICKY]) &&
+			((config_window_placement == PLACEANY && !c->x && !c->y) || (config_window_placement == PLACECENTER)))
+		{
 			client *p = NULL;
 			workarea *m = &c->monitor; workarea a;
 			// try to center transients on their main window
@@ -2644,6 +2684,28 @@ void handle_propertynotify(XEvent *ev)
 	}
 }
 
+// sloppy focus
+void handle_enternotify(XEvent *ev)
+{
+	// only care about the sloppy modes here
+	if (config_focus_mode == FOCUSCLICK) return;
+	if (ev->xcrossing.type != EnterNotify) return;
+
+	client *c = window_client(ev->xcrossing.window);
+	// FOCUSSLOPPY = any manageable window
+	// FOCUSSLOPPYTAG = any manageable window in current tag
+	if (c && c->visible && c->manage && !c->active && (config_focus_mode == FOCUSSLOPPY ||
+		(config_focus_mode == FOCUSSLOPPYTAG && c->cache->tags & current_tag)))
+	{
+		event_log("EnterNotify", c->window);
+		client_activate(c);
+	}
+}
+void handle_leavenotify(XEvent *ev)
+{
+
+}
+
 // grab a MODKEY+key combo
 void grab_key(Window root, KeySym key)
 {
@@ -2697,6 +2759,7 @@ void setup_screen(int scr)
 	{
 		wincache *cache = allocate_clear(sizeof(wincache));
 		winlist_append(windows, w, cache);
+		XSelectInput(display, w, EnterWindowMask | LeaveWindowMask | FocusChangeMask | PropertyChangeMask);
 		client *c = window_client(w);
 		if (c && c->manage)
 		{
@@ -2844,6 +2907,25 @@ int main(int argc, char *argv[])
 	config_menu_hlfg  = find_arg_str(ac, av, "-menuhlfg", MENUHLFG);
 	config_menu_hlbg  = find_arg_str(ac, av, "-menuhlbg", MENUHLBG);
 
+	char *mode;
+
+	// focus mode
+	config_focus_mode = FOCUSCLICK;
+	mode = find_arg_str(ac, av, "-focusmode", "click");
+	if (!strcasecmp(mode, "sloppy")) config_focus_mode = FOCUSSLOPPY;
+	if (!strcasecmp(mode, "sloppytag")) config_focus_mode = FOCUSSLOPPYTAG;
+
+	// raise mode
+	config_raise_mode = RAISEFOCUS;
+	mode = find_arg_str(ac, av, "-raisemode", "focus");
+	if (!strcasecmp(mode, "click")) config_raise_mode = RAISECLICK;
+
+	// new-window placement mode
+	config_window_placement = PLACEANY;
+	mode = find_arg_str(ac, av, "-placement", "any");
+	if (!strcasecmp(mode, "center"))  config_window_placement = PLACECENTER;
+	if (!strcasecmp(mode, "pointer")) config_window_placement = PLACEPOINTER;
+
 	// app_find_or_start() keys
 	for (i = 0; config_apps_keysyms[i]; i++)
 	{
@@ -2887,6 +2969,8 @@ int main(int argc, char *argv[])
 		else if (ev.type == UnmapNotify) handle_unmapnotify(&ev);
 		else if (ev.type == ClientMessage) handle_clientmessage(&ev);
 		else if (ev.type == PropertyNotify) handle_propertynotify(&ev);
+		else if (ev.type == EnterNotify) handle_enternotify(&ev);
+		else if (ev.type == LeaveNotify) handle_leavenotify(&ev);
 #ifdef DEBUG
 		else fprintf(stderr, "unhandled event %d: %x\n", ev.type, (unsigned int)ev.xany.window);
 		catch_exit(0);

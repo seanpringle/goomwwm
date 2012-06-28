@@ -113,6 +113,12 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .RB [ \-launch
 .IR key ]
+.RB [ \-focusmode
+.IR mode ]
+.RB [ \-raisemode
+.IR mode ]
+.RB [ \-placement
+.IR mode ]
 .SH DESCRIPTION
 .I goomwwm
 is an X11 window manager implemented in C as a cleanroom software project. It manages windows in a minimal floating layout with normal mouse controls, while also providing flexible keyboard-driven controls for window switching, sizing, moving, tagging, and tiling. It is fast, lightweight, modeless, Xinerama-aware, and EWMH compatible wherever possible.
@@ -390,11 +396,38 @@ Set the border color (X11 named color or hex #rrggbb) for the focused window (de
 goomwwm -focus "Royal Blue"
 .RE
 .TP
+.B -focusdown
+Set an X11 key name to switch focus downward form the active window (default: XK_k).
+.P
+.RS
+goomwwm -focusdown k
+.RE
+.TP
 .B -focusleft
 Set an X11 key name to switch focus to left of the active window (default: XK_j).
 .P
 .RS
 goomwwm -focusleft j
+.RE
+.TP
+.B -focusmode
+Control the window focus mode (default: click).
+.P
+.RS
+goomwwm -focusmode click
+.P
+Valid settings are:
+.RS
+.P
+.B click
+focus on mouse click.
+.br
+.B sloppy
+focus follows mouse
+.br
+.B sloppytag
+focus follows mouse within current tag.
+.RE
 .RE
 .TP
 .B -focusright
@@ -409,13 +442,6 @@ Set an X11 key name to switch focus upward form the active window (default: XK_i
 .P
 .RS
 goomwwm -focusup i
-.RE
-.TP
-.B -focusdown
-Set an X11 key name to switch focus downward form the active window (default: XK_k).
-.P
-.RS
-goomwwm -focusdown k
 .RE
 .TP
 .B -fullscreen
@@ -507,6 +533,47 @@ Change the modifier key mask to any combination of: shift,control,mod1,mod2,mod3
 .P
 .RS
 goomwwm -modkey control,shift
+.RE
+.TP
+.B -placement
+Control the position of new windows (default: any).
+.P
+.RS
+goomwwm -placement any
+.P
+Valid settings are:
+.RS
+.P
+.B any
+Windows that specify or remember their placement are honored. Everything else is centered on the current monitor.
+.br
+.B center
+Windows are centered on the current monitor.
+.br
+.B pointer
+Windows are centered under the mouse pointer.
+.RE
+.P
+Sticky windows are special and always get placed wherever they specify. This allows tools like
+.B yakuake
+to work nicely.
+.RE
+.TP
+.B -raisemode
+Control the window raise mode (default: focus).
+.P
+.RS
+goomwwm -raisemode focus
+.P
+Valid settings are:
+.RS
+.P
+.B focus
+window is raised on focus.
+.br
+.B click
+window is raised on click.
+.RE
 .RE
 .TP
 .B -right
