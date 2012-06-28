@@ -462,13 +462,15 @@ int winlist_forget(winlist *l, Window w)
 	return j != i ?1:0;
 }
 
-unsigned int XGetColor(Display *d, const char *name)
+// allocate a pixel value for an X named color
+unsigned int color_get(Display *d, const char *name)
 {
 	XColor color;
 	Colormap map = DefaultColormap(d, DefaultScreen(d));
 	return XAllocNamedColor(d, map, name, &color, &color) ? color.pixel: None;
 }
 
+// find mouse pointer location
 int pointer_get(Window root, int *x, int *y)
 {
 	*x = 0; *y = 0;
@@ -1628,10 +1630,10 @@ void monitor_active(Screen *screen, workarea *mon)
 		memmove(mon, &c->monitor, sizeof(workarea));
 		return;
 	}
-	Window rr, cr; int rxr, ryr, wxr, wyr; unsigned int mr;
-	if (XQueryPointer(display, root, &rr, &cr, &rxr, &ryr, &wxr, &wyr, &mr))
+	int x, y;
+	if (pointer_get(root, &x, &y))
 	{
-		monitor_dimensions_struts(screen, rxr, ryr, mon);
+		monitor_dimensions_struts(screen, x, y, mon);
 		return;
 	}
 	monitor_dimensions_struts(screen, 0, 0, mon);
@@ -1943,8 +1945,6 @@ struct localmenu {
 void menu_draw(struct localmenu *my)
 {
 	int i, n;
-	XSetBackground(display, my->gc, my->xbg);
-	XClearWindow(display, my->window);
 
 	// draw text input bar
 	XftDrawRect(my->draw, &my->bg, 0, 0, my->width, my->height);
@@ -2067,7 +2067,7 @@ int menu(Window root, char **lines, char *manual)
 	my->vert_pad    = 5; // vertical padding
 	my->width       = (mon.w/100)*config_menu_width;
 	my->height      = ((my->line_height) * (my->max_lines+1)) + (my->vert_pad*2);
-	my->xbg         = XGetColor(display, config_menu_bg);
+	my->xbg         = color_get(display, config_menu_bg);
 	my->selected    = NULL;
 	my->manual      = manual;
 
@@ -2079,7 +2079,6 @@ int menu(Window root, char **lines, char *manual)
 	window_set_atom_prop(my->window, netatoms[_NET_WM_STATE], &netatoms[_NET_WM_STATE_ABOVE], 1);
 	window_set_atom_prop(my->window, netatoms[_NET_WM_WINDOW_TYPE], &netatoms[_NET_WM_WINDOW_TYPE_DOCK], 1);
 	XSelectInput(display, my->window, ExposureMask|KeyPressMask);
-	XMapRaised(display, my->window);
 
 	// drawing environment
 	my->gc     = XCreateGC(display, my->window, 0, 0);
@@ -2091,11 +2090,13 @@ int menu(Window root, char **lines, char *manual)
 	my->xic = XCreateIC(my->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, XNClientWindow, my->window, XNFocusWindow, my->window, NULL);
 
 	menu_draw(my);
+	XMapRaised(display, my->window);
 	if (!menu_grab(my))
 	{
 		fprintf(stderr, "cannot grab keyboard!\n");
 		return my->max_lines;
 	}
+	menu_draw(my);
 	// main event loop
 	for(;!my->done;)
 	{
@@ -2230,7 +2231,6 @@ void handle_keypress(XEvent *ev)
 		int x = c->sx; int y = c->sy; int w = c->sw; int h = c->sh;
 
 		// four basic window sizes
-		// full screen
 		int width1  = screen_width/3;      int height1 = screen_height/3;
 		int width2  = screen_width/2;      int height2 = screen_height/2;
 		int width3  = screen_width-width1; int height3 = screen_height-height1;
@@ -2445,6 +2445,7 @@ void handle_motionnotify(XEvent *ev)
 		int vague = c->monitor.w/100;
 
 		// snap to monitor edges
+		// Button1 = move
 		if (mouse_button.button == Button1)
 		{
 			if (NEAR(c->monitor.x, vague, x)) x = c->monitor.x;
@@ -2453,6 +2454,7 @@ void handle_motionnotify(XEvent *ev)
 			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) y = c->monitor.y+c->monitor.h-h-(config_border_width*2);
 		}
 		else
+			// Button3 = resize
 		if (mouse_button.button == Button3)
 		{
 			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) w = c->monitor.x+c->monitor.w-x-(config_border_width*2);
@@ -2502,6 +2504,7 @@ void handle_configurerequest(XEvent *ev)
 		event_client_dump(c);
 		XConfigureRequestEvent *e = &ev->xconfigurerequest;
 
+		// basic idea is to let stuff go through unchanged. we're not a strict tiling WM
 		XWindowChanges wc;
 		wc.x = e->x; wc.y = e->y; wc.width = e->width; wc.height = e->height;
 		wc.border_width = 0; wc.sibling = None; wc.stack_mode = None;
@@ -2551,7 +2554,7 @@ void handle_maprequest(XEvent *ev)
 		if (c->type == netatoms[_NET_WM_WINDOW_TYPE_NORMAL])
 			{ c->w += config_border_width*2; c->h += config_border_width*2; }
 
-		// center window on pointer
+		// PLACEPOINTER: center window on pointer
 		if (config_window_placement == PLACEPOINTER)
 		{
 			// figure out which monitor holds the pointer, so we can nicely keep the window on-screen
@@ -2881,16 +2884,16 @@ int main(int argc, char *argv[])
 	}
 
 	// border colors
-	config_border_focus     = XGetColor(display, find_arg_str(ac, av, "-focus", FOCUS));
-	config_border_blur      = XGetColor(display, find_arg_str(ac, av, "-blur",  BLUR));
-	config_border_attention = XGetColor(display, find_arg_str(ac, av, "-attention", ATTENTION));
+	config_border_focus     = color_get(display, find_arg_str(ac, av, "-focus", FOCUS));
+	config_border_blur      = color_get(display, find_arg_str(ac, av, "-blur",  BLUR));
+	config_border_attention = color_get(display, find_arg_str(ac, av, "-attention", ATTENTION));
 
 	// border width in pixels
 	config_border_width = MAX(0, find_arg_int(ac, av, "-border", BORDER));
 
 	// window flashing
-	config_flash_on  = XGetColor(display, find_arg_str(ac, av, "-flashon",  FLASHON));
-	config_flash_off = XGetColor(display, find_arg_str(ac, av, "-flashoff", FLASHOFF));
+	config_flash_on  = color_get(display, find_arg_str(ac, av, "-flashon",  FLASHON));
+	config_flash_off = color_get(display, find_arg_str(ac, av, "-flashoff", FLASHOFF));
 	config_flash_width = MAX(0, find_arg_int(ac, av, "-flashpx", FLASHPX));
 	config_flash_ms    = MAX(FLASHMS, find_arg_int(ac, av, "-flashms", FLASHMS));
 
