@@ -176,10 +176,10 @@ Grow the active window through four basic sizes that tile well together: 1/9th, 
 Shrink the active window through the same four sizes.
 .TP
 .B Mod4-h
-Horizontally tile the active window and the highest window with the same tag, position, and size.
+Horizontally tile the active window and others with the same tag, position, and size.
 .TP
 .B Mod4-v
-Vertically tile the active window and the highest window with the same tag, position, and size.
+Vertically tile the active window and others with the same tag, position, and size.
 .TP
 .B Mod4-x
 Run the launcher (by default: dmenu_run).
@@ -488,7 +488,7 @@ goomwwm -hmax End
 .RE
 .TP
 .B -htile
-Set an X11 key to horizontally tile the active window and the next highest window with the same tag, position, and size (default: XK_h). If no other window is found, a gap is created.
+Set an X11 key to horizontally tile the active window and others with the same tag, position, and size (default: XK_h). If no other window is found, a gap is created.
 .P
 .RS
 goomwwm -htile h
@@ -676,7 +676,7 @@ goomwwm -vmax Home
 .RE
 .TP
 .B -vtile
-Set an X11 key to vertically tile the active window and the next highest window with the same tag, position, and size (default: XK_v). if not other window is found, a gap is created.
+Set an X11 key to vertically tile the active window and other windows with the same tag, position, and size (default: XK_v). If no other window is found, a gap is created.
 .P
 .RS
 goomwwm -vtile h
