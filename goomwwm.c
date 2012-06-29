@@ -1421,7 +1421,7 @@ void client_raise(client *c, int priority)
 		{
 			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
 				&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
-				&& (!c->cache->tags || current_tag & o->cache->tags))
+				&& (!o->cache->tags || current_tag & o->cache->tags))
 					client_stack_family(o, stack);
 		}
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
@@ -2327,7 +2327,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_FOCUSDOWN]) client_focusto(c, FOCUSDOWN);
 
 		else
-		// cycle through windows with same WM_CLASS
+		// cycle through windows with same tag
 		if (key == keymap[KEY_TSWITCH])
 			window_switcher(c->xattr.root, current_tag);
 		else
