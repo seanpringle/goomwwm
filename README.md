@@ -11,7 +11,7 @@ Keyboard window sizing moves windows through four basic sizes that tile well: 1/
 
 Windows are grouped by tags. Activating a tag raises all windows in the tag. A window may have multiple tags. EWMH panels, pagers, and taskbars see tags as desktops.
 
-_For more detail, see the included man page._
+For more detail, see **[this tutorial](http://aerosuidae.net/goomwwm/tutorial)** and the included **man page**.
 
 ![Alt text](http://aerosuidae.net/goomwwm/goomwwm-1.jpg)
 
