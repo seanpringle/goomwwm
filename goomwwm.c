@@ -1854,7 +1854,8 @@ void client_cycle(client *c)
 void client_htile(client *c)
 {
 	client_extended_data(c);
-	client_commit(c);
+	winlist *tiles = winlist_new();
+	winlist_append(tiles, c->window, NULL);
 	int i, vague = c->monitor.w/100; Window w; client *o;
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
@@ -1865,24 +1866,34 @@ void client_htile(client *c)
 				NEAR(c->y, vague, o->y) &&
 				NEAR(c->w, vague, o->w) &&
 				NEAR(c->h, vague, o->h))
-			{
-				client_commit(c);
-				client_commit(o);
-				client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
-				client_moveresize(o, 0, c->x+(c->sw/2), c->y, c->sw/2, c->sh);
-				return;
-			}
+					winlist_append(tiles, w, NULL);
+		}
+	}
+	if (tiles->len > 1)
+	{
+		int width = c->sw / tiles->len;
+		winlist_ascend(tiles, i, w)
+		{
+			o = window_client(w);
+			client_commit(o);
+			client_moveresize(o, 0, c->x+(width*i), c->y, width, c->sh);
 		}
 	}
 	// nothing to tile with. still make a gap for something subsequent
-	client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
+	else
+	{
+		client_commit(c);
+		client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
+	}
+	winlist_free(tiles);
 }
 
 // vertically tile two windows in the same screen position and tag
 void client_vtile(client *c)
 {
 	client_extended_data(c);
-	client_commit(c);
+	winlist *tiles = winlist_new();
+	winlist_append(tiles, c->window, NULL);
 	int i, vague = c->monitor.w/100; Window w; client *o;
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
@@ -1893,17 +1904,26 @@ void client_vtile(client *c)
 				NEAR(c->y, vague, o->y) &&
 				NEAR(c->w, vague, o->w) &&
 				NEAR(c->h, vague, o->h))
-			{
-				client_commit(c);
-				client_commit(o);
-				client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
-				client_moveresize(o, 0, c->x, c->y+(c->sh/2), c->sw, c->sh/2);
-				return;
-			}
+					winlist_append(tiles, w, NULL);
+		}
+	}
+	if (tiles->len > 1)
+	{
+		int height = c->sh / tiles->len;
+		winlist_ascend(tiles, i, w)
+		{
+			o = window_client(w);
+			client_commit(o);
+			client_moveresize(o, 0, c->x, c->y+(height*i), c->sw, height);
 		}
 	}
 	// nothing to tile with. still make a gap for something subsequent
-	client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
+	else
+	{
+		client_commit(c);
+		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
+	}
+	winlist_free(tiles);
 }
 
 // move focus by direction. this is a visual thing, not restricted by tag
