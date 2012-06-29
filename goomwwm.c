@@ -1876,6 +1876,8 @@ void client_htile(client *c)
 		{
 			o = window_client(w);
 			client_commit(o);
+			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 			client_moveresize(o, 0, c->x+(width*i), c->y, width, c->sh);
 		}
 	}
@@ -1914,6 +1916,8 @@ void client_vtile(client *c)
 		{
 			o = window_client(w);
 			client_commit(o);
+			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 			client_moveresize(o, 0, c->x, c->y+(height*i), c->sw, height);
 		}
 	}
