@@ -2048,14 +2048,13 @@ void client_focusto(client *c, int direction)
 void app_find_or_start(Window root, char *pattern)
 {
 	if (!pattern) return;
-	winlist *inplay = windows_in_play(root);
 
 	Window w, found = None; client *c = NULL;
 	int i, j, offsets[] = { offsetof(client, name), offsetof(client, class), offsetof(client, title) };
 	// first, try in current_tag only
 	for (i = 0; i < 3 && found == None; i++)
 	{
-		winlist_descend(inplay, j, w)
+		winlist_descend(windows_activated, j, w)
 		{
 			if ((c = window_client(w)) && c && c->manage && c->visible && c->cache->tags & current_tag)
 			{
@@ -2068,7 +2067,7 @@ void app_find_or_start(Window root, char *pattern)
 	// failing that, search regardless of tag
 	for (i = 0; i < 3 && found == None; i++)
 	{
-		winlist_descend(inplay, j, w)
+		winlist_descend(windows_activated, j, w)
 		{
 			if ((c = window_client(w)) && c && c->manage && c->visible)
 			{
