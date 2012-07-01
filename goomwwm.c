@@ -1768,6 +1768,8 @@ void client_nws_fullscreen(client *c, int action)
 	}
 	// fullscreen may need to hide above windows
 	if (c->active) client_activate(c);
+	if (config_raise_mode == RAISECLICK)
+		client_raise(c, 1);
 }
 
 // raise above other windows
@@ -1911,6 +1913,8 @@ void client_cycle(client *c)
 				NEAR(c->h, vague, o->h))
 			{
 				client_activate(o);
+				if (config_raise_mode == RAISECLICK)
+					client_raise(c, 1);
 				break;
 			}
 		}
@@ -2074,7 +2078,12 @@ void app_find_or_start(Window root, char *pattern)
 			}
 		}
 	}
-	if (found != None) client_activate(c);
+	if (found != None)
+	{
+		client_activate(c);
+		if (config_raise_mode == RAISECLICK)
+			client_raise(c, 0);
+	}
 	else exec_cmd(pattern);
 }
 
