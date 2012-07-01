@@ -2964,6 +2964,10 @@ void handle_mapnotify(XEvent *ev)
 			client_toggle_tag(c, current_tag, NOFLASH);
 		client_activate(c, RAISEDEF, WARPDEF);
 		ewmh_client_list(c->xattr.root);
+		// some gtk windows see to need an extra kick to make them respect expose events...
+		// something to do with the configurerequest step? this little nudge makes it all work :-|
+		XSetWindowBorderWidth(display, c->window, 0);
+		XSetWindowBorderWidth(display, c->window, config_border_width);
 	}
 }
 
