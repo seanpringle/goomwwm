@@ -85,6 +85,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .RB [ \-above
 .IR key ]
+.RB [ \-below
+.IR key ]
 .RB [ \-vmax
 .IR key ]
 .RB [ \-hmax
@@ -187,6 +189,9 @@ Run the launcher (by default: dmenu_run).
 .B Mod4-a
 Toggle _NET_WM_STATE_ABOVE for the active window. Corners will flash to acknowledge.
 .TP
+.B Mod4-b
+Toggle _NET_WM_STATE_BELOW for the active window. Corners will flash to acknowledge.
+.TP
 .B Mod4-f
 Toggle _NET_WM_STATE_FULLSCREEN for the active window. Corners will flash to acknowledge.
 .TP
@@ -275,6 +280,13 @@ Set the border color (X11 named color or hex #rrggbb) for an inactive window wit
 .P
 .RS
 goomwwm -attention Red
+.RE
+.TP
+.B -below
+Set an X11 key name to toggle _NET_WM_STATE_BELOW for the active window (default: XK_b).
+.P
+.RS
+goomwwm -below b
 .RE
 .TP
 .B -blur

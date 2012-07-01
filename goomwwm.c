@@ -287,6 +287,7 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_GROW, XK_Page_Up, -grow),\
 	X(KEY_FULLSCREEN, XK_f, -fullscreen),\
 	X(KEY_ABOVE, XK_a, -above),\
+	X(KEY_BELOW, XK_b, -below),\
 	X(KEY_STICKY, XK_s, -sticky),\
 	X(KEY_VMAX, XK_Home, -vmax),\
 	X(KEY_HMAX, XK_End, -hmax),\
@@ -1407,6 +1408,9 @@ void client_raise(client *c, int priority)
 	winlist *stack = winlist_new();
 	winlist *inplay = windows_in_play(c->xattr.root);
 
+	if (!priority && client_has_state(c, netatoms[_NET_WM_STATE_BELOW]))
+		return;
+
 	// priority gets us raised without anyone above us, regardless. eg _NET_WM_STATE_FULLSCREEN+focus
 	if (!priority)
 	{
@@ -1446,6 +1450,48 @@ void client_raise(client *c, int priority)
 
 	// raise the top window in the stack
 	XRaiseWindow(display, stack->array[0]);
+	// stack everything else, in order, underneath top window
+	if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
+
+	winlist_free(stack);
+}
+
+// raise a window and its transients
+void client_lower(client *c, int priority)
+{
+	int i; Window w; client *o;
+	winlist *stack = winlist_new();
+	winlist *inplay = windows_in_play(c->xattr.root);
+
+	if (!priority && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
+		return;
+
+	if (priority)
+		client_stack_family(c, stack);
+
+	// locate windows in the current_tag with _NET_WM_STATE_BELOW
+	// untagged windows with _NET_WM_STATE_BELOW are effectively sticky
+	winlist_descend(inplay, i, w)
+	{
+		if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
+			&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
+			&& (!o->cache->tags || current_tag & o->cache->tags))
+				client_stack_family(o, stack);
+	}
+	// locate windows with both _NET_WM_STATE_STICKY and _NET_WM_STATE_BELOW
+	winlist_descend(inplay, i, w)
+	{
+		if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
+			&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
+			&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
+				client_stack_family(o, stack);
+	}
+
+	if (winlist_find(stack, c->window) < 0)
+		client_stack_family(c, stack);
+
+	// raise the top window in the stack
+	XLowerWindow(display, stack->array[stack->len-1]);
 	// stack everything else, in order, underneath top window
 	if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
 
@@ -1728,6 +1774,7 @@ void client_nws_fullscreen(client *c, int action)
 void client_nws_above(client *c, int action)
 {
 	int state = client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]);
+	client_remove_state(c, netatoms[_NET_WM_STATE_BELOW]);
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
@@ -1739,6 +1786,26 @@ void client_nws_above(client *c, int action)
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
 		client_remove_state(c, netatoms[_NET_WM_STATE_ABOVE]);
+		client_flash(c, config_flash_off, config_flash_ms);
+	}
+}
+
+// lower below other windows
+void client_nws_below(client *c, int action)
+{
+	int state = client_has_state(c, netatoms[_NET_WM_STATE_BELOW]);
+	client_remove_state(c, netatoms[_NET_WM_STATE_ABOVE]);
+
+	if (action == ADD || (action == TOGGLE && !state))
+	{
+		client_add_state(c, netatoms[_NET_WM_STATE_BELOW]);
+		client_lower(c, 0);
+		client_flash(c, config_flash_on, config_flash_ms);
+	}
+	else
+	if (action == REMOVE || (action == TOGGLE && state))
+	{
+		client_remove_state(c, netatoms[_NET_WM_STATE_BELOW]);
 		client_flash(c, config_flash_off, config_flash_ms);
 	}
 }
@@ -2340,6 +2407,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_CYCLE]) client_cycle(c);
 		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag, FLASH);
 		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
+		else if (key == keymap[KEY_BELOW]) client_nws_below(c, TOGGLE);
 		else if (key == keymap[KEY_STICKY]) client_nws_sticky(c, TOGGLE);
 		else if (key == keymap[KEY_FULLSCREEN]) client_nws_fullscreen(c, TOGGLE);
 		else if (key == keymap[KEY_HMAX]) client_nws_maxhorz(c, TOGGLE);
@@ -2820,6 +2888,9 @@ void handle_clientmessage(XEvent *ev)
 					else
 					if (m->data.l[i] == netatoms[_NET_WM_STATE_ABOVE])
 						client_nws_above(c, m->data.l[0]);
+					else
+					if (m->data.l[i] == netatoms[_NET_WM_STATE_BELOW])
+						client_nws_below(c, m->data.l[0]);
 				}
 			}
 		}
