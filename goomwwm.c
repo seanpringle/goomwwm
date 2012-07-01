@@ -2555,13 +2555,19 @@ void handle_buttonpress(XEvent *ev)
 	// all mouse button events except the wheel come here, so we can click-to-focus
 	// turn off caps and num locks bits. dont care about their states
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
+	int is_mod = state & config_modkey && !(state & config_ignore_modkeys);
 
 	if (ev->xbutton.subwindow != None && (c = window_client(ev->xbutton.subwindow)) && c && c->manage)
 	{
 		if (!c->focus || !c->active) client_activate(c);
-		if (config_raise_mode == RAISECLICK) client_raise(c, 0);
-		// check mod4 is the only modifier. if so, it's a legit move/resize event
-		if (state & config_modkey && !(state & config_ignore_modkeys))
+
+		// Mod+Button1 raises a window. this might already have been raised in
+		// client_activate(), but doing the restack again is not a big deal
+		if (is_mod && ev->xbutton.button == Button1)
+			client_raise(c, 0);
+
+		// moving or resizing
+		if (is_mod)
 		{
 			XGrabPointer(display, c->window, True, PointerMotionMask|ButtonReleaseMask,
 				GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
@@ -2587,6 +2593,19 @@ void handle_buttonpress(XEvent *ev)
 // only get these if a window move/resize has been started in buttonpress
 void handle_buttonrelease(XEvent *ev)
 {
+	event_log("ButtonRelease", ev->xbutton.window);
+	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
+	int is_mod = state & config_modkey && !(state & config_ignore_modkeys);
+
+	if (ev->xbutton.window != None && (c = window_client(ev->xbutton.window)) && c && c->manage)
+	{
+		int xd = ev->xbutton.x_root - mouse_button.x_root;
+		int yd = ev->xbutton.y_root - mouse_button.y_root;
+
+		// if no resize or move has occurred, allow Mod+Button3 to lower a window
+		if (!xd && !yd && is_mod && ev->xbutton.button == Button3)
+			client_lower(c, 0);
+	}
 	XUngrabPointer(display, CurrentTime);
 }
 
@@ -2617,7 +2636,7 @@ void handle_motionnotify(XEvent *ev)
 			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) y = c->monitor.y+c->monitor.h-h-(config_border_width*2);
 		}
 		else
-			// Button3 = resize
+		// Button3 = resize
 		if (mouse_button.button == Button3)
 		{
 			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) w = c->monitor.x+c->monitor.w-x-(config_border_width*2);
