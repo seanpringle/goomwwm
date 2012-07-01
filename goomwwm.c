@@ -1033,6 +1033,10 @@ int client_warp_check(client *c, int x, int y)
 // ensure the pointer is over a specific client
 void client_warp_pointer(client *c)
 {
+	// needs the updated stacking mode, so clear cache
+	XSync(display, False);
+	winlist_empty_2d(cache_inplay);
+
 	client_extended_data(c);
 	int vague = c->monitor.w/100;
 	int x, y; pointer_get(c->xattr.root, &x, &y);
@@ -1651,13 +1655,9 @@ void client_activate(client *c, int raise, int warp)
 	// tell the user something happened
 	if (!c->active) client_flash(c, config_border_focus, config_flash_ms);
 
-	// client_warp_pointer() needs the updated stacking mode, so clear cache
+	// must happen last, after all move/resize/focus/raise stuff is sent
 	if (config_warp_mode == WARPFOCUS || warp)
-	{
-		XSync(display, False);
-		winlist_empty_2d(cache_inplay);
 		client_warp_pointer(c);
-	}
 }
 
 // set WM_STATE
@@ -2888,6 +2888,13 @@ void handle_configurenotify(XEvent *ev)
 		event_client_dump(c);
 		client_review_border(c);
 		client_review_position(c);
+		if (c->active && config_warp_mode == WARPFOCUS)
+		{
+			client_warp_pointer(c);
+			// dump any enterynotify events that have been generated
+			// since this client was configured, else whe get focus jitter
+			while(XCheckTypedEvent(display, EnterNotify, ev));
+		}
 	}
 }
 
