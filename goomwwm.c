@@ -2847,7 +2847,7 @@ void handle_enternotify(XEvent *ev)
 	// only care about the sloppy modes here
 	if (config_focus_mode == FOCUSCLICK) return;
 	// ensure it's a proper enter event without keys or buttons down
-	if (ev->xcrossing.type != EnterNotify || ev->xcrossing.state) return;
+	if (ev->xcrossing.type != EnterNotify) return;
 	// prevent focus flicker if mouse is moving through multiple windows fast
 	while(XCheckTypedEvent(display, EnterNotify, ev));
 
