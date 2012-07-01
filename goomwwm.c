@@ -2223,7 +2223,7 @@ int menu(Window root, char **lines, char *manual)
 	my->input_size  = MAX(l, 100);
 	my->filtered    = allocate_clear(sizeof(char*) * (my->num_lines+1));
 	my->input       = allocate_clear((my->input_size+1)*3); // utf8 in copied line
-	my->current     = 0; // index of currently highlighted line
+	my->current     = 1; // index of currently highlighted line
 	my->offset      = 0; // length of text in input buffer
 	my->done        = 0; // bailout flag
 	my->horz_pad    = 5; // horizontal padding
