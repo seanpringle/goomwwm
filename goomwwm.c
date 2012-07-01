@@ -240,8 +240,17 @@ typedef struct {
 #define FOCUSSLOPPY 2
 #define FOCUSSLOPPYTAG 3
 
+#define RAISE 1
+#define RAISEDEF 0
+
+#define WARP 1
+#define WARPDEF 0
+
 #define RAISEFOCUS 1
 #define RAISECLICK 2
+
+#define WARPFOCUS 1
+#define WARPNEVER 0
 
 #define PLACEANY 1
 #define PLACECENTER 2
@@ -252,7 +261,7 @@ typedef struct {
 
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus, config_border_blur, config_border_attention,
-	config_flash_on, config_flash_off,
+	config_flash_on, config_flash_off, config_warp_mode,
 	config_border_width, config_flash_width, config_flash_ms,
 	config_menu_width, config_menu_lines, config_focus_mode, config_raise_mode, config_window_placement;
 
@@ -1007,6 +1016,48 @@ void client_close(client *c)
 	c->cache->have_closed = 1;
 }
 
+// true if x/y is over a visible portion of the client window
+int client_warp_check(client *c, int x, int y)
+{
+	int i, ok = 1; Window w; client *o;
+	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	{
+		if (!ok || w == c->window) break;
+		if ((o = window_client(w)) && o->manage && o->visible
+			&& INTERSECT(o->xattr.x, o->xattr.y, o->xattr.width, o->xattr.height, x, y, 1, 1))
+				ok = 0;
+	}
+	return ok;
+}
+
+// ensure the pointer is over a specific client
+void client_warp_pointer(client *c)
+{
+	client_extended_data(c);
+	int vague = c->monitor.w/100;
+	int x, y; pointer_get(c->xattr.root, &x, &y);
+	int mx = x, my = y;
+	// if pointer is not already over the client...
+	if (!INTERSECT(c->x, c->y, c->w, c->h, x, y, 1, 1) || !client_warp_check(c, x, y))
+	{
+		int overlap_x = OVERLAP(c->x, c->w, x, 1);
+		int overlap_y = OVERLAP(c->y, c->h, y, 1);
+		int xd = 0, yd = 0;
+		if (overlap_y && x < c->x) { x = c->x; xd = vague; }
+		if (overlap_y && x > c->x) { x = MIN(x, c->x+c->w-1); xd = 0-vague; }
+		if (overlap_x && y < c->y) { y = c->y; yd = vague; }
+		if (overlap_x && y > c->y) { y = MIN(y, c->y+c->h-1); yd = 0-vague; }
+		event_note("%d %d", xd, yd);
+		// step toward client window
+		while ((xd || yd ) && INTERSECT(c->x, c->y, c->w, c->h, x, y, 1, 1) && !client_warp_check(c, x, y))
+			{ x += xd; y += yd; }
+	}
+	// ensure pointer is slightly inside border
+	x = MIN(c->x+c->w-vague, MAX(c->x+vague, x));
+	y = MIN(c->y+c->h-vague, MAX(c->y+vague, y));
+	XWarpPointer(display, None, None, 0, 0, 0, 0, x-mx, y-my);
+}
+
 // move & resize a window nicely
 void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 {
@@ -1571,28 +1622,42 @@ void client_deactivate(client *c)
 }
 
 // raise and focus a client
-void client_activate(client *c)
+void client_activate(client *c, int raise, int warp)
 {
 	int i; Window w; client *o;
+
 	// deactivate everyone else
 	winlist_ascend(windows_in_play(c->xattr.root), i, w)
 		if (w != c->window && (o = window_client(w)) && o->manage) client_deactivate(o);
+
 	// setup ourself
-	if (config_raise_mode == RAISEFOCUS)
+	if (config_raise_mode == RAISEFOCUS || raise)
 		client_raise(c, client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]));
+
 	// focus a window politely if possible
 	client_protocol_event(c, atoms[WM_TAKE_FOCUS]);
 	if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
 	else XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XSetWindowBorder(display, c->window, config_border_focus);
+
 	// we have recieved attention
 	client_remove_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]);
+
 	// update focus history order
 	winlist_forget(windows_activated, c->window);
 	winlist_append(windows_activated, c->window, NULL);
 	ewmh_active_window(c->xattr.root, c->window);
+
 	// tell the user something happened
 	if (!c->active) client_flash(c, config_border_focus, config_flash_ms);
+
+	// client_warp_pointer() needs the updated stacking mode, so clear cache
+	if (config_warp_mode == WARPFOCUS || warp)
+	{
+		XSync(display, False);
+		winlist_empty_2d(cache_inplay);
+		client_warp_pointer(c);
+	}
 }
 
 // set WM_STATE
@@ -1625,13 +1690,13 @@ client* window_active_client(Window root, unsigned int tag)
 			&& c->xattr.root == root) break;
 	// if we found one, activate it
 	if (c && (!c->focus || !c->active))
-		client_activate(c);
+		client_activate(c, RAISEDEF, WARPDEF);
 	// otherwise look for any visible, manageable window
 	if (!c)
 	{
 		winlist_descend(windows_in_play(root), i, w)
 			if ((c = window_client(w)) && c && c->manage && c->visible) break;
-		if (c) client_activate(c);
+		if (c) client_activate(c, RAISEDEF, WARPDEF);
 	}
 	return c;
 }
@@ -1698,7 +1763,7 @@ void tag_raise(unsigned int tag)
 		if (focus != None)
 		{
 			client *c = window_client(focus);
-			if (c) client_activate(c);
+			if (c) client_activate(c, RAISEDEF, WARPDEF);
 		}
 	}
 }
@@ -1767,9 +1832,7 @@ void client_nws_fullscreen(client *c, int action)
 		client_restore_position(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.y + (c->monitor.h/4), c->monitor.w/2, c->monitor.h/2);
 	}
 	// fullscreen may need to hide above windows
-	if (c->active) client_activate(c);
-	if (config_raise_mode == RAISECLICK)
-		client_raise(c, 1);
+	if (c->active) client_activate(c, RAISE, WARPDEF);
 }
 
 // raise above other windows
@@ -1897,7 +1960,7 @@ void client_nws_review(client *c)
 	if (commit) client_commit(c);
 }
 
-// cycle through tag windows in roughly the same screen position ang tag
+// cycle through tag windows in roughly the same screen position and tag
 void client_cycle(client *c)
 {
 	client_extended_data(c);
@@ -1912,9 +1975,7 @@ void client_cycle(client *c)
 				NEAR(c->w, vague, o->w) &&
 				NEAR(c->h, vague, o->h))
 			{
-				client_activate(o);
-				if (config_raise_mode == RAISECLICK)
-					client_raise(c, 1);
+				client_activate(o, RAISE, WARPDEF);
 				break;
 			}
 		}
@@ -2021,7 +2082,7 @@ void client_focusto(client *c, int direction)
 				(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h
 					&& INTERSECT(c->x, c->y, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)))
 			{
-				client_activate(o);
+				client_activate(o, RAISEDEF, WARPDEF);
 				return;
 			}
 		}
@@ -2037,7 +2098,7 @@ void client_focusto(client *c, int direction)
 				(direction == FOCUSUP    && o->y < c->y) ||
 				(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h))
 			{
-				client_activate(o);
+				client_activate(o, RAISEDEF, WARPDEF);
 				return;
 			}
 		}
@@ -2078,11 +2139,7 @@ void app_find_or_start(Window root, char *pattern)
 		}
 	}
 	if (found != None)
-	{
-		client_activate(c);
-		if (config_raise_mode == RAISECLICK)
-			client_raise(c, 0);
-	}
+		client_activate(c, RAISE, WARPDEF);
 	else exec_cmd(pattern);
 }
 
@@ -2620,12 +2677,11 @@ void handle_buttonpress(XEvent *ev)
 
 	if (ev->xbutton.subwindow != None && (c = window_client(ev->xbutton.subwindow)) && c && c->manage)
 	{
-		if (!c->focus || !c->active) client_activate(c);
+		if (!c->focus || !c->active) client_activate(c, RAISEDEF, WARPDEF);
 
 		// Mod+Button1 raises a window. this might already have been raised in
 		// client_activate(), but doing the restack again is not a big deal
-		if (is_mod && ev->xbutton.button == Button1)
-			client_raise(c, 0);
+		if (is_mod && ev->xbutton.button == Button1) client_raise(c, 0);
 
 		// moving or resizing
 		if (is_mod)
@@ -2899,7 +2955,7 @@ void handle_mapnotify(XEvent *ev)
 		client_state(c, NormalState);
 		if (!(c->cache->tags & current_tag))
 			client_toggle_tag(c, current_tag, NOFLASH);
-		client_activate(c);
+		client_activate(c, RAISEDEF, WARPDEF);
 		ewmh_client_list(c->xattr.root);
 	}
 }
@@ -2929,7 +2985,7 @@ void handle_unmapnotify(XEvent *ev)
 		else
 		if ((c = window_client(ev->xunmap.event)) && c && c->manage)
 		{
-			client_activate(c);
+			client_activate(c, RAISEDEF, WARPDEF);
 			ewmh_client_list(c->xattr.root);
 		}
 	}
@@ -2950,10 +3006,7 @@ void handle_clientmessage(XEvent *ev)
 		{
 			event_client_dump(c);
 			if (m->message_type == netatoms[_NET_ACTIVE_WINDOW])
-			{
-				client_activate(c);
-				if (config_raise_mode != RAISEFOCUS) client_raise(c, 0);
-			}
+				client_activate(c, RAISE, WARPDEF);
 			else
 			if (m->message_type == netatoms[_NET_CLOSE_WINDOW])
 				client_close(c);
@@ -3017,7 +3070,7 @@ void handle_enternotify(XEvent *ev)
 		(config_focus_mode == FOCUSSLOPPYTAG && c->cache->tags & current_tag)))
 	{
 		event_log("EnterNotify", c->window);
-		client_activate(c);
+		client_activate(c, RAISEDEF, WARPDEF);
 	}
 }
 void handle_leavenotify(XEvent *ev)
@@ -3216,6 +3269,11 @@ int main(int argc, char *argv[])
 	config_raise_mode = RAISEFOCUS;
 	mode = find_arg_str(ac, av, "-raisemode", "focus");
 	if (!strcasecmp(mode, "click")) config_raise_mode = RAISECLICK;
+
+	// warp mode
+	config_warp_mode = WARPNEVER;
+	mode = find_arg_str(ac, av, "-warpmode", "never");
+	if (!strcasecmp(mode, "focus")) config_warp_mode = WARPFOCUS;
 
 	// new-window placement mode
 	config_window_placement = PLACEANY;

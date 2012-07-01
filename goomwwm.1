@@ -119,6 +119,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR mode ]
 .RB [ \-raisemode
 .IR mode ]
+.RB [ \-warpmode
+.IR mode ]
 .RB [ \-placement
 .IR mode ]
 .RB [ \-contract
@@ -692,6 +694,25 @@ Set an X11 key to vertically tile the active window and other windows with the s
 .P
 .RS
 goomwwm -vtile h
+.RE
+.TP
+.B -warpmode
+Control whether the mouse pointer warps to a focused window (default: never). This setting can make focusmode
+.B sloppy
+more cooperative when focus is changed by means other than the mouse.
+.P
+.RS
+goomwwm -warpmode focus
+.P
+Valid settings are:
+.RS
+.P
+.B never
+pointer is never moved.
+.br
+.B click
+pointer is warped to a newly focused window.
+.RE
 .RE
 .SH SEE ALSO
 .BR dmenu (1)
