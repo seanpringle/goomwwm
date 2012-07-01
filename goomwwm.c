@@ -2793,7 +2793,7 @@ void handle_maprequest(XEvent *ev)
 			{ c->w += config_border_width*2; c->h += config_border_width*2; }
 
 		// PLACEPOINTER: center window on pointer
-		if (config_window_placement == PLACEPOINTER)
+		if (config_window_placement == PLACEPOINTER && !(c->xsize.flags & (PPosition|USPosition)))
 		{
 			// figure out which monitor holds the pointer, so we can nicely keep the window on-screen
 			int x, y; pointer_get(c->xattr.root, &x, &y);
