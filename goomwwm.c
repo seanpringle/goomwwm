@@ -2358,6 +2358,59 @@ void window_switcher(Window root, unsigned int tag)
 	free(list); winlist_free(ids);
 }
 
+// bind to a keycode in all lock states
+void grab_keycode(Window root, KeyCode keycode)
+{
+	XUngrabKey(display, keycode, AnyModifier, root);
+	XGrabKey(display, keycode, config_modkey, root, True, GrabModeAsync, GrabModeAsync);
+	XGrabKey(display, keycode, config_modkey|LockMask, root, True, GrabModeAsync, GrabModeAsync);
+	if (NumlockMask)
+	{
+		XGrabKey(display, keycode, config_modkey|NumlockMask, root, True, GrabModeAsync, GrabModeAsync);
+		XGrabKey(display, keycode, config_modkey|NumlockMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
+	}
+}
+
+// grab a MODKEY+key combo
+void grab_key(Window root, KeySym key)
+{
+#ifndef DEBUG
+	if (key == keymap[KEY_DEBUG]) return;
+#endif
+	grab_keycode(root, XKeysymToKeycode(display, key));
+	int i, j, min_code, max_code, syms_per_code;
+	// if xmodmap is in use to remap keycodes to keysyms, a simple XKeysymToKeycode
+	// may not suffice here. so we also walk the entire map of keycodes and bind to
+	// each code mapped to "key"
+	XDisplayKeycodes(display, &min_code, &max_code);
+	KeySym *map = XGetKeyboardMapping(display, min_code, max_code-min_code, &syms_per_code);
+	for (i = 0; map && i < (max_code-min_code); i++)
+		for (j = 0; j < syms_per_code; j++)
+			if (key == map[i*syms_per_code+j])
+				grab_keycode(root, i+min_code);
+	if (map) XFree(map);
+}
+
+// run at startup and on MappingNotify
+void grab_keys_and_buttons()
+{
+	int scr, i;
+	for (scr = 0; scr < ScreenCount(display); scr++)
+	{
+		Window root = RootWindow(display, scr);
+		XUngrabKey(display, AnyKey, AnyModifier, root);
+		for (i = 0; keymap[i]; i++) grab_key(root, keymap[i]);
+		for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
+		for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
+		// grab mouse buttons for click-to-focus. these get passed through to the windows
+		// not binding on button4 which is usually wheel scroll
+		XUngrabButton(display, AnyButton, AnyModifier, root);
+		XGrabButton(display, Button1, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+		XGrabButton(display, Button2, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+		XGrabButton(display, Button3, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+	}
+}
+
 // MODKEY+keys
 void handle_keypress(XEvent *ev)
 {
@@ -2972,21 +3025,11 @@ void handle_leavenotify(XEvent *ev)
 
 }
 
-// grab a MODKEY+key combo
-void grab_key(Window root, KeySym key)
+void handle_mappingnotify(XEvent *ev)
 {
-#ifndef DEBUG
-	if (key == keymap[KEY_DEBUG]) return;
-#endif
-	KeyCode keycode = XKeysymToKeycode(display, key);
-	XUngrabKey(display, keycode, AnyModifier, root);
-	XGrabKey(display, keycode, config_modkey, root, True, GrabModeAsync, GrabModeAsync);
-	XGrabKey(display, keycode, config_modkey|LockMask, root, True, GrabModeAsync, GrabModeAsync);
-	if (NumlockMask)
-	{
-		XGrabKey(display, keycode, config_modkey|NumlockMask, root, True, GrabModeAsync, GrabModeAsync);
-		XGrabKey(display, keycode, config_modkey|NumlockMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
-	}
+	event_log("MappingNotify", ev->xany.window);
+	while(XCheckTypedEvent(display, MappingNotify, ev));
+	grab_keys_and_buttons();
 }
 
 // an X screen. may have multiple monitors, xinerama, etc
@@ -3005,19 +3048,7 @@ void setup_screen(int scr)
 	XChangeProperty(display, supporting, netatoms[_NET_WM_NAME], XA_STRING,    8, PropModeReplace, (const unsigned char*)"GoomwWM", 6);
 	XChangeProperty(display, supporting, netatoms[_NET_WM_PID],  XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&pid, 1);
 
-	// bind all MODKEY+ combos
-	XUngrabKey(display, AnyKey, AnyModifier, root);
-	for (i = 0; keymap[i]; i++) grab_key(root, keymap[i]);
-	for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
-	for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
-
-	// grab mouse buttons for click-to-focus. these get passed through to the windows
-	// not binding on button4 which is usually wheel scroll
-	XGrabButton(display, Button1, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
-	XGrabButton(display, Button2, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
-	XGrabButton(display, Button3, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
-
-	// become the window manager
+	// become the window manager here
 	XSelectInput(display, root, StructureNotifyMask | SubstructureRedirectMask | SubstructureNotifyMask);
 
 	// setup any existing windows
@@ -3208,6 +3239,7 @@ int main(int argc, char *argv[])
 
 	// init on all screens/roots
 	for (scr = 0; scr < ScreenCount(display); scr++) setup_screen(scr);
+	grab_keys_and_buttons();
 
 	// main event loop
 	for(;;)
@@ -3219,6 +3251,7 @@ int main(int argc, char *argv[])
 
 		// block and wait for something
 		XNextEvent(display, &ev);
+		if (ev.type == MappingNotify) handle_mappingnotify(&ev);
 		if (ev.xany.window == None) continue;
 
 		if (ev.type == KeyPress) handle_keypress(&ev);
