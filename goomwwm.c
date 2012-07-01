@@ -2713,22 +2713,26 @@ void handle_configurerequest(XEvent *ev)
 		event_log("ConfigureRequest", c->window);
 		event_client_dump(c);
 		XConfigureRequestEvent *e = &ev->xconfigurerequest;
-
-		// basic idea is to let stuff go through unchanged. we're not a strict tiling WM
-		XWindowChanges wc;
-		wc.x = e->x; wc.y = e->y; wc.width = e->width; wc.height = e->height;
-		wc.border_width = 0; wc.sibling = None; wc.stack_mode = None;
+		unsigned long mask = e->value_mask & (CWX|CWY|CWWidth|CWHeight|CWBorderWidth);
 
 		// only move/resize requests go through. never stacking
 		if (e->value_mask & (CWX|CWY|CWWidth|CWHeight))
 		{
+			XWindowChanges wc;
 			client_extended_data(c);
-			unsigned long mask = e->value_mask & (CWX|CWY|CWWidth|CWHeight);
+
+			wc.x = e->value_mask & CWX ? e->x: c->x;
+			wc.y = e->value_mask & CWY ? e->y: c->y;
+			wc.width  = e->value_mask & CWWidth  ? e->width : c->w;
+			wc.height = e->value_mask & CWHeight ? e->height: c->h;
+			wc.border_width = c->manage ? config_border_width: 0;
+			wc.sibling = None; wc.stack_mode = None;
+
 			// if we previously instructed the window to an x/y/w/h which conforms to
 			// their w/h hints, demand co-operation!
 			if (c->cache && c->cache->have_mr)
 			{
-				mask = CWX|CWY|CWWidth|CWHeight;
+				mask = CWX|CWY|CWWidth|CWHeight|CWBorderWidth;
 				wc.x = c->cache->mr_x; wc.y = c->cache->mr_y;
 				wc.width  = c->cache->mr_w; wc.height = c->cache->mr_h;
 				c->cache->have_mr = 0;
@@ -2787,6 +2791,10 @@ void handle_maprequest(XEvent *ev)
 		event_log("MapRequest", c->window);
 		event_client_dump(c);
 		client_extended_data(c);
+		// if this MapRequest was already dispatched before a previous ConfigureRequest was
+		// received, some clients seem to be able to map before applying the border change,
+		// resulting in a little jump on screen. ensure border is done first
+		client_review_border(c);
 		// adjust for borders on remembered co-ords
 		if (c->type == netatoms[_NET_WM_WINDOW_TYPE_NORMAL])
 			{ c->w += config_border_width*2; c->h += config_border_width*2; }
@@ -2822,8 +2830,8 @@ void handle_maprequest(XEvent *ev)
 				MAX(m->y, m->y + ((m->h - c->h) / 2)), c->w, c->h);
 		}
 		client_raise(c, 0);
+		XSync(display, False);
 	}
-	XSync(display, False);
 	XMapWindow(display, ev->xmaprequest.window);
 }
 
