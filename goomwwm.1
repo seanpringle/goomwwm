@@ -129,6 +129,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .RB [ \-tagprev
 .IR key ]
+.RB [ \-duplicate
+.IR key ]
 .SH DESCRIPTION
 .I goomwwm
 is an X11 window manager implemented in C as a cleanroom software project. It manages windows in a minimal floating layout with normal mouse controls, while also providing flexible keyboard-driven controls for window switching, sizing, moving, tagging, and tiling. It is fast, lightweight, modeless, Xinerama-aware, and EWMH compatible wherever possible.
@@ -196,6 +198,9 @@ Toggle _NET_WM_STATE_BELOW for the active window. Corners will flash to acknowle
 .TP
 .B Mod4-f
 Toggle _NET_WM_STATE_FULLSCREEN for the active window. Corners will flash to acknowledge.
+.TP
+.B Mod4-d
+Resize active window to match the window immediately underneath, in the same tag.
 .TP
 .B Mod4-Home
 Toggle _NET_WM_STATE_MAXIMIXED_HORZ for the active window. Corners will flash to acknowledge.
@@ -358,6 +363,13 @@ Set an X11 key name to move the active window downward in a 3x3 grid (default: X
 .P
 .RS
 goomwwm -down Down
+.RE
+.TP
+.B -duplicate
+Set an X11 key name to resize the active window to match the window immediately underneath, in the same tag (default: XK_d).
+.P
+.RS
+goomwwm -duplicate d
 .RE
 .TP
 .B -expand

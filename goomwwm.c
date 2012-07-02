@@ -314,7 +314,7 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_UNDO, XK_u, -undo),\
 	X(KEY_TAGNEXT, XK_m, -tagnext),\
 	X(KEY_TAGPREV, XK_n, -tagprev),\
-	X(KEY_DEBUG, XK_d, -debug),\
+	X(KEY_DUPLICATE, XK_d, -duplicate),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
 enum { KEYLIST(KEY_ENUM) };
@@ -2105,6 +2105,25 @@ void client_focusto(client *c, int direction)
 	}
 }
 
+// resize window to match the one underneath
+void client_duplicate(client *c)
+{
+	int i; Window w; client *o;
+	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	{
+		if (w != c->window && (o = window_client(w)) && o->manage && o->visible &&
+			(!o->cache->tags || o->cache->tags & current_tag))
+		{
+			client_extended_data(o);
+			if (INTERSECT(c->x, c->y, c->sw, c->sh, o->x, o->y, o->sw, o->sh))
+			{
+				client_moveresize(c, 0, o->x, o->y, o->sw, o->sh);
+				return;
+			}
+		}
+	}
+}
+
 // search and activate first open window matching class/name/title
 void app_find_or_start(Window root, char *pattern)
 {
@@ -2431,9 +2450,6 @@ void grab_keycode(Window root, KeyCode keycode)
 // grab a MODKEY+key combo
 void grab_key(Window root, KeySym key)
 {
-#ifndef DEBUG
-	if (key == keymap[KEY_DEBUG]) return;
-#endif
 	grab_keycode(root, XKeysymToKeycode(display, key));
 	int i, j, min_code, max_code, syms_per_code;
 	// if xmodmap is in use to remap keycodes to keysyms, a simple XKeysymToKeycode
@@ -2524,9 +2540,6 @@ void handle_keypress(XEvent *ev)
 		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
 
 		if (key == keymap[KEY_CLOSE]) client_close(c);
-#ifdef DEBUG
-		else if (key == keymap[KEY_DEBUG]) event_client_dump(c);
-#endif
 		else if (key == keymap[KEY_CYCLE]) client_cycle(c);
 		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag, FLASH);
 		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
@@ -2542,6 +2555,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_HTILE]) client_htile(c);
 		else if (key == keymap[KEY_VTILE]) client_vtile(c);
 		else if (key == keymap[KEY_UNDO]) client_rollback(c);
+		else if (key == keymap[KEY_DUPLICATE]) client_duplicate(c);
 
 		// directional focus change
 		else if (key == keymap[KEY_FOCUSLEFT]) client_focusto(c, FOCUSLEFT);
