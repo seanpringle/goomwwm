@@ -2016,6 +2016,8 @@ void client_htile(client *c)
 	else
 	{
 		client_commit(c);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
 	}
 	winlist_free(tiles);
@@ -2057,6 +2059,8 @@ void client_vtile(client *c)
 	else
 	{
 		client_commit(c);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
 	}
 	winlist_free(tiles);
