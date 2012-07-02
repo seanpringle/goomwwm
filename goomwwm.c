@@ -1970,13 +1970,10 @@ void client_cycle(client *c)
 		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible && c->cache->tags & o->cache->tags)
 		{
 			client_extended_data(o);
-			if (NEAR(c->x, vague, o->x) &&
-				NEAR(c->y, vague, o->y) &&
-				NEAR(c->w, vague, o->w) &&
-				NEAR(c->h, vague, o->h))
+			if (INTERSECT(c->x, c->y, c->sw, c->sh, o->x, o->y, o->sw, o->sh))
 			{
 				client_activate(o, RAISE, WARPDEF);
-				break;
+				return;
 			}
 		}
 	}
