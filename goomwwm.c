@@ -205,7 +205,7 @@ typedef struct {
 	Window window, trans;
 	XWindowAttributes xattr;
 	XSizeHints xsize;
-	int manage, visible, input, focus, active,
+	int manage, visible, input, focus, active, initial_state,
 		x, y, w, h, sx, sy, sw, sh,
 		is_full, is_left, is_top, is_right, is_bottom,
 		is_xcenter, is_ycenter, is_maxh, is_maxv, states;
@@ -801,7 +801,8 @@ client* window_client(Window win)
 	XWMHints *hints = XGetWMHints(display, win);
 	if (hints)
 	{
-		c->input = hints && hints->flags & InputHint ? 1: 0;
+		c->input = hints->flags & InputHint && hints->input ? 1: 0;
+		c->initial_state = hints->flags & StateHint ? hints->initial_state: -1;
 		XFree(hints);
 	}
 	// find last known state
@@ -920,7 +921,7 @@ void event_client_dump(client *c)
 	client_descriptive_data(c);
 	client_extended_data(c);
 	event_note("%x title: %s", (unsigned int)c->window, c->title);
-	event_note("manage:%d input:%d focus:%d", c->manage, c->input, c->focus);
+	event_note("manage:%d input:%d focus:%d initial_state:%d", c->manage, c->input, c->focus, c->initial_state);
 	event_note("class: %s name: %s", c->class, c->name);
 	event_note("x:%d y:%d w:%d h:%d b:%d override:%d transient:%x", c->xattr.x, c->xattr.y, c->xattr.width, c->xattr.height,
 		c->xattr.border_width, c->xattr.override_redirect ?1:0, (unsigned int)c->trans);
@@ -1039,7 +1040,7 @@ void client_warp_pointer(client *c)
 
 	client_extended_data(c);
 	int vague = c->monitor.w/100;
-	int x, y; pointer_get(c->xattr.root, &x, &y);
+	int x, y; if (!pointer_get(c->xattr.root, &x, &y)) return;
 	int mx = x, my = y;
 	// if pointer is not already over the client...
 	if (!INTERSECT(c->x, c->y, c->w, c->h, x, y, 1, 1) || !client_warp_check(c, x, y))
@@ -1051,7 +1052,6 @@ void client_warp_pointer(client *c)
 		if (overlap_y && x > c->x) { x = MIN(x, c->x+c->w-1); xd = 0-vague; }
 		if (overlap_x && y < c->y) { y = c->y; yd = vague; }
 		if (overlap_x && y > c->y) { y = MIN(y, c->y+c->h-1); yd = 0-vague; }
-		event_note("%d %d", xd, yd);
 		// step toward client window
 		while ((xd || yd ) && INTERSECT(c->x, c->y, c->w, c->h, x, y, 1, 1) && !client_warp_check(c, x, y))
 			{ x += xd; y += yd; }
@@ -2468,6 +2468,11 @@ void grab_keys_and_buttons()
 	}
 }
 
+void window_select(Window w)
+{
+	XSelectInput(display, w, EnterWindowMask | LeaveWindowMask | FocusChangeMask | PropertyChangeMask);
+}
+
 // MODKEY+keys
 void handle_keypress(XEvent *ev)
 {
@@ -2792,13 +2797,11 @@ void handle_motionnotify(XEvent *ev)
 // we dont really care until a window configures and maps, so just watch it
 void handle_createnotify(XEvent *ev)
 {
-	XSelectInput(display, ev->xcreatewindow.window, EnterWindowMask | LeaveWindowMask | FocusChangeMask | PropertyChangeMask);
 	if (winlist_find(windows, ev->xcreatewindow.window) < 0)
 	{
 		wincache *cache = allocate_clear(sizeof(wincache));
 		winlist_append(windows, ev->xcreatewindow.window, cache);
 	}
-	if (window_is_root(ev->xcreatewindow.parent)) ewmh_client_list(ev->xcreatewindow.parent);
 }
 
 // we don't track window state internally much, so this is just for info
@@ -2819,6 +2822,7 @@ void handle_configurerequest(XEvent *ev)
 	client *c = window_client(ev->xconfigurerequest.window);
 	if (c)
 	{
+		window_select(c->window);
 		event_log("ConfigureRequest", c->window);
 		event_client_dump(c);
 		XConfigureRequestEvent *e = &ev->xconfigurerequest;
@@ -2902,8 +2906,9 @@ void handle_configurenotify(XEvent *ev)
 void handle_maprequest(XEvent *ev)
 {
 	client *c = window_client(ev->xmaprequest.window);
-	if (c && c->manage)
+	if (c && c->manage && c->initial_state == NormalState)
 	{
+		window_select(c->window);
 		event_log("MapRequest", c->window);
 		event_client_dump(c);
 		client_extended_data(c);
@@ -2956,7 +2961,7 @@ void handle_maprequest(XEvent *ev)
 void handle_mapnotify(XEvent *ev)
 {
 	client *c = window_client(ev->xmap.window);
-	if (c && c->manage)
+	if (c && c->manage && c->visible && c->initial_state == NormalState)
 	{
 		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
@@ -3081,6 +3086,7 @@ void handle_enternotify(XEvent *ev)
 		(config_focus_mode == FOCUSSLOPPYTAG && c->cache->tags & current_tag)))
 	{
 		event_log("EnterNotify", c->window);
+		event_client_dump(c);
 		client_activate(c, RAISEDEF, WARPDEF);
 	}
 }
