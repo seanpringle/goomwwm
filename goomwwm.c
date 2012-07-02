@@ -1964,10 +1964,11 @@ void client_nws_review(client *c)
 void client_cycle(client *c)
 {
 	client_extended_data(c);
-	int i, vague = c->monitor.w/100; Window w; client *o;
+	int i; Window w; client *o;
 	winlist_ascend(windows_in_play(c->xattr.root), i, w)
 	{
-		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible && c->cache->tags & o->cache->tags)
+		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible
+			&& (!o->cache->tags || o->cache->tags & current_tag))
 		{
 			client_extended_data(o);
 			if (INTERSECT(c->x, c->y, c->sw, c->sh, o->x, o->y, o->sw, o->sh))
@@ -1988,7 +1989,8 @@ void client_htile(client *c)
 	int i, vague = c->monitor.w/100; Window w; client *o;
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
-		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible && c->cache->tags & o->cache->tags)
+		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible
+			&& (!o->cache->tags || o->cache->tags & current_tag))
 		{
 			client_extended_data(o);
 			if (NEAR(c->x, vague, o->x) &&
@@ -2028,7 +2030,8 @@ void client_vtile(client *c)
 	int i, vague = c->monitor.w/100; Window w; client *o;
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
-		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible && c->cache->tags & o->cache->tags)
+		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible
+			&& (!o->cache->tags || o->cache->tags & current_tag))
 		{
 			client_extended_data(o);
 			if (NEAR(c->x, vague, o->x) &&
