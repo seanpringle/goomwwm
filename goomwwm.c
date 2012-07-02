@@ -2062,7 +2062,7 @@ void client_vtile(client *c)
 	winlist_free(tiles);
 }
 
-// move focus by direction. this is a visual thing, not restricted by tag
+// move focus by direction. this is a visual thing
 void client_focusto(client *c, int direction)
 {
 	client_extended_data(c);
@@ -2070,7 +2070,8 @@ void client_focusto(client *c, int direction)
 	// look for a window immediately adjacent or overlapping
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
-		if ((o = window_client(w)) && o && o->manage && o->visible)
+		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible
+			&& (!o->cache->tags || o->cache->tags & current_tag))
 		{
 			client_extended_data(o);
 			if ((direction == FOCUSLEFT  && o->x < c->x
@@ -2090,7 +2091,8 @@ void client_focusto(client *c, int direction)
 	// we didn't find a window immediately adjacent or overlapping. look further afield
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
-		if ((o = window_client(w)) && o && o->manage && o->visible)
+		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible
+			&& (!o->cache->tags || o->cache->tags & current_tag))
 		{
 			client_extended_data(o);
 			if ((direction == FOCUSLEFT  && o->x < c->x) ||
