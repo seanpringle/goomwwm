@@ -93,10 +93,6 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .RB [ \-expand
 .IR key ]
-.RB [ \-evmax
-.IR key ]
-.RB [ \-ehmax
-.IR key ]
 .RB [ \-tag
 .IR key ]
 .RB [ \-switch
@@ -130,6 +126,10 @@ goomwwm \- Get out of my way, Window Manager!
 .RB [ \-tagprev
 .IR key ]
 .RB [ \-duplicate
+.IR key ]
+.RB [ \-hlock
+.IR key ]
+.RB [ \-vlock
 .IR key ]
 .SH DESCRIPTION
 .I goomwwm
@@ -215,10 +215,10 @@ Expand active window to fill surrounding space without obscuring any fully visib
 Contract active window to fill an underlying space without obscuring window that would then be fully visible.
 .TP
 .B Mod4-Insert
-Expand active window vertically to fill adjacent space without obscuring any fully visible window.
+Toggle vertical move/resize lock for the active window.
 .TP
 .B Mod4-Delete
-Expand active window horizontally to fill adjacent space without obscuring any fully visible window.
+Toggle horizontal move/resize lock for the active window.
 .TP
 .B Mod4-Left
 Move the active window left within a 3x3 grid.
@@ -379,20 +379,6 @@ Set an X11 key name to expand the active window to fill adjacent space without o
 goomwwm -expand Return
 .RE
 .TP
-.B -ehmax
-Set an X11 key name to expand the active window horizontally to fill adjacent space without obscuring any other fully visible window (default: XK_Delete).
-.P
-.RS
-goomwwm -ehmax Delete
-.RE
-.TP
-.B -evmax
-Set an X11 key name to expand the active window vertically to fill adjacent space without obscuring any other fully visible window (default: XK_Insert).
-.P
-.RS
-goomwwm -evmax Insert
-.RE
-.TP
 .B -launch
 Set an X11 key to run the application launcher (default: XK_x).
 .P
@@ -504,6 +490,13 @@ Set an X11 key name to increase the active window size (default: XK_Page_Up) thr
 .P
 .RS
 goomwwm -grow Page_Up
+.RE
+.TP
+.B -hlock
+Set an X11 key name to toggle horizontal move/resize lock for the active window (default: XK_Delete).
+.P
+.RS
+goomwwm -hlock Delete
 .RE
 .TP
 .B -hmax
@@ -692,6 +685,13 @@ Set an X11 key to undo the last size/position change for the active window (defa
 .P
 .RS
 goomwwm -undo u
+.RE
+.TP
+.B -vlock
+Set an X11 key name to toggle vertical move/resize lock for the active window (default: XK_Insert).
+.P
+.RS
+goomwwm -vlock Insert
 .RE
 .TP
 .B -vmax

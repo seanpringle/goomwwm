@@ -180,6 +180,7 @@ typedef struct {
 	unsigned int tags;
 	int undo_levels;
 	winundo undo[UNDO];
+	int hlock, vlock;
 } wincache;
 
 #define TAG1 1
@@ -302,8 +303,8 @@ int in_array_keysym(KeySym *array, KeySym code)
 	X(KEY_HMAX, XK_End, -hmax),\
 	X(KEY_EXPAND, XK_Return, -expand),\
 	X(KEY_CONTRACT, XK_BackSpace, -contract),\
-	X(KEY_EVMAX, XK_Insert, -evmax),\
-	X(KEY_EHMAX, XK_Delete, -ehmax),\
+	X(KEY_VLOCK, XK_Insert, -vlock),\
+	X(KEY_HLOCK, XK_Delete, -hlock),\
 	X(KEY_TAG, XK_t, -tag),\
 	X(KEY_SWITCH, XK_Tab, -switch),\
 	X(KEY_TSWITCH, XK_grave, -tswitch),\
@@ -1070,7 +1071,11 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	// this many be different to the client's current c->monitor...
 	workarea monitor; monitor_dimensions_struts(c->xattr.screen, fx, fy, &monitor);
 
-	// ensure we match maxv/maxh mode
+	// horz/vert size locks
+	if (c->cache->vlock) { fy = c->y; fh = c->sh; }
+	if (c->cache->hlock) { fx = c->x; fw = c->sw; }
+
+	// ensure we match maxv/maxh mode. these override above locks!
 	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 		{ fx = monitor.x; fw = monitor.w; }
 	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
@@ -1809,6 +1814,18 @@ void monitor_active(Screen *screen, workarea *mon)
 	monitor_dimensions_struts(screen, 0, 0, mon);
 }
 
+// horizontal and vertical window size locking
+void client_toggle_vlock(client *c)
+{
+	c->cache->vlock = c->cache->vlock ? 0:1;
+	client_flash(c, c->cache->vlock ? config_flash_on: config_flash_off, config_flash_ms);
+}
+void client_toggle_hlock(client *c)
+{
+	c->cache->hlock = c->cache->hlock ? 0:1;
+	client_flash(c, c->cache->hlock ? config_flash_on: config_flash_off, config_flash_ms);
+}
+
 // go fullscreen on current monitor
 void client_nws_fullscreen(client *c, int action)
 {
@@ -1902,6 +1919,7 @@ void client_nws_maxvert(client *c, int action)
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
+		c->cache->vlock = 0;
 		client_commit(c);
 		client_save_position_vert(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
@@ -1926,6 +1944,7 @@ void client_nws_maxhorz(client *c, int action)
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
+		c->cache->hlock = 0;
 		client_commit(c);
 		client_save_position_horz(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
@@ -2556,8 +2575,8 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_VMAX]) client_nws_maxvert(c, TOGGLE);
 		else if (key == keymap[KEY_EXPAND]) client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
 		else if (key == keymap[KEY_CONTRACT]) client_contract(c, HORIZONTAL|VERTICAL);
-		else if (key == keymap[KEY_EHMAX]) client_expand(c, HORIZONTAL, 0, 0, 0, 0, 0, 0, 0, 0);
-		else if (key == keymap[KEY_EVMAX]) client_expand(c, VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+		else if (key == keymap[KEY_VLOCK]) client_toggle_vlock(c);
+		else if (key == keymap[KEY_HLOCK]) client_toggle_hlock(c);
 		else if (key == keymap[KEY_HTILE]) client_htile(c);
 		else if (key == keymap[KEY_VTILE]) client_vtile(c);
 		else if (key == keymap[KEY_UNDO]) client_rollback(c);
@@ -2601,6 +2620,11 @@ void handle_keypress(XEvent *ev)
 			int is3 = !is4 && ((isw3 && ish3) || (w*h >= width3*height3)) ?1:0;
 			int is2 = !is4 && !is3 && ((isw2 && ish2) || (w*h >= width2*height2)) ?1:0;
 			int is1 = !is4 && !is3 && !is2 && ((isw1 && ish1) || (w*h >= width1*height1)) ?1:0;
+
+			// horz/vert locks override stuff
+			if (c->cache->hlock) { is4 = ish4; is3 = ish3; is2 = ish2; is1 = ish1; }
+			if (c->cache->vlock) { is4 = isw4; is3 = isw3; is2 = isw2; is1 = isw1; }
+
 			int is0 = !is4 && !is3 && !is2 && !is1 ?1:0;
 
 			// Page Up/Down makes the focused window larger and smaller respectively
