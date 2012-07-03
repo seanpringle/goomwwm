@@ -1587,9 +1587,15 @@ void client_review_position(client *c)
 {
 	if (c->cache && !c->is_full)
 	{
-		if (c->is_left  && c->is_top) c->cache->last_corner = TOPLEFT;
+		// don't change last_corner if it still matches
+		if (c->cache->last_corner == TOPLEFT     && c->is_left  && c->is_top)    return;
+		if (c->cache->last_corner == BOTTOMLEFT  && c->is_left  && c->is_bottom) return;
+		if (c->cache->last_corner == TOPRIGHT    && c->is_right && c->is_top)    return;
+		if (c->cache->last_corner == BOTTOMRIGHT && c->is_right && c->is_bottom) return;
+		// nope, we've moved too much. decide on a new corner, preferring left and top
+		if (c->is_left && c->is_top)          c->cache->last_corner = TOPLEFT;
 		else if (c->is_left  && c->is_bottom) c->cache->last_corner = BOTTOMLEFT;
-		else if (c->is_right && c->is_top) c->cache->last_corner = TOPRIGHT;
+		else if (c->is_right && c->is_top)    c->cache->last_corner = TOPRIGHT;
 		else if (c->is_right && c->is_bottom) c->cache->last_corner = BOTTOMRIGHT;
 		else c->cache->last_corner = 0;
 	}
