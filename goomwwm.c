@@ -860,7 +860,7 @@ void client_extended_data(client *c)
 
 	int screen_x = c->monitor.x, screen_y = c->monitor.y;
 	int screen_width = c->monitor.w, screen_height = c->monitor.h;
-	int vague = screen_width/100;
+	int vague = MAX(screen_width/100, screen_height/100);
 
 	// window co-ords translated to 0-based on screen
 	int x = c->xattr.x - screen_x; int y = c->xattr.y - screen_y;
@@ -1039,7 +1039,7 @@ void client_warp_pointer(client *c)
 	winlist_empty_2d(cache_inplay);
 
 	client_extended_data(c);
-	int vague = c->monitor.w/100;
+	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
 	int x, y; if (!pointer_get(c->xattr.root, &x, &y)) return;
 	int mx = x, my = y;
 	// if pointer is not already over the client...
@@ -1986,7 +1986,7 @@ void client_htile(client *c)
 	client_extended_data(c);
 	winlist *tiles = winlist_new();
 	winlist_append(tiles, c->window, NULL);
-	int i, vague = c->monitor.w/100; Window w; client *o;
+	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
 		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible
@@ -2029,7 +2029,7 @@ void client_vtile(client *c)
 	client_extended_data(c);
 	winlist *tiles = winlist_new();
 	winlist_append(tiles, c->window, NULL);
-	int i, vague = c->monitor.w/100; Window w; client *o;
+	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
 		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible
@@ -2070,7 +2070,7 @@ void client_vtile(client *c)
 void client_focusto(client *c, int direction)
 {
 	client_extended_data(c);
-	int i, vague = c->monitor.w/100; Window w; client *o;
+	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
 	// look for a window immediately adjacent or overlapping
 	winlist_descend(windows_in_play(c->xattr.root), i, w)
 	{
@@ -2531,7 +2531,7 @@ void handle_keypress(XEvent *ev)
 
 		int screen_x = c->monitor.x, screen_y = c->monitor.y;
 		int screen_width = c->monitor.w, screen_height = c->monitor.h;
-		int vague = screen_width/100;
+		int vague = MAX(screen_width/100, screen_height/100);
 
 		// window co-ords translated to 0-based on screen
 		int x = c->sx; int y = c->sy; int w = c->sw; int h = c->sh;
@@ -2766,23 +2766,53 @@ void handle_motionnotify(XEvent *ev)
 		int y  = mouse_attr.y + (mouse_button.button == Button1 ? yd : 0);
 		int w  = MAX(1, mouse_attr.width  + (mouse_button.button == Button3 ? xd : 0));
 		int h  = MAX(1, mouse_attr.height + (mouse_button.button == Button3 ? yd : 0));
-		int vague = c->monitor.w/100;
+		int vague = MAX(c->monitor.w/100, c->monitor.h/100);
+		int i; Window win; client *o;
+		int xsnap = 0, ysnap = 0, bw = config_border_width*2;
 
 		// snap to monitor edges
 		// Button1 = move
 		if (mouse_button.button == Button1)
 		{
-			if (NEAR(c->monitor.x, vague, x)) x = c->monitor.x;
-			if (NEAR(c->monitor.y, vague, y)) y = c->monitor.y;
-			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) x = c->monitor.x+c->monitor.w-w-(config_border_width*2);
-			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) y = c->monitor.y+c->monitor.h-h-(config_border_width*2);
+			if (NEAR(c->monitor.x, vague, x)) { x = c->monitor.x; xsnap = 1; }
+			if (NEAR(c->monitor.y, vague, y)) { y = c->monitor.y; ysnap = 1; }
+			if (!xsnap && NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { x = c->monitor.x+c->monitor.w-w-bw; xsnap = 1; }
+			if (!ysnap && NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { y = c->monitor.y+c->monitor.h-h-bw; ysnap = 1; }
+			if (!xsnap || !ysnap) winlist_descend(windows_in_play(c->xattr.root), i, win)
+			{
+				if (win != c->window && (o = window_client(win)) && o->manage && o->visible)
+				{
+					client_extended_data(o);
+					if (!xsnap && NEAR(o->x, vague, x)) { x = o->x; xsnap = 1; }
+					if (!ysnap && NEAR(o->y, vague, y)) { y = o->y; ysnap = 1; }
+					if (!xsnap && NEAR(o->x+o->sw, vague, x)) { x = o->x+o->sw; xsnap = 1; }
+					if (!ysnap && NEAR(o->y+o->sh, vague, y)) { y = o->y+o->sh; ysnap = 1; }
+					if (!xsnap && NEAR(o->x, vague, x+w)) { x = o->x+-w-bw; xsnap = 1; }
+					if (!ysnap && NEAR(o->y, vague, y+h)) { y = o->y+-h-bw; ysnap = 1; }
+					if (!xsnap && NEAR(o->x+o->sw, vague, x+w)) { x = o->x+o->sw-w-bw; xsnap = 1; }
+					if (!ysnap && NEAR(o->y+o->sh, vague, y+h)) { y = o->y+o->sh-h-bw; ysnap = 1; }
+				}
+				if (xsnap && ysnap) break;
+			}
 		}
 		else
 		// Button3 = resize
 		if (mouse_button.button == Button3)
 		{
-			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) w = c->monitor.x+c->monitor.w-x-(config_border_width*2);
-			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) h = c->monitor.y+c->monitor.h-y-(config_border_width*2);
+			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { w = c->monitor.x+c->monitor.w-x-bw; xsnap = 1; }
+			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { h = c->monitor.y+c->monitor.h-y-bw; ysnap = 1; }
+			if (!xsnap || !ysnap) winlist_descend(windows_in_play(c->xattr.root), i, win)
+			{
+				if (win != c->window && (o = window_client(win)) && o->manage && o->visible)
+				{
+					client_extended_data(o);
+					if (!xsnap && NEAR(o->x, vague, x+w)) { w = o->x-x-bw; xsnap = 1; }
+					if (!ysnap && NEAR(o->y, vague, y+h)) { h = o->y-y-bw; ysnap = 1; }
+					if (!xsnap && NEAR(o->x+o->sw, vague, x+w)) { w = o->x+o->sw-x-bw; xsnap = 1; }
+					if (!ysnap && NEAR(o->y+o->sh, vague, y+h)) { h = o->y+o->sh-y-bw; ysnap = 1; }
+				}
+				if (xsnap && ysnap) break;
+			}
 		}
 
 		// process size hints
