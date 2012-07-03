@@ -2800,6 +2800,22 @@ void handle_motionnotify(XEvent *ev)
 		int i; Window win; client *o;
 		int xsnap = 0, ysnap = 0, bw = config_border_width*2;
 
+		// horz/vert size locks
+		if (c->cache->hlock) { x = c->x; w = c->w; }
+		if (c->cache->vlock) { y = c->y; h = c->h; }
+
+		// monitor_dimensions_struts() can be heavy work with mouse events. only do it if necessary
+		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]) || client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
+		{
+			int px, py; pointer_get(c->xattr.root, &px, &py);
+			workarea mon; monitor_dimensions_struts(c->xattr.screen, px, py, &mon);
+			// ensure we match maxv/maxh mode. these override above locks!
+			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
+				{ x = mon.x; w = mon.w-bw; }
+			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
+				{ y = mon.y; h = mon.h-bw; }
+		}
+
 		// snap to monitor edges
 		// Button1 = move
 		if (mouse_button.button == Button1)
@@ -2867,10 +2883,6 @@ void handle_motionnotify(XEvent *ev)
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
 		// cancel any cached moves done by client_moveresize()
 		c->cache->have_mr = 0;
-
-		// who knows where we've ended up. clear states
-		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 	}
 }
 
