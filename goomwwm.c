@@ -154,6 +154,15 @@ typedef struct {
 #define winlist_ascend(l,i,w) for ((i) = 0; (i) < (l)->len && (((w) = (l)->array[i]) || 1); (i)++)
 #define winlist_descend(l,i,w) for ((i) = (l)->len-1; (i) >= 0 && (((w) = (l)->array[i]) || 1); (i)--)
 
+#define clients_ascend(l,i,w,c) for ((i) = 0; (i) < (l)->len && ((w) = (l)->array[i]) && ((c) = window_client(w)); (i)++)
+#define clients_descend(l,i,w,c) for ((i) = (l)->len-1; (i) > -1 && ((w) = (l)->array[i]) && ((c) = window_client(w)); (i)--)
+
+#define managed_ascend(r,i,w,c) clients_ascend(windows_in_play(r),i,w,c) if ((c)->manage && (c)->visible)
+#define managed_descend(r,i,w,c) clients_descend(windows_in_play(r),i,w,c) if ((c)->manage && (c)->visible)
+
+#define tag_ascend(r,i,w,c,t) managed_ascend(r, i, w, c) if (!(c)->cache->tags || (c)->cache->tags & (t))
+#define tag_descend(r,i,w,c,t) managed_descend(r, i, w, c) if (!(c)->cache->tags || (c)->cache->tags & (t))
+
 #define TOPLEFT 1
 #define TOPRIGHT 2
 #define BOTTOMLEFT 3
@@ -209,7 +218,8 @@ typedef struct {
 	int manage, visible, input, focus, active, initial_state,
 		x, y, w, h, sx, sy, sw, sh,
 		is_full, is_left, is_top, is_right, is_bottom,
-		is_xcenter, is_ycenter, is_maxh, is_maxv, states;
+		is_xcenter, is_ycenter, is_maxh, is_maxv, states,
+		is_described, is_extended;
 	char title[CLIENTTITLE], class[CLIENTCLASS], name[CLIENTNAME];
 	Atom state[CLIENTSTATE], type;
 	workarea monitor;
@@ -660,16 +670,19 @@ void monitor_dimensions(Screen *screen, int x, int y, workarea *mon)
 	{
 		int monitors, i;
 		XineramaScreenInfo *info = XineramaQueryScreens(display, &monitors);
-		if (info) for (i = 0; i < monitors; i++)
+		if (info)
 		{
-			if (INTERSECT(x, y, 1, 1, info[i].x_org, info[i].y_org, info[i].width, info[i].height))
+			for (i = 0; i < monitors; i++)
 			{
-				mon->x = info[i].x_org; mon->y = info[i].y_org;
-				mon->w = info[i].width; mon->h = info[i].height;
-				break;
+				if (INTERSECT(x, y, 1, 1, info[i].x_org, info[i].y_org, info[i].width, info[i].height))
+				{
+					mon->x = info[i].x_org; mon->y = info[i].y_org;
+					mon->w = info[i].width; mon->h = info[i].height;
+					break;
+				}
 			}
+			XFree(info);
 		}
-		XFree(info);
 	}
 }
 
@@ -699,8 +712,8 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 				// we only pay attention to the first four params
 				// this is no more complex that _NET_WM_STRUT, but newer stuff uses _PARTIAL
 				strut = (unsigned long*)res;
-				left   = MAX(left, strut[0]); right  = MAX(right,  strut[1]);
-				top    = MAX(top,  strut[2]); bottom = MAX(bottom, strut[3]);
+				left  = MAX(left, strut[0]); right  = MAX(right,  strut[1]);
+				top   = MAX(top,  strut[2]); bottom = MAX(bottom, strut[3]);
 				XFree(res);
 			}
 		}
@@ -819,6 +832,9 @@ client* window_client(Window win)
 	// if it's empty, nothing cares that much
 	c->cache = windows->data[idx];
 
+	// co-ords are x,y upper left outsize border, w,h inside border
+	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
+
 	winlist_append(cache_client, c->window, c);
 	return c;
 }
@@ -826,7 +842,7 @@ client* window_client(Window win)
 // extend client data
 void client_descriptive_data(client *c)
 {
-	if (!c || c->title[0] || c->class[0]) return;
+	if (!c || c->is_described) return;
 
 	char *name;
 	if ((name = window_get_text_prop(c->window, netatoms[_NET_WM_NAME])) && name)
@@ -847,6 +863,7 @@ void client_descriptive_data(client *c)
 		snprintf(c->name, CLIENTNAME, "%s", chint.res_name);
 		XFree(chint.res_class); XFree(chint.res_name);
 	}
+	c->is_described = 1;
 }
 
 // extend client data
@@ -854,7 +871,7 @@ void client_descriptive_data(client *c)
 // every time in window_client()
 void client_extended_data(client *c)
 {
-	if (!c || c->w || c->h) return;
+	if (!c || c->is_extended) return;
 
 	long sr; XGetWMNormalHints(display, c->window, &c->xsize, &sr);
 	monitor_dimensions_struts(c->xattr.screen, c->xattr.x, c->xattr.y, &c->monitor);
@@ -884,6 +901,15 @@ void client_extended_data(client *c)
 	c->is_ycenter = c->is_full || NEAR((screen_height-h)/2, vague, y) ? 1:0;
 	c->is_maxh    = c->is_full || (c->is_left && w >= screen_width-2);
 	c->is_maxv    = c->is_full || (c->is_top && h >= screen_height-2);
+
+	c->is_extended = 1;
+}
+
+// true if client windows overlap
+int clients_intersect(client *a, client *b)
+{
+	client_extended_data(a); client_extended_data(b);
+	return INTERSECT(a->x, a->y, a->sw, a->sh, b->x, b->y, b->sw, b->sh) ?1:0;
 }
 
 #ifdef DEBUG
@@ -931,6 +957,13 @@ void event_client_dump(client *c)
 	int i, j;
 	for (i = 0; i < NETATOMS; i++) if (c->type  == netatoms[i]) event_note("type:%s", netatom_names[i]);
 	for (i = 0; i < NETATOMS; i++) for (j = 0; j < c->states; j++) if (c->state[j] == netatoms[i]) event_note("state:%s", netatom_names[i]);
+	unsigned long struts[12];
+	if (window_get_cardinal_prop(c->window, netatoms[_NET_WM_STRUT_PARTIAL], struts, 12))
+		event_note("strut partial: %d %d %d %d %d %d %d %d %d %d %d %d",
+			struts[0],struts[1],struts[2],struts[3],struts[4],struts[5],struts[6],struts[7],struts[8],struts[9],struts[10],struts[11]);
+	if (window_get_cardinal_prop(c->window, netatoms[_NET_WM_STRUT], struts, 4))
+		event_note("strut: %d %d %d %d",
+			struts[0],struts[1],struts[2],struts[3]);
 	fflush(stdout);
 }
 #else
@@ -949,9 +982,7 @@ void ewmh_client_list(Window root)
 	int i; Window w; client *c;
 
 	// windows_in_play() returns the stacking order. windows_activated *MAY NOT* have the same order
-	winlist_ascend(windows_in_play(root), i, w)
-		if ((c = window_client(w)) && c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
-			winlist_append(relevant, w, NULL);
+	managed_ascend(root, i, w, c) if (!client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR])) winlist_append(relevant, w, NULL);
 	XChangeProperty(display, root, netatoms[_NET_CLIENT_LIST_STACKING], XA_WINDOW, 32, PropModeReplace, (unsigned char*)relevant->array, relevant->len);
 
 	// 'windows' list has mapping order of everything. build 'mapped' from 'relevant', ordered by 'windows'
@@ -1022,12 +1053,10 @@ void client_close(client *c)
 int client_warp_check(client *c, int x, int y)
 {
 	int i, ok = 1; Window w; client *o;
-	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	managed_descend(c->xattr.root, i, w, o)
 	{
 		if (!ok || w == c->window) break;
-		if ((o = window_client(w)) && o->manage && o->visible
-			&& INTERSECT(o->xattr.x, o->xattr.y, o->xattr.width, o->xattr.height, x, y, 1, 1))
-				ok = 0;
+		if (INTERSECT(o->x, o->y, o->w, o->h, x, y, 1, 1)) ok = 0;
 	}
 	return ok;
 }
@@ -1095,8 +1124,8 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	if (c->xsize.flags & PAspect)
 	{
 		double ratio = (double) fw / fh;
-		double minr = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
-		double maxr = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
+		double minr  = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
+		double maxr  = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
 			if (ratio < minr) fh = (int)(fw / minr);
 		else if (ratio > maxr) fw = (int)(fh * maxr);
 	}
@@ -1274,33 +1303,29 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	int i, relevant = 0; Window win; client *o;
 
 	// build the (all)regions arrays
-	winlist_descend(inplay, i, win)
+	tag_descend(c->xattr.root, i, win, o, current_tag) if (win != c->window)
 	{
-		if (win == c->window) continue;
-		if ((o = window_client(win)) && o && o->manage && o->visible)
+		client_extended_data(o);
+		// only concerned about windows on this monitor
+		if (o->monitor.x == c->monitor.x && o->monitor.y == c->monitor.y) // same monitor
 		{
-			client_extended_data(o);
-			// only concerned about windows on this monitor
-			if (o->monitor.x == c->monitor.x && o->monitor.y == c->monitor.y) // same monitor
+			int j, obscured = 0;
+			for (j = inplay->len-1; j > i; j--)
 			{
-				int j, obscured = 0;
-				for (j = inplay->len-1; j > i; j--)
-				{
-					// if the window intersects with any other window higher in the stack order, it must be at least partially obscured
-					if (allregions[j].w && INTERSECT(o->sx, o->sy, o->sw, o->sh,
-						allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h))
-							{ obscured = 1; break; }
-				}
-				// record a full visible window
-				if (!obscured)
-				{
-					regions[relevant].x = o->sx; regions[relevant].y = o->sy;
-					regions[relevant].w = o->sw; regions[relevant].h = o->sh;
-					relevant++;
-				}
-				allregions[i].x = o->sx; allregions[i].y = o->sy;
-				allregions[i].w = o->sw; allregions[i].h = o->sh;
+				// if the window intersects with any other window higher in the stack order, it must be at least partially obscured
+				if (allregions[j].w && INTERSECT(o->sx, o->sy, o->sw, o->sh,
+					allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h))
+						{ obscured = 1; break; }
 			}
+			// record a full visible window
+			if (!obscured)
+			{
+				regions[relevant].x = o->sx; regions[relevant].y = o->sy;
+				regions[relevant].w = o->sw; regions[relevant].h = o->sh;
+				relevant++;
+			}
+			allregions[i].x = o->sx; allregions[i].y = o->sy;
+			allregions[i].w = o->sw; allregions[i].h = o->sh;
 		}
 	}
 
@@ -1311,34 +1336,26 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	{
 		// try to grow upward. locate the lower edge of the nearest fully visible window
 		for (n = 0, i = 0; i < relevant; i++)
-		{
 			if (regions[i].y + regions[i].h <= y && OVERLAP(x, w, regions[i].x, regions[i].w))
 				n = MAX(n, regions[i].y + regions[i].h);
-		}
 		h += y-n; y = n;
 		// try to grow downward. locate the upper edge of the nearest fully visible window
 		for (n = c->monitor.h, i = 0; i < relevant; i++)
-		{
 			if (regions[i].y >= y+h && OVERLAP(x, w, regions[i].x, regions[i].w))
 				n = MIN(n, regions[i].y);
-		}
 		h = n-y;
 	}
 	if (directions & HORIZONTAL)
 	{
 		// try to grow left. locate the right edge of the nearest fully visible window
 		for (n = 0, i = 0; i < relevant; i++)
-		{
 			if (regions[i].x + regions[i].w <= x && OVERLAP(y, h, regions[i].y, regions[i].h))
 				n = MAX(n, regions[i].x + regions[i].w);
-		}
 		w += x-n; x = n;
 		// try to grow right. locate the left edge of the nearest fully visible window
 		for (n = c->monitor.w, i = 0; i < relevant; i++)
-		{
 			if (regions[i].x >= x+w && OVERLAP(y, h, regions[i].y, regions[i].h))
 				n = MIN(n, regions[i].x);
-		}
 		w = n-x;
 	}
 	// optionally limit final size to a bounding box
@@ -1361,8 +1378,7 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 		else
 		if (directions & HORIZONTAL)
 			client_restore_position_horz(c, 0, c->x, c->cache->sw);
-	}
-	else
+	} else
 	{
 		// save pos for toggle
 		if (directions & VERTICAL && directions & HORIZONTAL)
@@ -1480,29 +1496,23 @@ void client_raise(client *c, int priority)
 			client_stack_family(c, stack);
 
 		// locate windows with both _NET_WM_STATE_STICKY and _NET_WM_STATE_ABOVE
-		winlist_descend(inplay, i, w)
-		{
-			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
-				&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
+		clients_descend(inplay, i, w, o)
+			if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
+				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
 				&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
 					client_stack_family(o, stack);
-		}
 		// locate windows in the current_tag with _NET_WM_STATE_ABOVE
 		// untagged windows with _NET_WM_STATE_ABOVE are effectively sticky
-		winlist_descend(inplay, i, w)
-		{
-			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
-				&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
+		clients_descend(inplay, i, w, o)
+			if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
+				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
 				&& (!o->cache->tags || current_tag & o->cache->tags))
 					client_stack_family(o, stack);
-		}
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
-		winlist_descend(inplay, i, w)
-		{
-			if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
-				&& c->trans == None && o->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
+		clients_descend(inplay, i, w, o)
+			if (winlist_find(stack, w) < 0 && o->visible && c->trans == None
+				&& o->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 					client_stack_family(o, stack);
-		}
 	}
 	// locate our family
 	if (winlist_find(stack, c->window) < 0)
@@ -1531,21 +1541,17 @@ void client_lower(client *c, int priority)
 
 	// locate windows in the current_tag with _NET_WM_STATE_BELOW
 	// untagged windows with _NET_WM_STATE_BELOW are effectively sticky
-	winlist_descend(inplay, i, w)
-	{
-		if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
-			&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
+	clients_descend(inplay, i, w, o)
+		if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
+			&& client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
 			&& (!o->cache->tags || current_tag & o->cache->tags))
 				client_stack_family(o, stack);
-	}
 	// locate windows with both _NET_WM_STATE_STICKY and _NET_WM_STATE_BELOW
-	winlist_descend(inplay, i, w)
-	{
-		if (winlist_find(stack, w) < 0 && (o = window_client(w)) && o && o->visible
-			&& o->trans == None && client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
+	clients_descend(inplay, i, w, o)
+		if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
+			&& client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
 			&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
 				client_stack_family(o, stack);
-	}
 
 	if (winlist_find(stack, c->window) < 0)
 		client_stack_family(c, stack);
@@ -1642,8 +1648,7 @@ void client_activate(client *c, int raise, int warp)
 	int i; Window w; client *o;
 
 	// deactivate everyone else
-	winlist_ascend(windows_in_play(c->xattr.root), i, w)
-		if (w != c->window && (o = window_client(w)) && o->manage) client_deactivate(o);
+	clients_ascend(windows_in_play(c->xattr.root), i, w, o) if (w != c->window) client_deactivate(o);
 
 	// setup ourself
 	if (config_raise_mode == RAISEFOCUS || raise)
@@ -1692,21 +1697,18 @@ client* window_active_client(Window root, unsigned int tag)
 {
 	int i; Window w; client *c = NULL;
 	// look for a visible, previously activated window in the current tag
-	if (tag) winlist_descend(windows_activated, i, w)
-		if ((c = window_client(w)) && c && c->manage && c->visible
-			&& c->cache->tags & tag && c->xattr.root == root) break;
+	if (tag) clients_descend(windows_activated, i, w, c)
+		if (c->manage && c->visible && c->cache->tags & tag && c->xattr.root == root) break;
 	// look for a visible, previously activated window anywhere
-	if (!c) winlist_descend(windows_activated, i, w)
-		if ((c = window_client(w)) && c && c->manage && c->visible
-			&& c->xattr.root == root) break;
+	if (!c) clients_descend(windows_activated, i, w, c)
+		if (c->manage && c->visible && c->xattr.root == root) break;
 	// if we found one, activate it
 	if (c && (!c->focus || !c->active))
 		client_activate(c, RAISEDEF, WARPDEF);
 	// otherwise look for any visible, manageable window
 	if (!c)
 	{
-		winlist_descend(windows_in_play(root), i, w)
-			if ((c = window_client(w)) && c && c->manage && c->visible) break;
+		managed_descend(root, i, w, c) break;
 		if (c) client_activate(c, RAISEDEF, WARPDEF);
 	}
 	return c;
@@ -1726,32 +1728,25 @@ void tag_raise(unsigned int tag)
 		focus = None;
 
 		// locate windows with _NET_WM_STATE_ABOVE and _NET_WM_STATE_STICKY
-		winlist_descend(inplay, i, w)
-		{
-			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->visible
-				&& c->trans == None && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])
+		clients_descend(inplay, i, w, c)
+			if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
+				&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])
 				&& client_has_state(c, netatoms[_NET_WM_STATE_STICKY]))
 					client_stack_family(c, stack);
-		}
 		// locate windows with _NET_WM_STATE_ABOVE in this tag
-		winlist_descend(inplay, i, w)
-		{
-			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->visible
-				&& c->trans == None && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]) && c->cache->tags & tag)
+		clients_descend(inplay, i, w, c)
+			if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
+				&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]) && c->cache->tags & tag)
 					client_stack_family(c, stack);
-		}
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
-		winlist_descend(inplay, i, w)
-		{
-			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->visible
-				&& c->trans == None && c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
+		clients_descend(inplay, i, w, c)
+			if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
+				&& c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 					client_stack_family(c, stack);
-		}
 		// locate all other windows in the tag, and the top one to be focused
-		winlist_descend(inplay, i, w)
+		managed_descend(root, i, w, c)
 		{
-			if (winlist_find(stack, w) < 0 && (c = window_client(w)) && c && c->manage && c->visible
-				&& c->trans == None && c->cache->tags & tag)
+			if (winlist_find(stack, w) < 0 && c->trans == None && c->cache->tags & tag)
 			{
 				if (focus == None) focus = w;
 				client_stack_family(c, stack);
@@ -1786,8 +1781,7 @@ void client_toggle_tag(client *c, unsigned int tag, int flash)
 	{
 		c->cache->tags &= ~tag;
 		if (flash) client_flash(c, config_flash_off, config_flash_ms);
-	}
-	else
+	} else
 	{
 		c->cache->tags |= tag;
 		if (flash) client_flash(c, config_flash_on, config_flash_ms);
@@ -1988,21 +1982,10 @@ void client_nws_review(client *c)
 // cycle through tag windows in roughly the same screen position and tag
 void client_cycle(client *c)
 {
-	client_extended_data(c);
 	int i; Window w; client *o;
-	winlist_ascend(windows_in_play(c->xattr.root), i, w)
-	{
-		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible
-			&& (!o->cache->tags || o->cache->tags & current_tag))
-		{
-			client_extended_data(o);
-			if (INTERSECT(c->x, c->y, c->sw, c->sh, o->x, o->y, o->sw, o->sh))
-			{
-				client_activate(o, RAISE, WARPDEF);
-				return;
-			}
-		}
-	}
+	tag_ascend(c->xattr.root, i, w, o, current_tag)
+		if (w != c->window && clients_intersect(c, o))
+			{ client_activate(o, RAISE, WARPDEF); return; }
 }
 
 // horizontally tile two windows in the same screen position and tag
@@ -2012,33 +1995,22 @@ void client_htile(client *c)
 	winlist *tiles = winlist_new();
 	winlist_append(tiles, c->window, NULL);
 	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
-	winlist_descend(windows_in_play(c->xattr.root), i, w)
-	{
-		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible
-			&& (!o->cache->tags || o->cache->tags & current_tag))
-		{
-			client_extended_data(o);
-			if (NEAR(c->x, vague, o->x) &&
-				NEAR(c->y, vague, o->y) &&
-				NEAR(c->w, vague, o->w) &&
-				NEAR(c->h, vague, o->h))
-					winlist_append(tiles, w, NULL);
-		}
-	}
+	// locate windows with same tag, size, and position
+	tag_descend(c->xattr.root, i, w, o, current_tag) if (c->window != w)
+		if (NEAR(c->x, vague, o->x) && NEAR(c->y, vague, o->y) && NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h))
+			winlist_append(tiles, w, NULL);
 	if (tiles->len > 1)
 	{
 		int width = c->sw / tiles->len;
-		winlist_ascend(tiles, i, w)
+		clients_ascend(tiles, i, w, o)
 		{
-			o = window_client(w);
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 			client_moveresize(o, 0, c->x+(width*i), c->y, width, c->sh);
 		}
-	}
+	} else
 	// nothing to tile with. still make a gap for something subsequent
-	else
 	{
 		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
@@ -2055,33 +2027,22 @@ void client_vtile(client *c)
 	winlist *tiles = winlist_new();
 	winlist_append(tiles, c->window, NULL);
 	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
-	winlist_descend(windows_in_play(c->xattr.root), i, w)
-	{
-		if (w != c->window && (o = window_client(w)) && o && c->manage && o->visible
-			&& (!o->cache->tags || o->cache->tags & current_tag))
-		{
-			client_extended_data(o);
-			if (NEAR(c->x, vague, o->x) &&
-				NEAR(c->y, vague, o->y) &&
-				NEAR(c->w, vague, o->w) &&
-				NEAR(c->h, vague, o->h))
-					winlist_append(tiles, w, NULL);
-		}
-	}
+	// locate windows with same tag, size, and position
+	tag_descend(c->xattr.root, i, w, o, current_tag) if (c->window != w)
+		if (NEAR(c->x, vague, o->x) && NEAR(c->y, vague, o->y) && NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h))
+			winlist_append(tiles, w, NULL);
 	if (tiles->len > 1)
 	{
 		int height = c->sh / tiles->len;
-		winlist_ascend(tiles, i, w)
+		clients_ascend(tiles, i, w, o)
 		{
-			o = window_client(w);
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 			client_moveresize(o, 0, c->x, c->y+(height*i), c->sw, height);
 		}
-	}
+	} else
 	// nothing to tile with. still make a gap for something subsequent
-	else
 	{
 		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
@@ -2097,41 +2058,33 @@ void client_focusto(client *c, int direction)
 	client_extended_data(c);
 	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
 	// look for a window immediately adjacent or overlapping
-	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	tag_descend(c->xattr.root, i, w, o, current_tag) if (w != c->window)
 	{
-		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible
-			&& (!o->cache->tags || o->cache->tags & current_tag))
+		client_extended_data(o);
+		if ((direction == FOCUSLEFT  && o->x < c->x
+				&& INTERSECT(c->x-vague, c->y, c->sw+vague, c->sh, o->x, o->y, o->sw, o->sh)) ||
+			(direction == FOCUSRIGHT && o->x+o->w > c->x+c->w
+				&& INTERSECT(c->x, c->y, c->sw+vague, c->sh, o->x, o->y, o->sw, o->sh)) ||
+			(direction == FOCUSUP    && o->y < c->y
+				&& INTERSECT(c->x, c->y-vague, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)) ||
+			(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h
+				&& INTERSECT(c->x, c->y, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)))
 		{
-			client_extended_data(o);
-			if ((direction == FOCUSLEFT  && o->x < c->x
-					&& INTERSECT(c->x-vague, c->y, c->sw+vague, c->sh, o->x, o->y, o->sw, o->sh)) ||
-				(direction == FOCUSRIGHT && o->x+o->w > c->x+c->w
-					&& INTERSECT(c->x, c->y, c->sw+vague, c->sh, o->x, o->y, o->sw, o->sh)) ||
-				(direction == FOCUSUP    && o->y < c->y
-					&& INTERSECT(c->x, c->y-vague, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)) ||
-				(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h
-					&& INTERSECT(c->x, c->y, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)))
-			{
-				client_activate(o, RAISEDEF, WARPDEF);
-				return;
-			}
+			client_activate(o, RAISEDEF, WARPDEF);
+			return;
 		}
 	}
 	// we didn't find a window immediately adjacent or overlapping. look further afield
-	winlist_descend(windows_in_play(c->xattr.root), i, w)
+	tag_descend(c->xattr.root, i, w, o, current_tag) if (w != c->window)
 	{
-		if (w != c->window && (o = window_client(w)) && o && o->manage && o->visible
-			&& (!o->cache->tags || o->cache->tags & current_tag))
+		client_extended_data(o);
+		if ((direction == FOCUSLEFT  && o->x < c->x) ||
+			(direction == FOCUSRIGHT && o->x+o->w > c->x+c->w) ||
+			(direction == FOCUSUP    && o->y < c->y) ||
+			(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h))
 		{
-			client_extended_data(o);
-			if ((direction == FOCUSLEFT  && o->x < c->x) ||
-				(direction == FOCUSRIGHT && o->x+o->w > c->x+c->w) ||
-				(direction == FOCUSUP    && o->y < c->y) ||
-				(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h))
-			{
-				client_activate(o, RAISEDEF, WARPDEF);
-				return;
-			}
+			client_activate(o, RAISEDEF, WARPDEF);
+			return;
 		}
 	}
 }
@@ -2139,20 +2092,10 @@ void client_focusto(client *c, int direction)
 // resize window to match the one underneath
 void client_duplicate(client *c)
 {
-	int i; Window w; client *o;
-	winlist_descend(windows_in_play(c->xattr.root), i, w)
-	{
-		if (w != c->window && (o = window_client(w)) && o->manage && o->visible &&
-			(!o->cache->tags || o->cache->tags & current_tag))
-		{
-			client_extended_data(o);
-			if (INTERSECT(c->x, c->y, c->sw, c->sh, o->x, o->y, o->sw, o->sh))
-			{
-				client_moveresize(c, 0, o->x, o->y, o->sw, o->sh);
-				return;
-			}
-		}
-	}
+	int i; Window w; client *o; client_commit(c);
+	tag_descend(c->xattr.root, i, w, o, current_tag)
+		if (c->window != w && clients_intersect(c, o))
+			{ client_moveresize(c, 0, o->x, o->y, o->sw, o->sh); return; }
 }
 
 // search and activate first open window matching class/name/title
@@ -2165,9 +2108,9 @@ void app_find_or_start(Window root, char *pattern)
 	// first, try in current_tag only
 	for (i = 0; i < 3 && found == None; i++)
 	{
-		winlist_descend(windows_activated, j, w)
+		clients_descend(windows_activated, j, w, c)
 		{
-			if ((c = window_client(w)) && c && c->manage && c->visible && c->cache->tags & current_tag)
+			if (c->manage && c->visible && c->xattr.root == root && c->cache->tags & current_tag)
 			{
 				client_descriptive_data(c);
 				if (!strcasecmp(((char*)c)+offsets[i], pattern))
@@ -2178,9 +2121,9 @@ void app_find_or_start(Window root, char *pattern)
 	// failing that, search regardless of tag
 	for (i = 0; i < 3 && found == None; i++)
 	{
-		winlist_descend(windows_activated, j, w)
+		clients_descend(windows_activated, j, w, c)
 		{
-			if ((c = window_client(w)) && c && c->manage && c->visible)
+			if (c->manage && c->visible && c->xattr.root == root)
 			{
 				client_descriptive_data(c);
 				if (!strcasecmp(((char*)c)+offsets[i], pattern))
@@ -2223,10 +2166,8 @@ void menu_draw(struct localmenu *my)
 	// filter lines by current input text
 	memset(my->filtered, 0, sizeof(char*) * (my->num_lines+1));
 	for (i = 0, n = 0; my->lines[i]; i++)
-	{
 		if (!my->offset || strcasestr(my->lines[i], my->input))
 			my->filtered[n++] = my->lines[i];
-	}
 	// vertical bounds of highlight bar
 	my->current = MAX(0, MIN(my->current, n-1));
 	for (i = 0; my->filtered[i]; i++)
@@ -2401,9 +2342,9 @@ void window_switcher(Window root, unsigned int tag)
 	Window w; client *c; winlist *ids = winlist_new();
 
 	// calc widths of wm_class and tag csv fields
-	winlist_descend(windows_activated, i, w)
+	clients_descend(windows_activated, i, w, c)
 	{
-		if ((c = window_client(w)) && c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
+		if (c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
 		{
 			client_descriptive_data(c);
 			if (!tag || (c->cache && c->cache->tags & tag))
@@ -2425,28 +2366,25 @@ void window_switcher(Window root, unsigned int tag)
 	plen += sprintf(pattern+plen, "%%-%ds   %%s", MAX(5, classfield));
 	list = allocate_clear(sizeof(char*) * (lines+1)); lines = 0;
 	// build the actual list
-	winlist_ascend(ids, i, w)
+	clients_ascend(ids, i, w, c)
 	{
-		if ((c = window_client(w)))
+		client_descriptive_data(c);
+		if (!tag || (c->cache && c->cache->tags & tag))
 		{
-			client_descriptive_data(c);
-			if (!tag || (c->cache && c->cache->tags & tag))
-			{
-				char tags[32]; memset(tags, 0, 32);
-				int j, l; for (l = 0, j = 0; j < TAGS; j++)
-					if (c->cache->tags & (1<<j)) l += sprintf(tags+l, "%d,", j+1);
-				if (l > 0) tags[l-1] = '\0';
+			char tags[32]; memset(tags, 0, 32);
+			int j, l; for (l = 0, j = 0; j < TAGS; j++)
+				if (c->cache->tags & (1<<j)) l += sprintf(tags+l, "%d,", j+1);
+			if (l > 0) tags[l-1] = '\0';
 
-				char aos[5]; memset(aos, 0, 5);
-				if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) strcat(aos, "a");
-				if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) strcat(aos, "s");
+			char aos[5]; memset(aos, 0, 5);
+			if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) strcat(aos, "a");
+			if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) strcat(aos, "s");
 
-				char *line = allocate(strlen(c->title) + strlen(tags) + strlen(c->class) + classfield + 50);
-				if ((above || sticky) && maxtags) sprintf(line, pattern, aos, tags, c->class, c->title);
-				else if (maxtags) sprintf(line, pattern, tags, c->class, c->title);
-				else sprintf(line, pattern, c->class, c->title);
-				list[lines++] = line;
-			}
+			char *line = allocate(strlen(c->title) + strlen(tags) + strlen(c->class) + classfield + 50);
+			if ((above || sticky) && maxtags) sprintf(line, pattern, aos, tags, c->class, c->title);
+			else if (maxtags) sprintf(line, pattern, tags, c->class, c->title);
+			else sprintf(line, pattern, c->class, c->title);
+			list[lines++] = line;
 		}
 	}
 	if (!fork())
@@ -2455,10 +2393,8 @@ void window_switcher(Window root, unsigned int tag)
 		XSync(display, True);
 		int n = menu(root, list, NULL);
 		if (n >= 0 && list[n])
-		{
 			window_send_message(root, ids->array[n], netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
 				SubstructureNotifyMask | SubstructureRedirectMask);
-		}
 		exit(EXIT_SUCCESS);
 	}
 	for (i = 0; i < lines; i++) free(list[i]);
@@ -2562,37 +2498,37 @@ void handle_keypress(XEvent *ev)
 		int x = c->sx; int y = c->sy; int w = c->sw; int h = c->sh;
 
 		// four basic window sizes
-		int width1  = screen_width/3;      int height1 = screen_height/3;
-		int width2  = screen_width/2;      int height2 = screen_height/2;
-		int width3  = screen_width-width1; int height3 = screen_height-height1;
-		int width4  = screen_width;        int height4 = screen_height;
+		int width1 = screen_width/3;      int height1 = screen_height/3;
+		int width2 = screen_width/2;      int height2 = screen_height/2;
+		int width3 = screen_width-width1; int height3 = screen_height-height1;
+		int width4 = screen_width;        int height4 = screen_height;
 
 		// final resize/move params. smart = intelligently bump / center / shrink
 		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
 
-		if (key == keymap[KEY_CLOSE]) client_close(c);
-		else if (key == keymap[KEY_CYCLE]) client_cycle(c);
-		else if (key == keymap[KEY_TAG]) client_toggle_tag(c, current_tag, FLASH);
-		else if (key == keymap[KEY_ABOVE]) client_nws_above(c, TOGGLE);
-		else if (key == keymap[KEY_BELOW]) client_nws_below(c, TOGGLE);
-		else if (key == keymap[KEY_STICKY]) client_nws_sticky(c, TOGGLE);
+		     if (key == keymap[KEY_CLOSE])      client_close(c);
+		else if (key == keymap[KEY_CYCLE])      client_cycle(c);
+		else if (key == keymap[KEY_TAG])        client_toggle_tag(c, current_tag, FLASH);
+		else if (key == keymap[KEY_ABOVE])      client_nws_above(c, TOGGLE);
+		else if (key == keymap[KEY_BELOW])      client_nws_below(c, TOGGLE);
+		else if (key == keymap[KEY_STICKY])     client_nws_sticky(c, TOGGLE);
 		else if (key == keymap[KEY_FULLSCREEN]) client_nws_fullscreen(c, TOGGLE);
-		else if (key == keymap[KEY_HMAX]) client_nws_maxhorz(c, TOGGLE);
-		else if (key == keymap[KEY_VMAX]) client_nws_maxvert(c, TOGGLE);
-		else if (key == keymap[KEY_EXPAND]) client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
-		else if (key == keymap[KEY_CONTRACT]) client_contract(c, HORIZONTAL|VERTICAL);
-		else if (key == keymap[KEY_VLOCK]) client_toggle_vlock(c);
-		else if (key == keymap[KEY_HLOCK]) client_toggle_hlock(c);
-		else if (key == keymap[KEY_HTILE]) client_htile(c);
-		else if (key == keymap[KEY_VTILE]) client_vtile(c);
-		else if (key == keymap[KEY_UNDO]) client_rollback(c);
-		else if (key == keymap[KEY_DUPLICATE]) client_duplicate(c);
+		else if (key == keymap[KEY_HMAX])       client_nws_maxhorz(c, TOGGLE);
+		else if (key == keymap[KEY_VMAX])       client_nws_maxvert(c, TOGGLE);
+		else if (key == keymap[KEY_EXPAND])     client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+		else if (key == keymap[KEY_CONTRACT])   client_contract(c, HORIZONTAL|VERTICAL);
+		else if (key == keymap[KEY_VLOCK])      client_toggle_vlock(c);
+		else if (key == keymap[KEY_HLOCK])      client_toggle_hlock(c);
+		else if (key == keymap[KEY_HTILE])      client_htile(c);
+		else if (key == keymap[KEY_VTILE])      client_vtile(c);
+		else if (key == keymap[KEY_UNDO])       client_rollback(c);
+		else if (key == keymap[KEY_DUPLICATE])  client_duplicate(c);
 
 		// directional focus change
-		else if (key == keymap[KEY_FOCUSLEFT]) client_focusto(c, FOCUSLEFT);
+		else if (key == keymap[KEY_FOCUSLEFT])  client_focusto(c, FOCUSLEFT);
 		else if (key == keymap[KEY_FOCUSRIGHT]) client_focusto(c, FOCUSRIGHT);
-		else if (key == keymap[KEY_FOCUSUP]) client_focusto(c, FOCUSUP);
-		else if (key == keymap[KEY_FOCUSDOWN]) client_focusto(c, FOCUSDOWN);
+		else if (key == keymap[KEY_FOCUSUP])    client_focusto(c, FOCUSUP);
+		else if (key == keymap[KEY_FOCUSDOWN])  client_focusto(c, FOCUSDOWN);
 
 		else
 		// cycle through windows with same tag
@@ -2715,11 +2651,6 @@ void handle_keypress(XEvent *ev)
 	}
 }
 
-// MODKEY+keys
-void handle_keyrelease(XEvent *ev)
-{
-}
-
 // we bind on all mouse buttons on the root window to implement click-to-focus
 // events are compressed, checked for a window change, then replayed through to clients
 void handle_buttonpress(XEvent *ev)
@@ -2745,8 +2676,7 @@ void handle_buttonpress(XEvent *ev)
 				GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
 			memcpy(&mouse_attr, &c->xattr, sizeof(c->xattr));
 			memcpy(&mouse_button, &ev->xbutton, sizeof(ev->xbutton));
-		}
-		else
+		} else
 		{
 			// events we havn't snaffled for move/resize may be relevant to the subwindow. replay them
 			XAllowEvents(display, ReplayPointer, CurrentTime);
@@ -2815,29 +2745,26 @@ void handle_motionnotify(XEvent *ev)
 			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 				{ y = mon.y; h = mon.h-bw; }
 		}
-
-		// snap to monitor edges
 		// Button1 = move
 		if (mouse_button.button == Button1)
 		{
+			// snap to monitor edges
 			if (NEAR(c->monitor.x, vague, x)) { x = c->monitor.x; xsnap = 1; }
 			if (NEAR(c->monitor.y, vague, y)) { y = c->monitor.y; ysnap = 1; }
 			if (!xsnap && NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { x = c->monitor.x+c->monitor.w-w-bw; xsnap = 1; }
 			if (!ysnap && NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { y = c->monitor.y+c->monitor.h-h-bw; ysnap = 1; }
-			if (!xsnap || !ysnap) winlist_descend(windows_in_play(c->xattr.root), i, win)
+			// snap to window edges
+			if (!xsnap || !ysnap) managed_descend(c->xattr.root, i, win, o) if (win != c->window)
 			{
-				if (win != c->window && (o = window_client(win)) && o->manage && o->visible)
-				{
-					client_extended_data(o);
-					if (!xsnap && NEAR(o->x, vague, x)) { x = o->x; xsnap = 1; }
-					if (!ysnap && NEAR(o->y, vague, y)) { y = o->y; ysnap = 1; }
-					if (!xsnap && NEAR(o->x+o->sw, vague, x)) { x = o->x+o->sw; xsnap = 1; }
-					if (!ysnap && NEAR(o->y+o->sh, vague, y)) { y = o->y+o->sh; ysnap = 1; }
-					if (!xsnap && NEAR(o->x, vague, x+w)) { x = o->x+-w-bw; xsnap = 1; }
-					if (!ysnap && NEAR(o->y, vague, y+h)) { y = o->y+-h-bw; ysnap = 1; }
-					if (!xsnap && NEAR(o->x+o->sw, vague, x+w)) { x = o->x+o->sw-w-bw; xsnap = 1; }
-					if (!ysnap && NEAR(o->y+o->sh, vague, y+h)) { y = o->y+o->sh-h-bw; ysnap = 1; }
-				}
+				client_extended_data(o);
+				if (!xsnap && NEAR(o->x, vague, x)) { x = o->x; xsnap = 1; }
+				if (!ysnap && NEAR(o->y, vague, y)) { y = o->y; ysnap = 1; }
+				if (!xsnap && NEAR(o->x+o->sw, vague, x)) { x = o->x+o->sw; xsnap = 1; }
+				if (!ysnap && NEAR(o->y+o->sh, vague, y)) { y = o->y+o->sh; ysnap = 1; }
+				if (!xsnap && NEAR(o->x, vague, x+w)) { x = o->x+-w-bw; xsnap = 1; }
+				if (!ysnap && NEAR(o->y, vague, y+h)) { y = o->y+-h-bw; ysnap = 1; }
+				if (!xsnap && NEAR(o->x+o->sw, vague, x+w)) { x = o->x+o->sw-w-bw; xsnap = 1; }
+				if (!ysnap && NEAR(o->y+o->sh, vague, y+h)) { y = o->y+o->sh-h-bw; ysnap = 1; }
 				if (xsnap && ysnap) break;
 			}
 		}
@@ -2845,22 +2772,20 @@ void handle_motionnotify(XEvent *ev)
 		// Button3 = resize
 		if (mouse_button.button == Button3)
 		{
+			// snap to monitor edges
 			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { w = c->monitor.x+c->monitor.w-x-bw; xsnap = 1; }
 			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { h = c->monitor.y+c->monitor.h-y-bw; ysnap = 1; }
-			if (!xsnap || !ysnap) winlist_descend(windows_in_play(c->xattr.root), i, win)
+			// snap to window edges
+			if (!xsnap || !ysnap) managed_descend(c->xattr.root, i, win, o) if (win != c->window)
 			{
-				if (win != c->window && (o = window_client(win)) && o->manage && o->visible)
-				{
-					client_extended_data(o);
-					if (!xsnap && NEAR(o->x, vague, x+w)) { w = o->x-x-bw; xsnap = 1; }
-					if (!ysnap && NEAR(o->y, vague, y+h)) { h = o->y-y-bw; ysnap = 1; }
-					if (!xsnap && NEAR(o->x+o->sw, vague, x+w)) { w = o->x+o->sw-x-bw; xsnap = 1; }
-					if (!ysnap && NEAR(o->y+o->sh, vague, y+h)) { h = o->y+o->sh-y-bw; ysnap = 1; }
-				}
+				client_extended_data(o);
+				if (!xsnap && NEAR(o->x, vague, x+w)) { w = o->x-x-bw; xsnap = 1; }
+				if (!ysnap && NEAR(o->y, vague, y+h)) { h = o->y-y-bw; ysnap = 1; }
+				if (!xsnap && NEAR(o->x+o->sw, vague, x+w)) { w = o->x+o->sw-x-bw; xsnap = 1; }
+				if (!ysnap && NEAR(o->y+o->sh, vague, y+h)) { h = o->y+o->sh-y-bw; ysnap = 1; }
 				if (xsnap && ysnap) break;
 			}
 		}
-
 		// process size hints
 		if (c->xsize.flags & PMinSize)
 		{
@@ -2875,8 +2800,8 @@ void handle_motionnotify(XEvent *ev)
 		if (c->xsize.flags & PAspect)
 		{
 			double ratio = (double) w / h;
-			double minr = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
-			double maxr = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
+			double minr  = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
+			double maxr  = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
 				if (ratio < minr) h = (int)(w / minr);
 			else if (ratio > maxr) w = (int)(h * maxr);
 		}
@@ -2963,18 +2888,15 @@ void handle_configurenotify(XEvent *ev)
 		XWindowAttributes *attr = window_get_attributes(root);
 		int i; Window w;
 		// find all windows and ensure they're visible in the new screen layout
-		winlist_ascend(windows_in_play(ev->xconfigure.window), i, w)
+		managed_ascend(ev->xconfigure.window, i, w, c)
 		{
-			if ((c = window_client(w)) && c->manage && c->visible)
-			{
-				client_extended_data(c);
-				// client_moveresize() will handle fine tuning bumping the window on-screen
-				// all we have to do is get x/y in the right ballpark
-				client_moveresize(c, 0,
-					MIN(attr->x+attr->width-1,  MAX(attr->x, c->x)),
-					MIN(attr->y+attr->height-1, MAX(attr->y, c->y)),
-					c->sw, c->sh);
-			}
+			client_extended_data(c);
+			// client_moveresize() will handle fine tuning bumping the window on-screen
+			// all we have to do is get x/y in the right ballpark
+			client_moveresize(c, 0,
+				MIN(attr->x+attr->width-1,  MAX(attr->x, c->x)),
+				MIN(attr->y+attr->height-1, MAX(attr->y, c->y)),
+				c->sw, c->sh);
 		}
 	}
 	else
@@ -3032,8 +2954,7 @@ void handle_maprequest(XEvent *ev)
 			{
 				client_extended_data(p);
 				m = &p->monitor;
-			}
-			else
+			} else
 			// center everything else on current monitor
 			{
 				monitor_active(c->xattr.screen, &a);
@@ -3182,11 +3103,6 @@ void handle_enternotify(XEvent *ev)
 		client_activate(c, RAISEDEF, WARPDEF);
 	}
 }
-void handle_leavenotify(XEvent *ev)
-{
-
-}
-
 void handle_mappingnotify(XEvent *ev)
 {
 	event_log("MappingNotify", ev->xany.window);
@@ -3293,9 +3209,6 @@ int main(int argc, char *argv[])
 		}
 	}
 	free(conf_home);
-#ifdef DEBUG
-	for (i = 0; i < ac; i++) printf("%s\n", av[i]);
-#endif
 
 	// caches to reduce X server round trips during a single event
 	cache_client = winlist_new();
@@ -3421,22 +3334,20 @@ int main(int argc, char *argv[])
 		if (ev.type == MappingNotify) handle_mappingnotify(&ev);
 		if (ev.xany.window == None) continue;
 
-		if (ev.type == KeyPress) handle_keypress(&ev);
-		else if (ev.type == KeyRelease) handle_keyrelease(&ev);
-		else if (ev.type == ButtonPress) handle_buttonpress(&ev);
-		else if (ev.type == ButtonRelease) handle_buttonrelease(&ev);
-		else if (ev.type == MotionNotify) handle_motionnotify(&ev);
-		else if (ev.type == CreateNotify) handle_createnotify(&ev);
-		else if (ev.type == DestroyNotify) handle_destroynotify(&ev);
+		     if (ev.type == KeyPress)         handle_keypress(&ev);
+		else if (ev.type == ButtonPress)      handle_buttonpress(&ev);
+		else if (ev.type == ButtonRelease)    handle_buttonrelease(&ev);
+		else if (ev.type == MotionNotify)     handle_motionnotify(&ev);
+		else if (ev.type == CreateNotify)     handle_createnotify(&ev);
+		else if (ev.type == DestroyNotify)    handle_destroynotify(&ev);
 		else if (ev.type == ConfigureRequest) handle_configurerequest(&ev);
-		else if (ev.type == ConfigureNotify) handle_configurenotify(&ev);
-		else if (ev.type == MapRequest) handle_maprequest(&ev);
-		else if (ev.type == MapNotify) handle_mapnotify(&ev);
-		else if (ev.type == UnmapNotify) handle_unmapnotify(&ev);
-		else if (ev.type == ClientMessage) handle_clientmessage(&ev);
-		else if (ev.type == PropertyNotify) handle_propertynotify(&ev);
-		else if (ev.type == EnterNotify) handle_enternotify(&ev);
-		else if (ev.type == LeaveNotify) handle_leavenotify(&ev);
+		else if (ev.type == ConfigureNotify)  handle_configurenotify(&ev);
+		else if (ev.type == MapRequest)       handle_maprequest(&ev);
+		else if (ev.type == MapNotify)        handle_mapnotify(&ev);
+		else if (ev.type == UnmapNotify)      handle_unmapnotify(&ev);
+		else if (ev.type == ClientMessage)    handle_clientmessage(&ev);
+		else if (ev.type == PropertyNotify)   handle_propertynotify(&ev);
+		else if (ev.type == EnterNotify)      handle_enternotify(&ev);
 #ifdef DEBUG
 		else fprintf(stderr, "unhandled event %d: %x\n", ev.type, (unsigned int)ev.xany.window);
 		catch_exit(0);
