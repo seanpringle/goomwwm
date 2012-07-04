@@ -1693,6 +1693,14 @@ void client_state(client *c, long state)
 	}
 }
 
+// update current desktop on all roots
+void tag_set_current(unsigned int tag)
+{
+	current_tag = tag; unsigned long d = tag_to_desktop(current_tag);
+	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
+		window_set_cardinal_prop(RootWindow(display, scr), netatoms[_NET_CURRENT_DESKTOP], &d, 1);
+}
+
 // locate the currently focused window and build a client for it
 client* window_active_client(Window root, unsigned int tag)
 {
@@ -1762,10 +1770,6 @@ void tag_raise(unsigned int tag)
 		}
 		winlist_free(stack);
 
-		// update current desktop on all roots
-		current_tag = tag; unsigned long d = tag_to_desktop(current_tag);
-		window_set_cardinal_prop(RootWindow(display, scr), netatoms[_NET_CURRENT_DESKTOP], &d, 1);
-
 		// focus the top-most non-_NET_WM_STATE_ABOVE managable client in the tag
 		if (focus != None)
 		{
@@ -1773,6 +1777,8 @@ void tag_raise(unsigned int tag)
 			if (c) client_activate(c, RAISEDEF, WARPDEF);
 		}
 	}
+	// runs on all screens/roots
+	tag_set_current(tag);
 }
 
 // toggle client in current tag
@@ -3009,7 +3015,7 @@ void handle_unmapnotify(XEvent *ev)
 	{
 		if (window_is_root(ev->xunmap.event))
 		{
-			window_active_client(ev->xunmap.event, current_tag);
+			c = window_active_client(ev->xunmap.event, current_tag);
 			ewmh_client_list(ev->xunmap.event);
 		}
 		else
@@ -3018,6 +3024,9 @@ void handle_unmapnotify(XEvent *ev)
 			client_activate(c, RAISEDEF, WARPDEF);
 			ewmh_client_list(c->xattr.root);
 		}
+		// if this was the last window in the tag, auto switch
+		if (c && !(c->cache->tags & current_tag))
+			tag_set_current(tag_to_desktop(desktop_to_tag(c->cache->tags)));
 	}
 }
 
