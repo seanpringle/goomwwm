@@ -1847,6 +1847,7 @@ void client_nws_fullscreen(client *c, int action)
 		client_set_state(c, netatoms[_NET_WM_STATE_FULLSCREEN], 1);
 		// not client_moveresize! that would get tricky and recheck struts
 		XMoveResizeWindow(display, c->window, monitor.x, monitor.y, monitor.w, monitor.h);
+		c->cache->have_mr = 0;
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
@@ -3024,9 +3025,6 @@ void handle_unmapnotify(XEvent *ev)
 			client_activate(c, RAISEDEF, WARPDEF);
 			ewmh_client_list(c->xattr.root);
 		}
-		// if activated window is not in current tag auto switch
-		if (c && !(c->cache->tags & current_tag))
-			tag_raise(desktop_to_tag(tag_to_desktop(c->cache->tags)));
 	}
 }
 
