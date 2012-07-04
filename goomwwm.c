@@ -1646,6 +1646,7 @@ void client_deactivate(client *c)
 void client_activate(client *c, int raise, int warp)
 {
 	int i; Window w; client *o;
+	if (!c->input) return;
 
 	// deactivate everyone else
 	clients_ascend(windows_in_play(c->xattr.root), i, w, o) if (w != c->window) client_deactivate(o);
