@@ -3024,9 +3024,9 @@ void handle_unmapnotify(XEvent *ev)
 			client_activate(c, RAISEDEF, WARPDEF);
 			ewmh_client_list(c->xattr.root);
 		}
-		// if this was the last window in the tag, auto switch
+		// if activated window is not in current tag auto switch
 		if (c && !(c->cache->tags & current_tag))
-			tag_set_current(tag_to_desktop(desktop_to_tag(c->cache->tags)));
+			tag_raise(desktop_to_tag(tag_to_desktop(c->cache->tags)));
 	}
 }
 
