@@ -874,7 +874,7 @@ void client_extended_data(client *c)
 	if (!c || c->is_extended) return;
 
 	long sr; XGetWMNormalHints(display, c->window, &c->xsize, &sr);
-	monitor_dimensions_struts(c->xattr.screen, c->xattr.x, c->xattr.y, &c->monitor);
+	monitor_dimensions_struts(c->xattr.screen, c->x+c->w/2, c->y+c->h/2, &c->monitor);
 
 	int screen_x = c->monitor.x, screen_y = c->monitor.y;
 	int screen_width = c->monitor.w, screen_height = c->monitor.h;
