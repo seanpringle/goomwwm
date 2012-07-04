@@ -2209,13 +2209,13 @@ void menu_key(struct localmenu *my, XEvent *ev)
 			my->input[--(my->offset)] = 0;
 	}
 	else
-	if (key == XK_Up)
+	if (key == XK_Up || key == XK_KP_Up || key == XK_KP_Subtract)
 		my->current = (my->current == 0 ? my->max_lines-1: my->current-1);
 	else
-	if (key == XK_Down || key == XK_Tab)
+	if (key == XK_Down || key == XK_KP_Down || key == XK_KP_Add || key == XK_Tab)
 		my->current = (my->current == my->max_lines-1 ? 0: my->current+1);
 	else
-	if (key == XK_Return)
+	if (key == XK_Return || key == XK_KP_Enter)
 	{
 		if (my->filtered[my->current])
 			my->selected = my->filtered[my->current];
