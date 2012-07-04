@@ -563,10 +563,12 @@ goomwwm -menulines 25
 .RE
 .TP
 .B -menuwidth
-Set the width of the window-switcher menu as a percentage of the screen width (default: 60).
+Set the width of the window-switcher menu as a percentage of the screen width if <= 100 (% symbol optional), or in pixels if >100 (default: 60%).
 .P
 .RS
-goomwwm -menuwidth 60
+goomwwm -menuwidth 60%
+.br
+goomwwm -menuwidth 800
 .RE
 .TP
 .B -modkey

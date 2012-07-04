@@ -2277,7 +2277,7 @@ int menu(Window root, char **lines, char *manual)
 	my->done        = 0; // bailout flag
 	my->horz_pad    = 5; // horizontal padding
 	my->vert_pad    = 5; // vertical padding
-	my->width       = (mon.w/100)*config_menu_width;
+	my->width       = config_menu_width < 101 ? (mon.w/100)*config_menu_width: config_menu_width;
 	my->height      = ((my->line_height) * (my->max_lines+1)) + (my->vert_pad*2);
 	my->xbg         = color_get(display, config_menu_bg);
 	my->selected    = NULL;
