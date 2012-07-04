@@ -2974,7 +2974,7 @@ void handle_maprequest(XEvent *ev)
 void handle_mapnotify(XEvent *ev)
 {
 	client *c = window_client(ev->xmap.window);
-	if (c && c->manage && c->visible && c->initial_state == NormalState)
+	if (c && c->manage && c->visible && c->initial_state == NormalState && c->input)
 	{
 		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
