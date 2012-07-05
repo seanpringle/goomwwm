@@ -236,6 +236,8 @@ typedef struct {
 
 #define RULE_HLOCK 1<<26
 #define RULE_VLOCK 1<<27
+#define RULE_EXPAND 1<<28
+#define RULE_CONTRACT 1<<29
 
 #define RULEPATTERN CLIENTCLASS
 
@@ -585,6 +587,8 @@ void rule_parse(char *rulestr)
 			if (!strncasecmp(left, "block", len)) new->flags |= RULE_BLOCK;
 			if (!strncasecmp(left, "hlock", len)) new->flags |= RULE_HLOCK;
 			if (!strncasecmp(left, "vlock", len)) new->flags |= RULE_VLOCK;
+			if (!strncasecmp(left, "expand", len)) new->flags |= RULE_EXPAND;
+			if (!strncasecmp(left, "contract", len)) new->flags |= RULE_CONTRACT;
 		}
 		// skip delimiters
 		while (*right && strchr(" ,\t", *right)) right++;
@@ -955,7 +959,7 @@ int client_rule_match(client *c, winrule *r)
 }
 
 // find a client's rule, optionally filtered by flags
-winrule* client_rule(client *c, unsigned int flags)
+winrule* client_rule(client *c, unsigned long long flags)
 {
 	if (!c->is_ruled)
 	{
@@ -3195,6 +3199,13 @@ void handle_mapnotify(XEvent *ev)
 			winlist_prepend(windows_activated, c->window, NULL);
 			client_flash(c, config_flash_on, config_flash_ms);
 		}
+
+		// post-placement rules. yes, can do both contract and expand in one rule. it makes sense...
+		unsigned int tag = current_tag; current_tag = desktop_to_tag(tag_to_desktop(c->cache->tags));
+		if (client_rule(c, RULE_CONTRACT)) client_contract(c, HORIZONTAL|VERTICAL);
+		if (client_rule(c, RULE_EXPAND)) client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+		current_tag = tag;
+
 		ewmh_client_list(c->xattr.root);
 		// some gtk windows see to need an extra kick to make them respect expose events...
 		// something to do with the configurerequest step? this little nudge makes it all work :-|
