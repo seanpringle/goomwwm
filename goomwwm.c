@@ -474,6 +474,14 @@ int winlist_append(winlist *l, Window w, void *d)
 	l->array[l->len++] = w;
 	return l->len-1;
 }
+void winlist_prepend(winlist *l, Window w, void *d)
+{
+	winlist_append(l, None, NULL);
+	memmove(&l->array[1], &l->array[0], sizeof(Window) * (l->len-1));
+	memmove(&l->data[1],  &l->data[0],  sizeof(void*)  * (l->len-1));
+	l->array[0] = w;
+	l->data[0] = d;
+}
 void winlist_empty(winlist *l)
 {
 	while (l->len > 0) free(l->data[--(l->len)]);
@@ -3045,7 +3053,7 @@ void handle_maprequest(XEvent *ev)
 				MAX(m->y, m->y + ((m->h - c->h) / 2)), c->w, c->h);
 		}
 		// apply and rule tags
-		if (client_rule(c, (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9)))// && !c->cache->tags)
+		if (client_rule(c, (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9)))
 			c->cache->tags = c->rule->flags & (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9);
 
 		// default to current tag
@@ -3070,6 +3078,11 @@ void handle_mapnotify(XEvent *ev)
 		// autoactivate only on current tag
 		if (c->cache->tags & current_tag)
 			client_activate(c, RAISEDEF, WARPDEF);
+		else	{
+			// update focus history order. pretend this window has been activated before
+			winlist_forget(windows_activated, c->window);
+			winlist_prepend(windows_activated, c->window, NULL);
+		}
 		ewmh_client_list(c->xattr.root);
 		// some gtk windows see to need an extra kick to make them respect expose events...
 		// something to do with the configurerequest step? this little nudge makes it all work :-|
@@ -3098,7 +3111,6 @@ void handle_unmapnotify(XEvent *ev)
 		if (window_is_root(ev->xunmap.event))
 		{
 			window_active_client(ev->xunmap.event, current_tag);
-			tag_auto_switch(ev->xunmap.event);
 			ewmh_client_list(ev->xunmap.event);
 		}
 		else
