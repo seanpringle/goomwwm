@@ -1846,6 +1846,8 @@ void client_nws_fullscreen(client *c, int action)
 
 	if (action == ADD || (action == TOGGLE && !state))
 	{
+		c->cache->hlock = 0;
+		c->cache->vlock = 0;
 		client_commit(c);
 		client_save_position(c);
 		// no struts!
