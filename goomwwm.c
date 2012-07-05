@@ -231,6 +231,9 @@ typedef struct {
 #define RULE_LARGE 1<<22
 #define RULE_COVER 1<<23
 
+#define RULE_STEAL 1<<24
+#define RULE_BLOCK 1<<25
+
 #define RULEPATTERN CLIENTCLASS
 
 typedef struct _rule {
@@ -292,6 +295,9 @@ typedef struct {
 #define RAISEFOCUS 1
 #define RAISECLICK 2
 
+#define MAPSTEAL 1
+#define MAPBLOCK 2
+
 #define WARPFOCUS 1
 #define WARPNEVER 0
 
@@ -305,7 +311,7 @@ typedef struct {
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus, config_border_blur, config_border_attention,
 	config_flash_on, config_flash_off, config_warp_mode,
-	config_border_width, config_flash_width, config_flash_ms,
+	config_border_width, config_flash_width, config_flash_ms, config_map_mode,
 	config_menu_width, config_menu_lines, config_focus_mode, config_raise_mode, config_window_placement;
 
 char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg;
@@ -547,30 +553,33 @@ void rule_parse(char *rulestr)
 		while (*right && !strchr(" ,\t", *right)) right++;
 		if (right > left)
 		{
-			if (!strncasecmp(left, "tag1", right-left)) new->flags |= TAG1;
-			if (!strncasecmp(left, "tag2", right-left)) new->flags |= TAG2;
-			if (!strncasecmp(left, "tag3", right-left)) new->flags |= TAG3;
-			if (!strncasecmp(left, "tag4", right-left)) new->flags |= TAG4;
-			if (!strncasecmp(left, "tag5", right-left)) new->flags |= TAG5;
-			if (!strncasecmp(left, "tag6", right-left)) new->flags |= TAG6;
-			if (!strncasecmp(left, "tag7", right-left)) new->flags |= TAG7;
-			if (!strncasecmp(left, "tag8", right-left)) new->flags |= TAG8;
-			if (!strncasecmp(left, "tag9", right-left)) new->flags |= TAG9;
-			if (!strncasecmp(left, "ignore", right-left)) new->flags |= RULE_IGNORE;
-			if (!strncasecmp(left, "above", right-left)) new->flags |= RULE_ABOVE;
-			if (!strncasecmp(left, "sticky", right-left)) new->flags |= RULE_STICKY;
-			if (!strncasecmp(left, "below", right-left)) new->flags |= RULE_BELOW;
-			if (!strncasecmp(left, "fullscreen", right-left)) new->flags |= RULE_FULLSCREEN;
-			if (!strncasecmp(left, "maximize_horz", right-left)) new->flags |= RULE_MAXHORZ;
-			if (!strncasecmp(left, "maximize_vert", right-left)) new->flags |= RULE_MAXVERT;
-			if (!strncasecmp(left, "top",    right-left)) new->flags |= RULE_TOP;
-			if (!strncasecmp(left, "bottom", right-left)) new->flags |= RULE_BOTTOM;
-			if (!strncasecmp(left, "left",   right-left)) new->flags |= RULE_LEFT;
-			if (!strncasecmp(left, "right",  right-left)) new->flags |= RULE_RIGHT;
-			if (!strncasecmp(left, "small",  right-left)) new->flags |= RULE_SMALL;
-			if (!strncasecmp(left, "medium", right-left)) new->flags |= RULE_MEDIUM;
-			if (!strncasecmp(left, "large",  right-left)) new->flags |= RULE_LARGE;
-			if (!strncasecmp(left, "cover", right-left)) new->flags |= RULE_COVER;
+			int len = right - left;
+			if (!strncasecmp(left, "tag1", len)) new->flags |= TAG1;
+			if (!strncasecmp(left, "tag2", len)) new->flags |= TAG2;
+			if (!strncasecmp(left, "tag3", len)) new->flags |= TAG3;
+			if (!strncasecmp(left, "tag4", len)) new->flags |= TAG4;
+			if (!strncasecmp(left, "tag5", len)) new->flags |= TAG5;
+			if (!strncasecmp(left, "tag6", len)) new->flags |= TAG6;
+			if (!strncasecmp(left, "tag7", len)) new->flags |= TAG7;
+			if (!strncasecmp(left, "tag8", len)) new->flags |= TAG8;
+			if (!strncasecmp(left, "tag9", len)) new->flags |= TAG9;
+			if (!strncasecmp(left, "ignore", len)) new->flags |= RULE_IGNORE;
+			if (!strncasecmp(left, "above", len)) new->flags |= RULE_ABOVE;
+			if (!strncasecmp(left, "sticky", len)) new->flags |= RULE_STICKY;
+			if (!strncasecmp(left, "below", len)) new->flags |= RULE_BELOW;
+			if (!strncasecmp(left, "fullscreen", len)) new->flags |= RULE_FULLSCREEN;
+			if (!strncasecmp(left, "maximize_horz", len)) new->flags |= RULE_MAXHORZ;
+			if (!strncasecmp(left, "maximize_vert", len)) new->flags |= RULE_MAXVERT;
+			if (!strncasecmp(left, "top",    len)) new->flags |= RULE_TOP;
+			if (!strncasecmp(left, "bottom", len)) new->flags |= RULE_BOTTOM;
+			if (!strncasecmp(left, "left",   len)) new->flags |= RULE_LEFT;
+			if (!strncasecmp(left, "right",  len)) new->flags |= RULE_RIGHT;
+			if (!strncasecmp(left, "small",  len)) new->flags |= RULE_SMALL;
+			if (!strncasecmp(left, "medium", len)) new->flags |= RULE_MEDIUM;
+			if (!strncasecmp(left, "large",  len)) new->flags |= RULE_LARGE;
+			if (!strncasecmp(left, "cover", len)) new->flags |= RULE_COVER;
+			if (!strncasecmp(left, "steal", len)) new->flags |= RULE_STEAL;
+			if (!strncasecmp(left, "block", len)) new->flags |= RULE_BLOCK;
 		}
 		// skip delimiters
 		while (*right && strchr(" ,\t", *right)) right++;
@@ -3148,10 +3157,7 @@ void handle_maprequest(XEvent *ev)
 		// default to current tag
 		if (!c->cache->tags) c->cache->tags = current_tag;
 
-		// auto raise only on current tag unless EWMH overrides
-		if (c->cache->tags & current_tag    || client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) client_raise(c, 0);
-		if (!(c->cache->tags & current_tag) || client_has_state(c, netatoms[_NET_WM_STATE_BELOW])) client_lower(c, 0);
-
+		client_lower(c, 0);
 		XSync(display, False);
 	}
 	XMapWindow(display, ev->xmaprequest.window);
@@ -3167,12 +3173,13 @@ void handle_mapnotify(XEvent *ev)
 		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
 		// autoactivate only on current tag
-		if (c->cache->tags & current_tag)
+		if ((config_map_mode == MAPSTEAL && c->cache->tags & current_tag && !client_rule(c, RULE_BLOCK)) || client_rule(c, RULE_STEAL))
 			client_activate(c, RAISEDEF, WARPDEF);
 		else	{
 			// update focus history order. pretend this window has been activated before
 			winlist_forget(windows_activated, c->window);
 			winlist_prepend(windows_activated, c->window, NULL);
+			client_flash(c, config_flash_on, config_flash_ms);
 		}
 		ewmh_client_list(c->xattr.root);
 		// some gtk windows see to need an extra kick to make them respect expose events...
@@ -3484,6 +3491,11 @@ int main(int argc, char *argv[])
 	config_raise_mode = RAISEFOCUS;
 	mode = find_arg_str(ac, av, "-raisemode", "focus");
 	if (!strcasecmp(mode, "click")) config_raise_mode = RAISECLICK;
+
+	// steal mode
+	config_map_mode = MAPSTEAL;
+	mode = find_arg_str(ac, av, "-mapmode", "steal");
+	if (!strcasecmp(mode, "block")) config_map_mode = MAPBLOCK;
 
 	// warp mode
 	config_warp_mode = WARPNEVER;

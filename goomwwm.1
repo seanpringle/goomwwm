@@ -115,6 +115,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR mode ]
 .RB [ \-raisemode
 .IR mode ]
+.RB [ \-mapmode
+.IR mode ]
 .RB [ \-warpmode
 .IR mode ]
 .RB [ \-placement
@@ -543,6 +545,23 @@ Set an X11 key name to move the active window to the left in a 3x3 grid (default
 goomwwm -left Left
 .RE
 .TP
+.B -mapmode
+Control the window initial map focus mode (default: steal).
+.P
+.RS
+goomwwm -mapmode steal
+.P
+Valid settings are:
+.RS
+.P
+.B steal
+new windows get focus.
+.br
+.B block
+new windows do not get focus.
+.RE
+.RE
+.TP
 .B -menubg
 Set the background text color (X11 named color or hex #rrggbb) for the window-switcher menu (default: #222222).
 .P
@@ -675,6 +694,9 @@ are:
 .TP
 .B ignore
 Do not manage a window. Effectively makes a window behave as it the override_redirect flag is set.
+.TP
+.B block
+Do not immediately focus the window when it first maps.
 .TP
 .B tag1 tag2 tag3 tag4 tag5 tag6 tag7 tag8 tag9
 Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
