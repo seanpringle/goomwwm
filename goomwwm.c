@@ -1447,6 +1447,10 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 {
 	client_extended_data(c);
 
+	// hlock/vlock reduce the area we should look at
+	if (c->cache->hlock) { mx = c->x; mw = c->sw; if (!mh) { my = c->monitor.y; mh = c->monitor.h; } }
+	if (c->cache->vlock) { my = c->y; mh = c->sh; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
+
 	winlist *inplay = windows_in_play(c->xattr.root);
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * inplay->len);
