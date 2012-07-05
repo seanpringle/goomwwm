@@ -3194,7 +3194,7 @@ void handle_mapnotify(XEvent *ev)
 		client_state(c, NormalState);
 		// autoactivate only on current tag
 		if ((config_map_mode == MAPSTEAL && c->cache->tags & current_tag && !client_rule(c, RULE_BLOCK)) || client_rule(c, RULE_STEAL))
-			client_activate(c, RAISEDEF, WARPDEF);
+			client_activate(c, RAISE, WARPDEF);
 		else	{
 			// update focus history order. pretend this window has been activated before
 			winlist_forget(windows_activated, c->window);
