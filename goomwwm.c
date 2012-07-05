@@ -234,11 +234,14 @@ typedef struct {
 #define RULE_STEAL 1<<24
 #define RULE_BLOCK 1<<25
 
+#define RULE_HLOCK 1<<26
+#define RULE_VLOCK 1<<27
+
 #define RULEPATTERN CLIENTCLASS
 
 typedef struct _rule {
 	char pattern[RULEPATTERN];
-	unsigned long flags;
+	unsigned long long flags;
 	struct _rule *next;
 } winrule;
 
@@ -580,6 +583,8 @@ void rule_parse(char *rulestr)
 			if (!strncasecmp(left, "cover", len)) new->flags |= RULE_COVER;
 			if (!strncasecmp(left, "steal", len)) new->flags |= RULE_STEAL;
 			if (!strncasecmp(left, "block", len)) new->flags |= RULE_BLOCK;
+			if (!strncasecmp(left, "hlock", len)) new->flags |= RULE_HLOCK;
+			if (!strncasecmp(left, "vlock", len)) new->flags |= RULE_VLOCK;
 		}
 		// skip delimiters
 		while (*right && strchr(" ,\t", *right)) right++;
@@ -3091,9 +3096,18 @@ void handle_maprequest(XEvent *ev)
 		// fullscreen overrides max h/v
 		if (client_rule(c, RULE_FULLSCREEN))
 			client_add_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
-		else {
+		else
+		// max h/v overrides lock h/v
+		if (client_rule(c, RULE_MAXHORZ|RULE_MAXVERT))
+		{
 			if (client_rule(c, RULE_MAXHORZ)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 			if (client_rule(c, RULE_MAXVERT)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
+		}
+		else
+		if (client_rule(c, RULE_HLOCK|RULE_VLOCK))
+		{
+			if (client_rule(c, RULE_HLOCK)) c->cache->hlock = 1;
+			if (client_rule(c, RULE_VLOCK)) c->cache->vlock = 1;
 		}
 
 		workarea active; memset(&active, 0, sizeof(workarea));
