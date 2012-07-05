@@ -1250,39 +1250,40 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	// ensure we match fullscreen/maxv/maxh mode. these override above locks!
 	if (client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 		{ fx = monitor.x-monitor.l; fy = monitor.y-monitor.t; fw = monitor.w+monitor.l+monitor.r; fh = monitor.h+monitor.t+monitor.b; }
-	else {
+	else
+	{
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 			{ fx = monitor.x; fw = monitor.w; }
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 			{ fy = monitor.y; fh = monitor.h; }
-	}
 
-	// process size hints
-	if (c->xsize.flags & PMinSize)
-	{
-		fw = MAX(fw, c->xsize.min_width);
-		fh = MAX(fh, c->xsize.min_height);
-	}
-	if (c->xsize.flags & PMaxSize)
-	{
-		fw = MIN(fw, c->xsize.max_width);
-		fh = MIN(fh, c->xsize.max_height);
-	}
-	if (c->xsize.flags & PAspect)
-	{
-		double ratio = (double) fw / fh;
-		double minr  = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
-		double maxr  = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
-			if (ratio < minr) fh = (int)(fw / minr);
-		else if (ratio > maxr) fw = (int)(fh * maxr);
-	}
+		// process size hints
+		if (c->xsize.flags & PMinSize)
+		{
+			fw = MAX(fw, c->xsize.min_width);
+			fh = MAX(fh, c->xsize.min_height);
+		}
+		if (c->xsize.flags & PMaxSize)
+		{
+			fw = MIN(fw, c->xsize.max_width);
+			fh = MIN(fh, c->xsize.max_height);
+		}
+		if (c->xsize.flags & PAspect)
+		{
+			double ratio = (double) fw / fh;
+			double minr  = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
+			double maxr  = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
+				if (ratio < minr) fh = (int)(fw / minr);
+			else if (ratio > maxr) fw = (int)(fh * maxr);
+		}
 
-	// bump onto screen. shrink if necessary
-	fw = MAX(1, MIN(fw, monitor.w+monitor.l+monitor.r)); fh = MAX(1, MIN(fh, monitor.h+monitor.t+monitor.b));
-	if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
-		{ fw = MAX(1, MIN(fw, monitor.w)); fh = MAX(1, MIN(fh, monitor.h)); }
-	fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
-	fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
+		// bump onto screen. shrink if necessary
+		fw = MAX(1, MIN(fw, monitor.w+monitor.l+monitor.r)); fh = MAX(1, MIN(fh, monitor.h+monitor.t+monitor.b));
+		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
+			{ fw = MAX(1, MIN(fw, monitor.w)); fh = MAX(1, MIN(fh, monitor.h)); }
+		fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
+		fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
+	}
 
 	// put the window in same general position it was before
 	if (smart)
