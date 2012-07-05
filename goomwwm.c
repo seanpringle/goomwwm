@@ -215,6 +215,12 @@ typedef struct {
 
 // these must be above tag bits
 #define RULE_IGNORE 1<<9
+#define RULE_FULLSCREEN 1<<10
+#define RULE_ABOVE 1<<11
+#define RULE_STICKY 1<<12
+#define RULE_BELOW 1<<13
+#define RULE_MAXHORZ 1<<14
+#define RULE_MAXVERT 1<<15
 
 #define RULEPATTERN CLIENTCLASS
 
@@ -542,6 +548,12 @@ void rule_parse(char *rulestr)
 			if (!strncasecmp(left, "tag8", right-left)) new->flags |= TAG8;
 			if (!strncasecmp(left, "tag9", right-left)) new->flags |= TAG9;
 			if (!strncasecmp(left, "ignore", right-left)) new->flags |= RULE_IGNORE;
+			if (!strncasecmp(left, "above", right-left)) new->flags |= RULE_ABOVE;
+			if (!strncasecmp(left, "sticky", right-left)) new->flags |= RULE_STICKY;
+			if (!strncasecmp(left, "below", right-left)) new->flags |= RULE_BELOW;
+			if (!strncasecmp(left, "fullscreen", right-left)) new->flags |= RULE_FULLSCREEN;
+			if (!strncasecmp(left, "maximize_horz", right-left)) new->flags |= RULE_MAXHORZ;
+			if (!strncasecmp(left, "maximize_vert", right-left)) new->flags |= RULE_MAXVERT;
 		}
 		// skip delimiters
 		while (*right && strchr(" ,\t", *right)) right++;
@@ -1185,19 +1197,27 @@ void client_warp_pointer(client *c)
 void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 {
 	client_extended_data(c);
+	fx = MAX(0, fx); fy = MAX(0, fy);
 
 	// this many be different to the client's current c->monitor...
 	workarea monitor; monitor_dimensions_struts(c->xattr.screen, fx, fy, &monitor);
+
+	fx = MIN(monitor.x+monitor.w+monitor.l+monitor.r-1, fx);
+	fy = MIN(monitor.y+monitor.h+monitor.t+monitor.b-1, fy);
 
 	// horz/vert size locks
 	if (c->cache->vlock) { fy = c->y; fh = c->sh; }
 	if (c->cache->hlock) { fx = c->x; fw = c->sw; }
 
-	// ensure we match maxv/maxh mode. these override above locks!
-	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
-		{ fx = monitor.x; fw = monitor.w; }
-	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
-		{ fy = monitor.y; fh = monitor.h; }
+	// ensure we match fullscreen/maxv/maxh mode. these override above locks!
+	if (client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
+		{ fx = monitor.x-monitor.l; fy = monitor.y-monitor.t; fw = monitor.w+monitor.l+monitor.r; fh = monitor.h+monitor.t+monitor.b; }
+	else {
+		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
+			{ fx = monitor.x; fw = monitor.w; }
+		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
+			{ fy = monitor.y; fh = monitor.h; }
+	}
 
 	// process size hints
 	if (c->xsize.flags & PMinSize)
@@ -1218,12 +1238,14 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 			if (ratio < minr) fh = (int)(fw / minr);
 		else if (ratio > maxr) fw = (int)(fh * maxr);
 	}
+
 	// bump onto screen. shrink if necessary
-	fw = MAX(1, MIN(fw, monitor.w)); fh = MAX(1, MIN(fh, monitor.h));
+	fw = MAX(1, MIN(fw, monitor.w+monitor.l+monitor.r)); fh = MAX(1, MIN(fh, monitor.h+monitor.t+monitor.b));
+	if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
+		{ fw = MAX(1, MIN(fw, monitor.w)); fh = MAX(1, MIN(fh, monitor.h)); }
 	fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
 	fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
-	//fw = MAX(1, MIN(fw, monitor.w - fx + monitor.x));
-	//fh = MAX(1, MIN(fh, monitor.h - fy + monitor.y));
+
 	// put the window in same general position it was before
 	if (smart)
 	{
@@ -1255,9 +1277,6 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		else if (c->is_top) fy = monitor.y;
 		else if (c->is_bottom) fy = monitor.y + monitor.h - fh;
 	}
-
-	// true fullscreen without struts is done in client_fullscreen()
-	client_remove_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
 
 	// compensate for border on non-fullscreen windows
 	if (fw < monitor.w || fh < monitor.h)
@@ -1939,11 +1958,9 @@ void client_nws_fullscreen(client *c, int action)
 		c->cache->vlock = 0;
 		client_commit(c);
 		client_save_position(c);
-		// no struts!
-		workarea monitor; monitor_dimensions(c->xattr.screen, c->xattr.x, c->xattr.y, &monitor);
-		client_set_state(c, netatoms[_NET_WM_STATE_FULLSCREEN], 1);
-		// not client_moveresize! that would get tricky and recheck struts
-		XMoveResizeWindow(display, c->window, monitor.x, monitor.y, monitor.w, monitor.h);
+		client_add_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
+		// _NET_WM_STATE_FULLSCREEN will override size
+		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
 		c->cache->have_mr = 0;
 	}
 	else
@@ -1951,6 +1968,7 @@ void client_nws_fullscreen(client *c, int action)
 	{
 		client_extended_data(c);
 		client_commit(c);
+		client_remove_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
 		client_restore_position(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.y + (c->monitor.h/4), c->monitor.w/2, c->monitor.h/2);
 	}
 	// fullscreen may need to hide above windows
@@ -2624,7 +2642,8 @@ void handle_keypress(XEvent *ev)
 		if (key == keymap[KEY_TSWITCH])
 			window_switcher(c->xattr.root, current_tag);
 		else
-		if (key == keymap[KEY_GROW] || key == keymap[KEY_SHRINK])
+		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN])
+			&& (key == keymap[KEY_GROW] || key == keymap[KEY_SHRINK]))
 		{
 			// a maxh/maxv client stays that way
 			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
@@ -2750,7 +2769,8 @@ void handle_buttonpress(XEvent *ev)
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
 	int is_mod = state & config_modkey && !(state & config_ignore_modkeys);
 
-	if (ev->xbutton.subwindow != None && (c = window_client(ev->xbutton.subwindow)) && c && c->manage)
+	if (ev->xbutton.subwindow != None && (c = window_client(ev->xbutton.subwindow)) && c && c->manage
+		&& !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 	{
 		if (!c->focus || !c->active) client_activate(c, RAISEDEF, WARPDEF);
 
@@ -3023,6 +3043,22 @@ void handle_maprequest(XEvent *ev)
 		if (c->type == netatoms[_NET_WM_WINDOW_TYPE_NORMAL])
 			{ c->w += config_border_width*2; c->h += config_border_width*2; }
 
+		// process EWMH rules
+		// above below are mutally exclusize
+			if (client_rule(c, RULE_ABOVE)) client_add_state(c, netatoms[_NET_WM_STATE_ABOVE]);
+		else if (client_rule(c, RULE_BELOW)) client_add_state(c, netatoms[_NET_WM_STATE_BELOW]);
+
+		// sticky can be on anything
+		if (client_rule(c, RULE_STICKY)) client_add_state(c, netatoms[_NET_WM_STATE_STICKY]);
+
+		// fullscreen overrides max h/v
+		if (client_rule(c, RULE_FULLSCREEN))
+			client_add_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
+		else {
+			if (client_rule(c, RULE_MAXHORZ)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+			if (client_rule(c, RULE_MAXVERT)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
+		}
+
 		// PLACEPOINTER: center window on pointer
 		if (config_window_placement == PLACEPOINTER && !(c->xsize.flags & (PPosition|USPosition)))
 		{
@@ -3059,8 +3095,10 @@ void handle_maprequest(XEvent *ev)
 		// default to current tag
 		if (!c->cache->tags) c->cache->tags = current_tag;
 
-		// auto raise only on current tag
-		if (c->cache->tags & current_tag) client_raise(c, 0); else client_lower(c, 0);
+		// auto raise only on current tag unless EWMH overrides
+		if (c->cache->tags & current_tag    || client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) client_raise(c, 0);
+		if (!(c->cache->tags & current_tag) || client_has_state(c, netatoms[_NET_WM_STATE_BELOW])) client_lower(c, 0);
+
 		XSync(display, False);
 	}
 	XMapWindow(display, ev->xmaprequest.window);
