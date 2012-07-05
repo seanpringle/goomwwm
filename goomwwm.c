@@ -222,6 +222,15 @@ typedef struct {
 #define RULE_MAXHORZ 1<<14
 #define RULE_MAXVERT 1<<15
 
+#define RULE_TOP 1<<16
+#define RULE_BOTTOM 1<<17
+#define RULE_LEFT 1<<18
+#define RULE_RIGHT 1<<19
+#define RULE_SMALL 1<<20
+#define RULE_MEDIUM 1<<21
+#define RULE_LARGE 1<<22
+#define RULE_COVER 1<<23
+
 #define RULEPATTERN CLIENTCLASS
 
 typedef struct _rule {
@@ -554,6 +563,14 @@ void rule_parse(char *rulestr)
 			if (!strncasecmp(left, "fullscreen", right-left)) new->flags |= RULE_FULLSCREEN;
 			if (!strncasecmp(left, "maximize_horz", right-left)) new->flags |= RULE_MAXHORZ;
 			if (!strncasecmp(left, "maximize_vert", right-left)) new->flags |= RULE_MAXVERT;
+			if (!strncasecmp(left, "top",    right-left)) new->flags |= RULE_TOP;
+			if (!strncasecmp(left, "bottom", right-left)) new->flags |= RULE_BOTTOM;
+			if (!strncasecmp(left, "left",   right-left)) new->flags |= RULE_LEFT;
+			if (!strncasecmp(left, "right",  right-left)) new->flags |= RULE_RIGHT;
+			if (!strncasecmp(left, "small",  right-left)) new->flags |= RULE_SMALL;
+			if (!strncasecmp(left, "medium", right-left)) new->flags |= RULE_MEDIUM;
+			if (!strncasecmp(left, "large",  right-left)) new->flags |= RULE_LARGE;
+			if (!strncasecmp(left, "cover", right-left)) new->flags |= RULE_COVER;
 		}
 		// skip delimiters
 		while (*right && strchr(" ,\t", *right)) right++;
@@ -3067,6 +3084,31 @@ void handle_maprequest(XEvent *ev)
 			if (client_rule(c, RULE_MAXVERT)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		}
 
+		workarea active; memset(&active, 0, sizeof(workarea));
+
+		// if a size rule exists, apply it
+		if (client_rule(c, RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER))
+		{
+			if (!active.w) monitor_active(c->xattr.screen, &active);
+			if (client_rule(c, RULE_SMALL))  { c->sw = active.w/3; c->sh = active.h/3; }
+			if (client_rule(c, RULE_MEDIUM)) { c->sw = active.w/2; c->sh = active.h/2; }
+			if (client_rule(c, RULE_LARGE))  { c->sw = (active.w/3)*2; c->sh = (active.h/3)*2; }
+			if (client_rule(c, RULE_COVER))  { c->sw = active.w; c->sh = active.h; }
+		}
+
+		//  if a placement rule exists, it trumps everything
+		if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM|RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER))
+		{
+			if (!active.w) monitor_active(c->xattr.screen, &active);
+			c->x = MAX(active.x, active.x + ((active.w - c->sw) / 2));
+			c->y = MAX(active.y, active.y + ((active.h - c->sh) / 2));
+			if (client_rule(c, RULE_BOTTOM)) c->y = active.y + active.h - c->sh;
+			if (client_rule(c, RULE_RIGHT))  c->x = active.x + active.w - c->sw;
+			if (client_rule(c, RULE_TOP))    c->y = active.y;
+			if (client_rule(c, RULE_LEFT))   c->x = active.x;
+			client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
+		}
+		else
 		// PLACEPOINTER: center window on pointer
 		if (config_window_placement == PLACEPOINTER && !(c->xsize.flags & (PPosition|USPosition)))
 		{
@@ -3081,7 +3123,7 @@ void handle_maprequest(XEvent *ev)
 		if ((config_window_placement == PLACEANY && !(c->xsize.flags & (PPosition|USPosition))) || (config_window_placement == PLACECENTER))
 		{
 			client *p = NULL;
-			workarea *m = &c->monitor; workarea a;
+			workarea *m = &c->monitor;
 			// try to center transients on their main window
 			if (c->trans != None && (p = window_client(c->trans)) && p)
 			{
@@ -3090,8 +3132,8 @@ void handle_maprequest(XEvent *ev)
 			} else
 			// center everything else on current monitor
 			{
-				monitor_active(c->xattr.screen, &a);
-				m = &a;
+				if (!active.w) monitor_active(c->xattr.screen, &active);
+				m = &active;
 			}
 			client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->w) / 2)),
 				MAX(m->y, m->y + ((m->h - c->h) / 2)), c->w, c->h);
@@ -3476,7 +3518,7 @@ int main(int argc, char *argv[])
 	// auto start stuff
 	if (!fork())
 	{
-		display = XOpenDisplay(0); client *a;
+		display = XOpenDisplay(0);
 		Window root = RootWindow(display, DefaultScreen(display));
 		for (i = 0; i < ac-1; i++)
 		{

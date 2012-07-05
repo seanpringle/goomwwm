@@ -656,6 +656,8 @@ Define a window control rule (default: none). This argument can be specified mul
 goomwwm -rule "firefox tag9"
 .br
 goomwwm -rule "xfce4-notifyd ignore"
+.br
+goomwwm -rule "xterm left,maximize_vert,medium"
 .RE
 .P
 .RS
@@ -678,7 +680,13 @@ Do not manage a window. Effectively makes a window behave as it the override_red
 Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
 .TP
 .B above below fullscreen maximize_horz maximize_vert sticky
-Apply respective _NET_WM_STATE_* to a window automatically.
+Apply respective _NET_WM_STATE_* to a window.
+.TP
+.B left right top bottom
+Align a window with a screen edge. May be combined. Top trumps bottom. Left trumps right.
+.TP
+.B small medium large cover
+Set a window's initial size (same increments as PageUp/Down).
 .RE
 .TP
 .B -shrink
