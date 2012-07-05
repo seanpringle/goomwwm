@@ -1318,11 +1318,16 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		else if (c->is_bottom) fy = monitor.y + monitor.h - fh;
 	}
 
+	// update window co-ords for subsequent operations before caches are reset
+	c->x = fx; c->y = fy; c->w = c->sw = fw; c->h = c->sh = fh;
+	c->sx = fx - monitor.x; c->sy = fy - monitor.y;
+
 	// compensate for border on non-fullscreen windows
 	if (fw < monitor.w || fh < monitor.h)
 	{
 		fw = MAX(1, fw-(config_border_width*2));
 		fh = MAX(1, fh-(config_border_width*2));
+		c->w = fw; c->h = fh;
 	}
 	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
 
