@@ -139,11 +139,6 @@ int find_arg_int(int argc, char *argv[], char *key, int def)
 	return (i > 0 && i < argc-1) ? strtol(argv[i+1], NULL, 10): def;
 }
 
-#define CLIENTTITLE 100
-#define CLIENTCLASS 50
-#define CLIENTNAME 50
-#define CLIENTSTATE 10
-
 // window lists
 typedef struct {
 	Window *array;
@@ -151,11 +146,20 @@ typedef struct {
 	int len;
 } winlist;
 
+// usable space on a monitor
+typedef struct {
+	int x, y, w, h;
+	int l, r, t, b;
+} workarea;
+
 #define winlist_ascend(l,i,w) for ((i) = 0; (i) < (l)->len && (((w) = (l)->array[i]) || 1); (i)++)
 #define winlist_descend(l,i,w) for ((i) = (l)->len-1; (i) >= 0 && (((w) = (l)->array[i]) || 1); (i)--)
 
-#define clients_ascend(l,i,w,c) for ((i) = 0; (i) < (l)->len && ((w) = (l)->array[i]) && ((c) = window_client(w)); (i)++)
-#define clients_descend(l,i,w,c) for ((i) = (l)->len-1; (i) > -1 && ((w) = (l)->array[i]) && ((c) = window_client(w)); (i)--)
+//#define clients_ascend(l,i,w,c) for ((i) = 0; (i) < (l)->len && ((w) = (l)->array[i]) && ((c) = window_client(w)); (i)++)
+//#define clients_descend(l,i,w,c) for ((i) = (l)->len-1; (i) > -1 && ((w) = (l)->array[i]) && ((c) = window_client(w)); (i)--)
+
+#define clients_ascend(l,i,w,c) winlist_ascend(l,i,w) if (((c) = window_client(w)))
+#define clients_descend(l,i,w,c) winlist_descend(l,i,w) if (((c) = window_client(w)))
 
 #define managed_ascend(r,i,w,c) clients_ascend(windows_in_play(r),i,w,c) if ((c)->manage && (c)->visible)
 #define managed_descend(r,i,w,c) clients_descend(windows_in_play(r),i,w,c) if ((c)->manage && (c)->visible)
@@ -169,6 +173,11 @@ typedef struct {
 #define BOTTOMRIGHT 4
 
 #define UNDO 10
+
+#define CLIENTTITLE 100
+#define CLIENTCLASS 50
+#define CLIENTNAME 50
+#define CLIENTSTATE 10
 
 typedef struct {
 	int x, y, w, h;
@@ -204,11 +213,18 @@ typedef struct {
 
 #define TAGS 9
 
-// usable space on a monitor
-typedef struct {
-	int x, y, w, h;
-	int l, r, t, b;
-} workarea;
+// these must be above tag bits
+#define RULE_IGNORE 1<<9
+
+#define RULEPATTERN CLIENTCLASS
+
+typedef struct _rule {
+	char pattern[RULEPATTERN];
+	unsigned long flags;
+	struct _rule *next;
+} winrule;
+
+winrule *config_rules = NULL;
 
 // a managable window
 typedef struct {
@@ -224,6 +240,7 @@ typedef struct {
 	Atom state[CLIENTSTATE], type;
 	workarea monitor;
 	wincache *cache;
+	winrule *rule; int is_ruled;
 } client;
 
 // just defaults, mostly configurable from command line
@@ -487,6 +504,42 @@ int winlist_forget(winlist *l, Window w)
 	}
 	l->len -= (i-j);
 	return j != i ?1:0;
+}
+
+// load a rule specified on cmd line or .goomwwmrc
+void rule_parse(char *rulestr)
+{
+	winrule *new = allocate_clear(sizeof(winrule));
+	char *str = strdup(rulestr); strtrim(str);
+	char *left = str, *right = str;
+	// locate end of pattern
+	while (*right && !isspace(*right)) right++;
+	strncpy(new->pattern, str, right-left);
+	while (*right && isspace(*right)) right++;
+	// walk over rule flags, space or command delimited
+	while (*right && !isspace(*right))
+	{
+		left = right;
+		// scan for delimiters
+		while (*right && !strchr(" ,\t", *right)) right++;
+		if (right > left)
+		{
+			if (!strncasecmp(left, "tag1", right-left)) new->flags |= TAG1;
+			if (!strncasecmp(left, "tag2", right-left)) new->flags |= TAG2;
+			if (!strncasecmp(left, "tag3", right-left)) new->flags |= TAG3;
+			if (!strncasecmp(left, "tag4", right-left)) new->flags |= TAG4;
+			if (!strncasecmp(left, "tag5", right-left)) new->flags |= TAG5;
+			if (!strncasecmp(left, "tag6", right-left)) new->flags |= TAG6;
+			if (!strncasecmp(left, "tag7", right-left)) new->flags |= TAG7;
+			if (!strncasecmp(left, "tag8", right-left)) new->flags |= TAG8;
+			if (!strncasecmp(left, "tag9", right-left)) new->flags |= TAG9;
+			if (!strncasecmp(left, "ignore", right-left)) new->flags |= RULE_IGNORE;
+		}
+		// skip delimiters
+		while (*right && strchr(" ,\t", *right)) right++;
+	}
+	if (config_rules) config_rules->next = new; else config_rules = new;
+	free(str);
 }
 
 // allocate a pixel value for an X named color
@@ -770,75 +823,6 @@ int window_is_active(Window w)
 	return windows_activated->len && w == windows_activated->array[windows_activated->len-1] ?1:0;
 }
 
-// collect info on any window
-// doesn't have to be a window we'll end up managing
-client* window_client(Window win)
-{
-	if (win == None) return NULL;
-	int idx = winlist_find(cache_client, win);
-	if (idx >= 0) return cache_client->data[idx];
-
-	// if this fails, we're up that creek
-	XWindowAttributes *attr = window_get_attributes(win);
-	if (!attr) return NULL;
-
-	client *c = allocate_clear(sizeof(client));
-	c->window = win;
-	// copy xattr so we don't have to care when stuff is freed
-	memmove(&c->xattr, attr, sizeof(XWindowAttributes));
-	XGetTransientForHint(display, win, &c->trans);
-
-	c->visible = c->xattr.map_state == IsViewable ?1:0;
-	c->states  = window_get_atom_prop(win, netatoms[_NET_WM_STATE], c->state, CLIENTSTATE);
-	window_get_atom_prop(win, netatoms[_NET_WM_WINDOW_TYPE], &c->type, 1);
-
-	if (c->type == None) c->type = (c->trans != None)
-		// trasients default to dialog
-		? netatoms[_NET_WM_WINDOW_TYPE_DIALOG]
-		// non-transients default to normal
-		: netatoms[_NET_WM_WINDOW_TYPE_NORMAL];
-
-	c->manage = c->xattr.override_redirect == False
-		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DESKTOP]
-		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DOCK]
-		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_SPLASH]
-		?1:0;
-
-	c->active = c->manage && c->visible && window_is_active(c->window) ?1:0;
-
-	// focus seems a really dodgy way to determine the "active" window, but in some
-	// cases checking both ->active and ->focus is necessary to bahave logically
-	Window focus; int rev;
-	XGetInputFocus(display, &focus, &rev);
-	c->focus = focus == win ? 1:0;
-
-	XWMHints *hints = XGetWMHints(display, win);
-	if (hints)
-	{
-		c->input = hints->flags & InputHint && hints->input ? 1: 0;
-		c->initial_state = hints->flags & StateHint ? hints->initial_state: NormalState;
-		XFree(hints);
-	}
-	// find last known state
-	idx = winlist_find(windows, c->window);
-	if (idx < 0)
-	{
-		wincache *cache = allocate_clear(sizeof(wincache));
-		winlist_append(windows, c->window, cache);
-		idx = windows->len-1;
-	}
-	// the cache is not tightly linked to the window at all
-	// if it's populated, it gets used to make behaviour appear logically
-	// if it's empty, nothing cares that much
-	c->cache = windows->data[idx];
-
-	// co-ords are x,y upper left outsize border, w,h inside border
-	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
-
-	winlist_append(cache_client, c->window, c);
-	return c;
-}
-
 // extend client data
 void client_descriptive_data(client *c)
 {
@@ -905,6 +889,103 @@ void client_extended_data(client *c)
 	c->is_extended = 1;
 }
 
+// true if a client window matches a rule pattern
+int client_rule_match(client *c, winrule *r)
+{
+	client_descriptive_data(c);
+	if (strchr(r->pattern, ':') && strchr("cnt", r->pattern[0]))
+	{
+		     if (!strncasecmp(r->pattern, "class:", 6)) return strcasecmp(r->pattern+6, c->class) ?0:1;
+		else if (!strncasecmp(r->pattern, "name:",  5)) return strcasecmp(r->pattern+5, c->name)  ?0:1;
+		else if (!strncasecmp(r->pattern, "title:", 6)) return strcasestr(c->title, r->pattern+6) ?1:0;
+	}
+	return !strcasecmp(c->name, r->pattern) || !strcasecmp(c->class, r->pattern) || strcasestr(c->title, r->pattern) ? 1:0;
+}
+
+// find a client's rule, optionally filtered by flags
+winrule* client_rule(client *c, unsigned int flags)
+{
+	if (!c->is_ruled)
+	{
+		c->rule = config_rules; while (c->rule && !client_rule_match(c, c->rule)) c->rule = c->rule->next;
+		c->is_ruled = 1;
+	}
+	return (!c->rule || (flags && !(flags & c->rule->flags))) ? NULL: c->rule;
+}
+
+// collect info on any window
+// doesn't have to be a window we'll end up managing
+client* window_client(Window win)
+{
+	if (win == None) return NULL;
+	int idx = winlist_find(cache_client, win);
+	if (idx >= 0) return cache_client->data[idx];
+
+	// if this fails, we're up that creek
+	XWindowAttributes *attr = window_get_attributes(win);
+	if (!attr) return NULL;
+
+	client *c = allocate_clear(sizeof(client));
+	c->window = win;
+	// copy xattr so we don't have to care when stuff is freed
+	memmove(&c->xattr, attr, sizeof(XWindowAttributes));
+	XGetTransientForHint(display, win, &c->trans);
+
+	c->visible = c->xattr.map_state == IsViewable ?1:0;
+	c->states  = window_get_atom_prop(win, netatoms[_NET_WM_STATE], c->state, CLIENTSTATE);
+	window_get_atom_prop(win, netatoms[_NET_WM_WINDOW_TYPE], &c->type, 1);
+
+	if (c->type == None) c->type = (c->trans != None)
+		// trasients default to dialog
+		? netatoms[_NET_WM_WINDOW_TYPE_DIALOG]
+		// non-transients default to normal
+		: netatoms[_NET_WM_WINDOW_TYPE_NORMAL];
+
+	c->manage = c->xattr.override_redirect == False
+		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DESKTOP]
+		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DOCK]
+		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_SPLASH]
+		?1:0;
+
+	c->active = c->manage && c->visible && window_is_active(c->window) ?1:0;
+
+	// focus seems a really dodgy way to determine the "active" window, but in some
+	// cases checking both ->active and ->focus is necessary to bahave logically
+	Window focus; int rev;
+	XGetInputFocus(display, &focus, &rev);
+	c->focus = focus == win ? 1:0;
+
+	XWMHints *hints = XGetWMHints(display, win);
+	if (hints)
+	{
+		c->input = hints->flags & InputHint && hints->input ? 1: 0;
+		c->initial_state = hints->flags & StateHint ? hints->initial_state: NormalState;
+		XFree(hints);
+	}
+	// find last known state
+	idx = winlist_find(windows, c->window);
+	if (idx < 0)
+	{
+		wincache *cache = allocate_clear(sizeof(wincache));
+		winlist_append(windows, c->window, cache);
+		idx = windows->len-1;
+	}
+	// the cache is not tightly linked to the window at all
+	// if it's populated, it gets used to make behaviour appear logically
+	// if it's empty, nothing cares that much
+	c->cache = windows->data[idx];
+
+	// co-ords are x,y upper left outsize border, w,h inside border
+	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
+
+	winlist_append(cache_client, c->window, c);
+
+	// extra checks for managed windows
+	if (c->manage && client_rule(c, RULE_IGNORE)) c->manage = 0;
+
+	return c;
+}
+
 // true if client windows overlap
 int clients_intersect(client *a, client *b)
 {
@@ -955,7 +1036,7 @@ void event_client_dump(client *c)
 	event_note("is_full:%d is_left:%d is_top:%d is_right:%d is_bottom:%d\n\t\t is_xcenter:%d is_ycenter:%d is_maxh:%d is_maxv:%d",
 		c->is_full, c->is_left, c->is_top, c->is_right, c->is_bottom, c->is_xcenter, c->is_ycenter, c->is_maxh, c->is_maxv);
 	int i, j;
-	for (i = 0; i < NETATOMS; i++) if (c->type  == netatoms[i]) event_note("type:%s", netatom_names[i]);
+	for (i = 0; i < NETATOMS; i++) if (c->type == netatoms[i]) event_note("type:%s", netatom_names[i]);
 	for (i = 0; i < NETATOMS; i++) for (j = 0; j < c->states; j++) if (c->state[j] == netatoms[i]) event_note("state:%s", netatom_names[i]);
 	unsigned long struts[12];
 	if (window_get_cardinal_prop(c->window, netatoms[_NET_WM_STRUT_PARTIAL], struts, 12))
@@ -2118,35 +2199,19 @@ void client_duplicate(client *c)
 void app_find_or_start(Window root, char *pattern)
 {
 	if (!pattern) return;
+	int i; Window w, found = None; client *c = NULL;
 
-	Window w, found = None; client *c = NULL;
-	int i, j, offsets[] = { offsetof(client, name), offsetof(client, class), offsetof(client, title) };
+	// use a tempoarary rule for searching
+	winrule rule; memset(&rule, 0, sizeof(winrule));
+	snprintf(rule.pattern, RULEPATTERN, "%s", pattern);
+
 	// first, try in current_tag only
-	for (i = 0; i < 3 && found == None; i++)
-	{
-		clients_descend(windows_activated, j, w, c)
-		{
-			if (c->manage && c->visible && c->xattr.root == root && c->cache->tags & current_tag)
-			{
-				client_descriptive_data(c);
-				if (!strcasecmp(((char*)c)+offsets[i], pattern))
-					{ found = w; break; }
-			}
-		}
-	}
+	tag_descend(root, i, w, c, current_tag)
+		if (client_rule_match(c, &rule)) { found = w; break; }
 	// failing that, search regardless of tag
-	for (i = 0; i < 3 && found == None; i++)
-	{
-		clients_descend(windows_activated, j, w, c)
-		{
-			if (c->manage && c->visible && c->xattr.root == root)
-			{
-				client_descriptive_data(c);
-				if (!strcasecmp(((char*)c)+offsets[i], pattern))
-					{ found = w; break; }
-			}
-		}
-	}
+	if (found == None)
+		managed_descend(root, i, w, c)
+			if (client_rule_match(c, &rule)) { found = w; break; }
 	if (found != None)
 		client_activate(c, RAISE, WARPDEF);
 	else exec_cmd(pattern);
@@ -2979,7 +3044,15 @@ void handle_maprequest(XEvent *ev)
 			client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->w) / 2)),
 				MAX(m->y, m->y + ((m->h - c->h) / 2)), c->w, c->h);
 		}
-		client_raise(c, 0);
+		// apply and rule tags
+		if (client_rule(c, (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9)))// && !c->cache->tags)
+			c->cache->tags = c->rule->flags & (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9);
+
+		// default to current tag
+		if (!c->cache->tags) c->cache->tags = current_tag;
+
+		// auto raise only on current tag
+		if (c->cache->tags & current_tag) client_raise(c, 0); else client_lower(c, 0);
 		XSync(display, False);
 	}
 	XMapWindow(display, ev->xmaprequest.window);
@@ -2994,9 +3067,9 @@ void handle_mapnotify(XEvent *ev)
 	{
 		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
-		if (!(c->cache->tags & current_tag))
-			client_toggle_tag(c, current_tag, NOFLASH);
-		client_activate(c, RAISEDEF, WARPDEF);
+		// autoactivate only on current tag
+		if (c->cache->tags & current_tag)
+			client_activate(c, RAISEDEF, WARPDEF);
 		ewmh_client_list(c->xattr.root);
 		// some gtk windows see to need an extra kick to make them respect expose events...
 		// something to do with the configurerequest step? this little nudge makes it all work :-|
@@ -3326,6 +3399,10 @@ int main(int argc, char *argv[])
 		char tmp[3]; sprintf(tmp, "-%d", i);
 		config_apps_patterns[i] = find_arg_str(ac, av, tmp, NULL);
 	}
+
+	// load window rules
+	for (i = 0; i < ac; i++) if (!strcasecmp(av[i], "-rule") && i < ac-1) rule_parse(av[i+1]);
+
 	// X atom values
 	for (i = 0; i < ATOMS; i++) atoms[i] = XInternAtom(display, atom_names[i], False);
 	for (i = 0; i < NETATOMS; i++) netatoms[i] = XInternAtom(display, netatom_names[i], False);

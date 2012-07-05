@@ -131,6 +131,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR key ]
 .RB [ \-vlock
 .IR key ]
+.RB [ \-rule
+.IR string ]
 .SH DESCRIPTION
 .I goomwwm
 is an X11 window manager implemented in C as a cleanroom software project. It manages windows in a minimal floating layout with normal mouse controls, while also providing flexible keyboard-driven controls for window switching, sizing, moving, tagging, and tiling. It is fast, lightweight, modeless, Xinerama-aware, and EWMH compatible wherever possible.
@@ -624,6 +626,35 @@ Set an X11 key name to move the active window to the right in a 3x3 grid (defaul
 .P
 .RS
 goomwwm -right Right
+.RE
+.TP
+.B -rule
+Define a window control rule (default: none). This argument can be specified multiple times to apply multiple rules. If a wondow matches multiple rules only the first rule specified is used.
+.P
+.RS
+goomwwm -rule "firefox tag9"
+.br
+goomwwm -rule "xfce4-notifyd ignore"
+.RE
+.P
+.RS
+Rules always have the format:
+.P
+.B pattern flag[...,flagN]
+.P
+.B pattern
+is a string matched against a window's WM_CLASS, application name, or title (in that order). All comparisons are case insensitive. When matching WM_CLASS or application name the pattern must match exactly. When matching a title the pattern need only appear somewhere in the text.
+.P
+Valid
+.B flags
+are:
+.P
+.TP
+.B ignore
+Do not manage a window. Effectively makes a window behave as it the override_redirect flag is set.
+.TP
+.B tag1 tag2 tag3 tag4 tag5 tag6 tag7 tag8 tag9
+Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
 .RE
 .TP
 .B -shrink
