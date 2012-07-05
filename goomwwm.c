@@ -575,7 +575,8 @@ void rule_parse(char *rulestr)
 		// skip delimiters
 		while (*right && strchr(" ,\t", *right)) right++;
 	}
-	if (config_rules) config_rules->next = new; else config_rules = new;
+	new->next = config_rules;
+	config_rules = new;
 	free(str);
 }
 
@@ -1082,6 +1083,8 @@ void event_client_dump(client *c)
 	if (window_get_cardinal_prop(c->window, netatoms[_NET_WM_STRUT], struts, 4))
 		event_note("strut: %d %d %d %d",
 			struts[0],struts[1],struts[2],struts[3]);
+	if (c->rule)
+		event_note("rule: %lx", c->rule->flags);
 	fflush(stdout);
 }
 #else
