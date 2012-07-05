@@ -2221,10 +2221,10 @@ void client_duplicate(client *c)
 			{ client_moveresize(c, 0, o->x, o->y, o->sw, o->sh); return; }
 }
 
-// search and activate first open window matching class/name/title
-void app_find_or_start(Window root, char *pattern)
+// search for first open window matching class/name/title
+Window window_find(Window root, char *pattern)
 {
-	if (!pattern) return;
+	if (!pattern) return None;
 	int i; Window w, found = None; client *c = NULL;
 
 	// use a tempoarary rule for searching
@@ -2238,7 +2238,15 @@ void app_find_or_start(Window root, char *pattern)
 	if (found == None)
 		managed_descend(root, i, w, c)
 			if (client_rule_match(c, &rule)) { found = w; break; }
-	if (found != None)
+	return found;
+}
+
+// search for and activate first open window matching class/name/title
+void app_find_or_start(Window root, char *pattern)
+{
+	if (!pattern) return; client *c;
+	Window found = window_find(root, pattern);
+	if (found != None && (c = window_client(found)))
 		client_activate(c, RAISE, WARPDEF);
 	else exec_cmd(pattern);
 }
@@ -3464,6 +3472,23 @@ int main(int argc, char *argv[])
 	// init on all screens/roots
 	for (scr = 0; scr < ScreenCount(display); scr++) setup_screen(scr);
 	grab_keys_and_buttons();
+
+	// auto start stuff
+	if (!fork())
+	{
+		display = XOpenDisplay(0); client *a;
+		Window root = RootWindow(display, DefaultScreen(display));
+		for (i = 0; i < ac-1; i++)
+		{
+			if (!strcasecmp(av[i], "-exec")) exec_cmd(av[i+1]);
+			else if (!strcasecmp(av[i], "-auto"))
+			{
+				client *a = window_client(window_find(root, av[i+1]));
+				if (!a) exec_cmd(av[i+1]);
+			}
+		}
+		exit(EXIT_SUCCESS);
+	}
 
 	// main event loop
 	for(;;)
