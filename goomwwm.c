@@ -48,18 +48,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define READ 0
+#define WRITE 1
+
 #define NEAR(a,o,b) ((b) > (a)-(o) && (b) < (a)+(o))
 #define OVERLAP(a,b,c,d) (((a)==(c) && (b)==(d)) || MIN((a)+(b), (c)+(d)) - MAX((a), (c)) > 0)
 #define INTERSECT(x,y,w,h,x1,y1,w1,h1) (OVERLAP((x),(w),(x1),(w1)) && OVERLAP((y),(h),(y1),(h1)))
-#define READ 0
-#define WRITE 1
-#define HORIZONTAL 1
-#define VERTICAL 2
-
-#define FOCUSLEFT 1
-#define FOCUSRIGHT 2
-#define FOCUSUP 3
-#define FOCUSDOWN 4
 
 void* allocate(unsigned long bytes)
 {
@@ -87,7 +81,7 @@ void* reallocate(void *ptr, unsigned long bytes)
 	}
 	return ptr;
 }
-
+// trim string in place
 void strtrim(char *str)
 {
 	int i = 0, j = 0;
@@ -155,9 +149,6 @@ typedef struct {
 #define winlist_ascend(l,i,w) for ((i) = 0; (i) < (l)->len && (((w) = (l)->array[i]) || 1); (i)++)
 #define winlist_descend(l,i,w) for ((i) = (l)->len-1; (i) >= 0 && (((w) = (l)->array[i]) || 1); (i)--)
 
-//#define clients_ascend(l,i,w,c) for ((i) = 0; (i) < (l)->len && ((w) = (l)->array[i]) && ((c) = window_client(w)); (i)++)
-//#define clients_descend(l,i,w,c) for ((i) = (l)->len-1; (i) > -1 && ((w) = (l)->array[i]) && ((c) = window_client(w)); (i)--)
-
 #define clients_ascend(l,i,w,c) winlist_ascend(l,i,w) if (((c) = window_client(w)))
 #define clients_descend(l,i,w,c) winlist_descend(l,i,w) if (((c) = window_client(w)))
 
@@ -167,13 +158,17 @@ typedef struct {
 #define tag_ascend(r,i,w,c,t) managed_ascend(r, i, w, c) if (!(c)->cache->tags || (c)->cache->tags & (t))
 #define tag_descend(r,i,w,c,t) managed_descend(r, i, w, c) if (!(c)->cache->tags || (c)->cache->tags & (t))
 
+#define UNDO 10
 #define TOPLEFT 1
 #define TOPRIGHT 2
 #define BOTTOMLEFT 3
 #define BOTTOMRIGHT 4
-
-#define UNDO 10
-
+#define HORIZONTAL 1
+#define VERTICAL 2
+#define FOCUSLEFT 1
+#define FOCUSRIGHT 2
+#define FOCUSUP 3
+#define FOCUSDOWN 4
 #define CLIENTTITLE 100
 #define CLIENTCLASS 50
 #define CLIENTNAME 50
@@ -221,7 +216,6 @@ typedef struct {
 #define RULE_BELOW 1<<13
 #define RULE_MAXHORZ 1<<14
 #define RULE_MAXVERT 1<<15
-
 #define RULE_TOP 1<<16
 #define RULE_BOTTOM 1<<17
 #define RULE_LEFT 1<<18
@@ -230,10 +224,8 @@ typedef struct {
 #define RULE_MEDIUM 1<<21
 #define RULE_LARGE 1<<22
 #define RULE_COVER 1<<23
-
 #define RULE_STEAL 1<<24
 #define RULE_BLOCK 1<<25
-
 #define RULE_HLOCK 1<<26
 #define RULE_VLOCK 1<<27
 #define RULE_EXPAND 1<<28
@@ -286,30 +278,22 @@ typedef struct {
 #define MENUHLFG "#ffffff"
 #define MENUHLBG "#005577"
 #define CONFIGFILE ".goomwwmrc"
-
 #define FOCUSCLICK 1
 #define FOCUSSLOPPY 2
 #define FOCUSSLOPPYTAG 3
-
 #define RAISE 1
 #define RAISEDEF 0
-
 #define WARP 1
 #define WARPDEF 0
-
 #define RAISEFOCUS 1
 #define RAISECLICK 2
-
 #define MAPSTEAL 1
 #define MAPBLOCK 2
-
 #define WARPFOCUS 1
 #define WARPNEVER 0
-
 #define PLACEANY 1
 #define PLACECENTER 2
 #define PLACEPOINTER 3
-
 #define FLASH 1
 #define NOFLASH 0
 
@@ -325,6 +309,7 @@ char *config_switcher, *config_launcher, *config_apps_patterns[10];
 KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };
 KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, 0 };
 
+// true if keysym exists in array
 int in_array_keysym(KeySym *array, KeySym code)
 {
 	int i; for (i = 0; array[i]; i++)
@@ -377,11 +362,17 @@ char *keyargs[] = { KEYLIST(KEY_CARG), NULL };
 
 unsigned int NumlockMask = 0;
 Display *display;
+
+// mouse move/resize controls
+// see ButtonPress,MotionNotify
 XButtonEvent mouse_button;
 XWindowAttributes mouse_attr;
+
+// tracking windows
 winlist *windows, *windows_activated;
 unsigned int current_tag = TAG1;
 
+// caches used to reduce X server round trips
 winlist *cache_client;
 winlist *cache_xattr;
 winlist *cache_inplay;
@@ -540,6 +531,44 @@ int winlist_forget(winlist *l, Window w)
 	return j != i ?1:0;
 }
 
+typedef struct {
+	const char *name;
+	unsigned long long flag;
+} winrulemap;
+
+winrulemap rulemap[] = {
+	{ "tag1", TAG1 },
+	{ "tag2", TAG2 },
+	{ "tag3", TAG3 },
+	{ "tag4", TAG4 },
+	{ "tag5", TAG5 },
+	{ "tag6", TAG6 },
+	{ "tag7", TAG7 },
+	{ "tag8", TAG8 },
+	{ "tag9", TAG9 },
+	{ "ignore", RULE_IGNORE },
+	{ "above", RULE_ABOVE },
+	{ "sticky", RULE_STICKY },
+	{ "below", RULE_BELOW },
+	{ "fullscreen", RULE_FULLSCREEN },
+	{ "maximize_horz", RULE_MAXHORZ },
+	{ "maximize_vert", RULE_MAXVERT },
+	{ "top",    RULE_TOP },
+	{ "bottom", RULE_BOTTOM },
+	{ "left",   RULE_LEFT },
+	{ "right",  RULE_RIGHT },
+	{ "small",  RULE_SMALL },
+	{ "medium", RULE_MEDIUM },
+	{ "large",  RULE_LARGE },
+	{ "cover", RULE_COVER },
+	{ "steal", RULE_STEAL },
+	{ "block", RULE_BLOCK },
+	{ "hlock", RULE_HLOCK },
+	{ "vlock", RULE_VLOCK },
+	{ "expand", RULE_EXPAND },
+	{ "contract", RULE_CONTRACT },
+};
+
 // load a rule specified on cmd line or .goomwwmrc
 void rule_parse(char *rulestr)
 {
@@ -558,37 +587,9 @@ void rule_parse(char *rulestr)
 		while (*right && !strchr(" ,\t", *right)) right++;
 		if (right > left)
 		{
-			int len = right - left;
-			if (!strncasecmp(left, "tag1", len)) new->flags |= TAG1;
-			if (!strncasecmp(left, "tag2", len)) new->flags |= TAG2;
-			if (!strncasecmp(left, "tag3", len)) new->flags |= TAG3;
-			if (!strncasecmp(left, "tag4", len)) new->flags |= TAG4;
-			if (!strncasecmp(left, "tag5", len)) new->flags |= TAG5;
-			if (!strncasecmp(left, "tag6", len)) new->flags |= TAG6;
-			if (!strncasecmp(left, "tag7", len)) new->flags |= TAG7;
-			if (!strncasecmp(left, "tag8", len)) new->flags |= TAG8;
-			if (!strncasecmp(left, "tag9", len)) new->flags |= TAG9;
-			if (!strncasecmp(left, "ignore", len)) new->flags |= RULE_IGNORE;
-			if (!strncasecmp(left, "above", len)) new->flags |= RULE_ABOVE;
-			if (!strncasecmp(left, "sticky", len)) new->flags |= RULE_STICKY;
-			if (!strncasecmp(left, "below", len)) new->flags |= RULE_BELOW;
-			if (!strncasecmp(left, "fullscreen", len)) new->flags |= RULE_FULLSCREEN;
-			if (!strncasecmp(left, "maximize_horz", len)) new->flags |= RULE_MAXHORZ;
-			if (!strncasecmp(left, "maximize_vert", len)) new->flags |= RULE_MAXVERT;
-			if (!strncasecmp(left, "top",    len)) new->flags |= RULE_TOP;
-			if (!strncasecmp(left, "bottom", len)) new->flags |= RULE_BOTTOM;
-			if (!strncasecmp(left, "left",   len)) new->flags |= RULE_LEFT;
-			if (!strncasecmp(left, "right",  len)) new->flags |= RULE_RIGHT;
-			if (!strncasecmp(left, "small",  len)) new->flags |= RULE_SMALL;
-			if (!strncasecmp(left, "medium", len)) new->flags |= RULE_MEDIUM;
-			if (!strncasecmp(left, "large",  len)) new->flags |= RULE_LARGE;
-			if (!strncasecmp(left, "cover", len)) new->flags |= RULE_COVER;
-			if (!strncasecmp(left, "steal", len)) new->flags |= RULE_STEAL;
-			if (!strncasecmp(left, "block", len)) new->flags |= RULE_BLOCK;
-			if (!strncasecmp(left, "hlock", len)) new->flags |= RULE_HLOCK;
-			if (!strncasecmp(left, "vlock", len)) new->flags |= RULE_VLOCK;
-			if (!strncasecmp(left, "expand", len)) new->flags |= RULE_EXPAND;
-			if (!strncasecmp(left, "contract", len)) new->flags |= RULE_CONTRACT;
+			int i; for (i = 0; i < sizeof(rulemap)/sizeof(winrulemap); i++)
+				if (!strncasecmp(left, rulemap[i].name, right-left))
+					{ new->flags |= rulemap[i].flag; break; }
 		}
 		// skip delimiters
 		while (*right && strchr(" ,\t", *right)) right++;
@@ -1231,7 +1232,7 @@ void client_warp_pointer(client *c)
 	XWarpPointer(display, None, None, 0, 0, 0, 0, x-mx, y-my);
 }
 
-// move & resize a window nicely
+// move & resize a window nicely, respecting hints and EWMH states
 void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 {
 	client_extended_data(c);
