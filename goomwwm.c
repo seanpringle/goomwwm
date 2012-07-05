@@ -816,7 +816,7 @@ client* window_client(Window win)
 	if (hints)
 	{
 		c->input = hints->flags & InputHint && hints->input ? 1: 0;
-		c->initial_state = hints->flags & StateHint ? hints->initial_state: -1;
+		c->initial_state = hints->flags & StateHint ? hints->initial_state: NormalState;
 		XFree(hints);
 	}
 	// find last known state
@@ -1646,7 +1646,6 @@ void client_deactivate(client *c)
 void client_activate(client *c, int raise, int warp)
 {
 	int i; Window w; client *o;
-	if (!c->input) return;
 
 	// deactivate everyone else
 	clients_ascend(windows_in_play(c->xattr.root), i, w, o) if (w != c->window) client_deactivate(o);
@@ -1704,22 +1703,18 @@ void tag_set_current(unsigned int tag)
 // locate the currently focused window and build a client for it
 client* window_active_client(Window root, unsigned int tag)
 {
-	int i; Window w; client *c = NULL;
+	int i; Window w; client *c = NULL, *o;
 	// look for a visible, previously activated window in the current tag
-	if (tag) clients_descend(windows_activated, i, w, c)
-		if (c->manage && c->visible && c->cache->tags & tag && c->xattr.root == root) break;
+	if (tag) clients_descend(windows_activated, i, w, o)
+		if (o->manage && o->visible && o->cache->tags & tag && o->xattr.root == root) { c = o; break; }
 	// look for a visible, previously activated window anywhere
-	if (!c) clients_descend(windows_activated, i, w, c)
-		if (c->manage && c->visible && c->xattr.root == root) break;
+	if (!c) clients_descend(windows_activated, i, w, o)
+		if (o->manage && o->visible && o->xattr.root == root) { c = o; break; }
+	// otherwise look for any visible, manageable window
+	if (!c) managed_descend(root, i, w, c) break;
 	// if we found one, activate it
 	if (c && (!c->focus || !c->active))
 		client_activate(c, RAISEDEF, WARPDEF);
-	// otherwise look for any visible, manageable window
-	if (!c)
-	{
-		managed_descend(root, i, w, c) break;
-		if (c) client_activate(c, RAISEDEF, WARPDEF);
-	}
 	return c;
 }
 
@@ -1779,6 +1774,17 @@ void tag_raise(unsigned int tag)
 	}
 	// runs on all screens/roots
 	tag_set_current(tag);
+}
+
+// check active client. if
+void tag_auto_switch(Window root)
+{
+	client *c = window_active_client(root, 0);
+	if (c && c->cache->tags && !(c->cache->tags & current_tag))
+	{
+		int i, n = 0; Window w; client *o; tag_descend(root, i, w, o, current_tag) n++;
+		if (!n) tag_raise(desktop_to_tag(tag_to_desktop(c->cache->tags)));
+	}
 }
 
 // toggle client in current tag
@@ -2982,7 +2988,7 @@ void handle_maprequest(XEvent *ev)
 void handle_mapnotify(XEvent *ev)
 {
 	client *c = window_client(ev->xmap.window);
-	if (c && c->manage && c->visible && c->initial_state == NormalState && c->input)
+	if (c && c->manage && c->visible && c->initial_state == NormalState)
 	{
 		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
@@ -3016,7 +3022,8 @@ void handle_unmapnotify(XEvent *ev)
 	{
 		if (window_is_root(ev->xunmap.event))
 		{
-			c = window_active_client(ev->xunmap.event, current_tag);
+			window_active_client(ev->xunmap.event, current_tag);
+			tag_auto_switch(ev->xunmap.event);
 			ewmh_client_list(ev->xunmap.event);
 		}
 		else
@@ -3083,8 +3090,8 @@ void handle_propertynotify(XEvent *ev)
 	client *c = window_client(p->window);
 	if (c && c->visible && c->manage)
 	{
-		if (p->atom == atoms[WM_NAME] || p->atom == netatoms[_NET_WM_NAME])
-			ewmh_client_list(c->xattr.root);
+		//if (p->atom == atoms[WM_NAME] || p->atom == netatoms[_NET_WM_NAME])
+		//	ewmh_client_list(c->xattr.root);
 		if (p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION] && !c->active)
 			client_deactivate(c);
 	}
