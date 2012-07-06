@@ -3297,10 +3297,6 @@ void handle_mapnotify(XEvent *ev)
 			client_activate(c, RAISE, WARPDEF);
 		} else
 		{
-			// update focus history order. pretend this window has been activated before
-			winlist_forget(windows_activated, c->window);
-			winlist_prepend(windows_activated, c->window, NULL);
-			client_flash(c, config_flash_on, config_flash_ms);
 			// if on current tag, place new window under active window and next in activate-order
 			if (c->cache->tags & current_tag && (a = window_active_client(c->xattr.root, current_tag)) && a->window != c->window)
 			{
@@ -3308,7 +3304,13 @@ void handle_mapnotify(XEvent *ev)
 				winlist_forget(windows_activated, a->window);
 				winlist_append(windows_activated, c->window, NULL);
 				winlist_append(windows_activated, a->window, NULL);
+			} else
+			{
+				// TODO: make this smart enough to place window on top on another tag
+				winlist_forget(windows_activated, c->window);
+				winlist_prepend(windows_activated, c->window, NULL);
 			}
+			client_flash(c, config_flash_on, config_flash_ms);
 		}
 		// post-placement rules. yes, can do both contract and expand in one rule. it makes sense...
 		unsigned int tag = current_tag; current_tag = desktop_to_tag(tag_to_desktop(c->cache->tags));
