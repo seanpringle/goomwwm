@@ -1709,7 +1709,24 @@ void client_raise(client *c, int priority)
 	winlist_free(stack);
 }
 
-// raise a window and its transients
+// raise a window and its transients, under someone else
+void client_raise_under(client *c, client *under)
+{
+	winlist *stack = winlist_new();
+
+	if (client_has_state(c, netatoms[_NET_WM_STATE_BELOW]))
+		return;
+
+	client_stack_family(under, stack);
+	client_stack_family(c, stack);
+
+	// stack everything, in order, underneath top window
+	XRestackWindows(display, stack->array, stack->len);
+
+	winlist_free(stack);
+}
+
+// lower a window and its transients
 void client_lower(client *c, int priority)
 {
 	int i; Window w; client *o;
@@ -3268,21 +3285,31 @@ void handle_maprequest(XEvent *ev)
 // this could be configurable?
 void handle_mapnotify(XEvent *ev)
 {
-	client *c = window_client(ev->xmap.window);
+	client *c = window_client(ev->xmap.window), *a;
 	if (c && c->manage && c->visible && c->initial_state == NormalState)
 	{
 		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
-		// autoactivate only on current tag
-		if ((config_map_mode == MAPSTEAL && c->cache->tags & current_tag && !client_rule(c, RULE_BLOCK)) || client_rule(c, RULE_STEAL))
+		// autoactivate only on:
+		if ((c->cache->tags & current_tag && config_map_mode == MAPSTEAL && !client_rule(c, RULE_BLOCK)) || client_rule(c, RULE_STEAL))
+		{
+			// initial raise does not check -raisemode
 			client_activate(c, RAISE, WARPDEF);
-		else	{
+		} else
+		{
 			// update focus history order. pretend this window has been activated before
 			winlist_forget(windows_activated, c->window);
 			winlist_prepend(windows_activated, c->window, NULL);
 			client_flash(c, config_flash_on, config_flash_ms);
+			// if on current tag, place new window under active window and next in activate-order
+			if (c->cache->tags & current_tag && (a = window_active_client(c->xattr.root, current_tag)) && a->window != c->window)
+			{
+				client_raise_under(c, a);
+				winlist_forget(windows_activated, a->window);
+				winlist_append(windows_activated, c->window, NULL);
+				winlist_append(windows_activated, a->window, NULL);
+			}
 		}
-
 		// post-placement rules. yes, can do both contract and expand in one rule. it makes sense...
 		unsigned int tag = current_tag; current_tag = desktop_to_tag(tag_to_desktop(c->cache->tags));
 		if (client_rule(c, RULE_CONTRACT)) client_contract(c, HORIZONTAL|VERTICAL);
