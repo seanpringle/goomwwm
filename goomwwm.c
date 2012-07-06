@@ -2198,6 +2198,9 @@ void client_nws_review(client *c)
 void client_cycle(client *c)
 {
 	int i; Window w; client *o;
+	tag_ascend(c->xattr.root, i, w, o, current_tag)
+		if (w != c->window && clients_intersect(c, o))
+			{ client_activate(o, RAISE, WARPDEF); return; }
 	tag_ascend(c->xattr.root, i, w, o, (c->cache->tags|current_tag))
 		if (w != c->window && clients_intersect(c, o))
 			{ client_activate(o, RAISE, WARPDEF); return; }
