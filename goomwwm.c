@@ -530,6 +530,16 @@ int winlist_forget(winlist *l, Window w)
 	l->len -= (i-j);
 	return j != i ?1:0;
 }
+void winlist_reverse(winlist *l)
+{
+	int i, j;
+	for (i = 0, j = l->len-1; i < j; i++, j--)
+	{
+		Window w = l->array[i]; void *d = l->data[i];
+		l->array[i] = l->array[j]; l->data[i] = l->data[j];
+		l->array[j] = w; l->data[j] = d;
+	}
+}
 
 typedef struct {
 	const char *name;
@@ -1441,30 +1451,20 @@ void client_restore_position_vert(client *c, int smart, int y, int h)
 		c->sw, c->cache && c->cache->have_old ? c->cache->sh: h);
 }
 
-// expand a window to take up available space around it on the current monitor
-// do not cover any window that is entirely visible (snap to surrounding edges)
-void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, int mx, int my, int mw, int mh)
+// build list of unobscured windows within a workarea
+winlist* windows_fully_visible(Window root, workarea *zone, unsigned int tag)
 {
-	client_extended_data(c);
-
-	// hlock/vlock reduce the area we should look at
-	if (c->cache->hlock) { mx = c->x; mw = c->sw; if (!mh) { my = c->monitor.y; mh = c->monitor.h; } }
-	if (c->cache->vlock) { my = c->y; mh = c->sh; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
-
-	winlist *inplay = windows_in_play(c->xattr.root);
-	// list of coords/sizes for fully visible windows on this desktop
-	workarea *regions = allocate_clear(sizeof(workarea) * inplay->len);
+	winlist *hits = winlist_new();
+	winlist *inplay = windows_in_play(root);
 	// list of coords/sizes for all windows on this desktop
 	workarea *allregions = allocate_clear(sizeof(workarea) * inplay->len);
 
-	int i, relevant = 0; Window win; client *o;
-
-	// build the (all)regions arrays
-	tag_descend(c->xattr.root, i, win, o, current_tag) if (win != c->window)
+	int i; Window win; client *o;
+	tag_descend(root, i, win, o, tag)
 	{
 		client_extended_data(o);
-		// only concerned about windows on this monitor
-		if (o->monitor.x == c->monitor.x && o->monitor.y == c->monitor.y) // same monitor
+		// only concerned about windows in the zone
+		if (INTERSECT(o->x, o->y, o->sw, o->sh, zone->x, zone->y, zone->w, zone->h))
 		{
 			int j, obscured = 0;
 			for (j = inplay->len-1; j > i; j--)
@@ -1475,18 +1475,43 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 						{ obscured = 1; break; }
 			}
 			// record a full visible window
-			if (!obscured)
-			{
-				regions[relevant].x = o->sx; regions[relevant].y = o->sy;
-				regions[relevant].w = o->sw; regions[relevant].h = o->sh;
-				relevant++;
-			}
+			if (!obscured && o->x >= zone->x && o->y >= zone->y && (o->x + o->sw) <= (zone->x + zone->w) && (o->y + o->sh) <= (zone->y + zone->h))
+				winlist_append(hits, o->window, NULL);
 			allregions[i].x = o->sx; allregions[i].y = o->sy;
 			allregions[i].w = o->sw; allregions[i].h = o->sh;
 		}
 	}
+	// return it in stacking order, bottom to top
+	winlist_reverse(hits);
+	free(allregions);
+	return hits;
+}
 
-	int n, x = c->sx, y = c->sy, w = c->sw, h = c->sh;
+// expand a window to take up available space around it on the current monitor
+// do not cover any window that is entirely visible (snap to surrounding edges)
+void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, int mx, int my, int mw, int mh)
+{
+	client_extended_data(c);
+
+	// hlock/vlock reduce the area we should look at
+	if (c->cache->hlock) { mx = c->x; mw = c->sw; if (!mh) { my = c->monitor.y; mh = c->monitor.h; } }
+	if (c->cache->vlock) { my = c->y; mh = c->sh; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
+
+	// expand only cares about fully visible windows. partially or full obscured windows == free space
+	winlist *visible = windows_fully_visible(c->xattr.root, &c->monitor, current_tag);
+
+	// list of coords/sizes for fully visible windows on this desktop
+	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
+
+	int i, n = 0, relevant = visible->len; Window win; client *o;
+	clients_descend(visible, i, win, o)
+	{
+		regions[n].x = o->sx; regions[n].y = o->sy;
+		regions[n].w = o->sw; regions[n].h = o->sh;
+		n++;
+	}
+
+	int x = c->sx, y = c->sy, w = c->sw, h = c->sh;
 	if (w1 || h1) { x = x1; y = y1; w = w1; h = h1; }
 
 	if (directions & VERTICAL)
@@ -1549,7 +1574,8 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 		client_commit(c);
 		client_moveresize(c, 0, c->monitor.x+x, c->monitor.y+y, w, h);
 	}
-	free(regions); free(allregions);
+	free(regions);
+	winlist_free(visible);
 }
 
 // shrink to fit into an empty gap underneath. opposite of client_expand()
@@ -2228,37 +2254,83 @@ void client_vtile(client *c)
 void client_focusto(client *c, int direction)
 {
 	client_extended_data(c);
-	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
-	// look for a window immediately adjacent or overlapping
-	tag_descend(c->xattr.root, i, w, o, current_tag) if (w != c->window)
+	int i, tries, vague = MAX(c->monitor.w/100, c->monitor.h/100);
+	Window w; client *o, *match = NULL;
+	winlist *visible = NULL, *consider = winlist_new();
+
+	workarea self, zone;
+
+	for (tries = 0; !match && tries < 4; tries++)
 	{
-		client_extended_data(o);
-		if ((direction == FOCUSLEFT  && o->x < c->x
-				&& INTERSECT(c->x-vague, c->y, c->sw+vague, c->sh, o->x, o->y, o->sw, o->sh)) ||
-			(direction == FOCUSRIGHT && o->x+o->w > c->x+c->w
-				&& INTERSECT(c->x, c->y, c->sw+vague, c->sh, o->x, o->y, o->sw, o->sh)) ||
-			(direction == FOCUSUP    && o->y < c->y
-				&& INTERSECT(c->x, c->y-vague, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)) ||
-			(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h
-				&& INTERSECT(c->x, c->y, c->sw, c->sh+vague, o->x, o->y, o->sw, o->sh)))
+		memmove(&zone, &c->monitor, sizeof(workarea));
+		self.x = c->x; self.y = c->y; self.w = c->sw; self.h = c->sh;
+		if (tries == 1 || tries == 3)
 		{
-			client_activate(o, RAISEDEF, WARPDEF);
-			return;
+			// second attempt: reduce self box to get partially overlapping windows
+			if (direction == FOCUSLEFT)  { self.x = c->x + c->sw - c->sw/4; self.w = c->sw/4; }
+			if (direction == FOCUSRIGHT) { self.x = c->x + c->sw/4; self.w = c->sw/4; }
+			if (direction == FOCUSUP)    { self.y = c->y + c->sh - c->sh/4; self.h = c->sh/4; }
+			if (direction == FOCUSDOWN)  { self.y = c->y + c->sh/4; self.h = c->sh/4; }
 		}
+		if (tries == 2 || tries == 3)
+		{
+			// third attempt: all monitors
+			monitor_dimensions(c->xattr.screen, -1, -1, &zone);
+		}
+		// reduce the monitor size to a workarea in the appropriate direction
+		if (direction == FOCUSLEFT)  { zone.w = self.x - zone.x; }
+		if (direction == FOCUSRIGHT) { zone.w -= self.x + self.w - zone.x; zone.x = self.x + self.w; }
+		if (direction == FOCUSUP)    { zone.h = self.y - zone.y; }
+		if (direction == FOCUSDOWN)  { zone.h -= self.y + self.h - zone.y; zone.y = self.y + self.h; }
+
+		// look for a fully visible immediately adjacent in the chosen 'zone'
+		visible = windows_fully_visible(c->xattr.root, &zone, current_tag);
+
+		// prefer window that overlaps vertically
+		if (!match && (direction == FOCUSLEFT || direction == FOCUSRIGHT))
+			clients_ascend(visible, i, w, o) if (OVERLAP(self.y, self.h, o->y, o->sh)) winlist_append(consider, o->window, NULL);
+
+		// prefer window that overlaps horizontally
+		if (!match && (direction == FOCUSUP || direction == FOCUSDOWN))
+			clients_ascend(visible, i, w, o) if (OVERLAP(self.x, self.w, o->x, o->sw)) winlist_append(consider, o->window, NULL);
+
+		// if we found no overlaps, fall back on the entire visible list
+		if (!consider->len) winlist_ascend(visible, i, w) winlist_append(consider, w, NULL);
+
+		// get the closest visible window in the right direction
+		if (direction == FOCUSLEFT)  clients_ascend(consider, i, w, o) if (!match || (o->x + o->sw > match->x + match->sw)) match = o;
+		if (direction == FOCUSRIGHT) clients_ascend(consider, i, w, o) if (!match || (o->x < match->x)) match = o;
+		if (direction == FOCUSUP)    clients_ascend(consider, i, w, o) if (!match || (o->y + o->sh > match->y + match->sh)) match = o;
+		if (direction == FOCUSDOWN)  clients_ascend(consider, i, w, o) if (!match || (o->y < match->y)) match = o;
+
+		winlist_free(visible);
+		winlist_empty(consider);
 	}
-	// we didn't find a window immediately adjacent or overlapping. look further afield
-	tag_descend(c->xattr.root, i, w, o, current_tag) if (w != c->window)
+	// if we failed to find something fully visible, look for anything available
+	if (!match)
 	{
-		client_extended_data(o);
-		if ((direction == FOCUSLEFT  && o->x < c->x) ||
-			(direction == FOCUSRIGHT && o->x+o->w > c->x+c->w) ||
-			(direction == FOCUSUP    && o->y < c->y) ||
-			(direction == FOCUSDOWN  && o->y+o->h > c->y + c->h))
-		{
-			client_activate(o, RAISEDEF, WARPDEF);
-			return;
-		}
+		monitor_dimensions(c->xattr.screen, -1, -1, &zone);
+		// reduce the monitor size to a workarea in the appropriate direction
+		if (direction == FOCUSLEFT)  { zone.w = c->x - zone.x + vague; }
+		if (direction == FOCUSRIGHT) { zone.w -= (c->x - zone.x) + c->sw + vague; zone.x = c->x + c->sw - vague; }
+		if (direction == FOCUSUP)    { zone.h = c->y - zone.y + vague; }
+		if (direction == FOCUSDOWN)  { zone.h -= (c->y - zone.y) + c->sh + vague; zone.y = c->y + c->sh - vague; }
+
+		// again, prefer windows overlapping
+		tag_descend(c->xattr.root, i, w, o, current_tag)
+			if (w != c->window && INTERSECT(zone.x, zone.y, zone.w, zone.h, o->x, o->y, o->sw, o->sh) && (
+				((direction == FOCUSLEFT || direction == FOCUSRIGHT) && OVERLAP(c->y, c->sh, o->y, o->sh)) ||
+				((direction == FOCUSUP   || direction == FOCUSDOWN ) && OVERLAP(c->x, c->sw, o->x, o->sw))))
+					{ match = o; break; }
+
+		// last ditch: anything!
+		if (!match) tag_descend(c->xattr.root, i, w, o, current_tag)
+			if (w != c->window && INTERSECT(zone.x, zone.y, zone.w, zone.h, o->x, o->y, o->sw, o->sh))
+				{ match = o; break; }
 	}
+
+	if (match) client_activate(match, RAISEDEF, WARPDEF);
+	winlist_free(consider);
 }
 
 // resize window to match the one underneath
