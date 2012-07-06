@@ -155,8 +155,8 @@ typedef struct {
 #define managed_ascend(r,i,w,c) clients_ascend(windows_in_play(r),i,w,c) if ((c)->manage && (c)->visible)
 #define managed_descend(r,i,w,c) clients_descend(windows_in_play(r),i,w,c) if ((c)->manage && (c)->visible)
 
-#define tag_ascend(r,i,w,c,t) managed_ascend(r, i, w, c) if (!(c)->cache->tags || (c)->cache->tags & (t))
-#define tag_descend(r,i,w,c,t) managed_descend(r, i, w, c) if (!(c)->cache->tags || (c)->cache->tags & (t))
+#define tag_ascend(r,i,w,c,t) managed_ascend(r, i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
+#define tag_descend(r,i,w,c,t) managed_descend(r, i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
 
 #define UNDO 10
 #define TOPLEFT 1
@@ -1498,7 +1498,7 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	if (c->cache->vlock) { my = c->y; mh = c->sh; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
-	winlist *visible = windows_fully_visible(c->xattr.root, &c->monitor, current_tag);
+	winlist *visible = windows_fully_visible(c->xattr.root, &c->monitor, 0);
 
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
@@ -2198,7 +2198,7 @@ void client_nws_review(client *c)
 void client_cycle(client *c)
 {
 	int i; Window w; client *o;
-	tag_ascend(c->xattr.root, i, w, o, current_tag)
+	tag_ascend(c->xattr.root, i, w, o, (c->cache->tags|current_tag))
 		if (w != c->window && clients_intersect(c, o))
 			{ client_activate(o, RAISE, WARPDEF); return; }
 }
@@ -2301,7 +2301,7 @@ void client_focusto(client *c, int direction)
 		if (direction == FOCUSDOWN)  { zone.h -= self.y + self.h - zone.y; zone.y = self.y + self.h; }
 
 		// look for a fully visible immediately adjacent in the chosen 'zone'
-		visible = windows_fully_visible(c->xattr.root, &zone, current_tag);
+		visible = windows_fully_visible(c->xattr.root, &zone, 0);
 
 		// prefer window that overlaps vertically
 		if (!match && (direction == FOCUSLEFT || direction == FOCUSRIGHT))
@@ -2334,14 +2334,14 @@ void client_focusto(client *c, int direction)
 		if (direction == FOCUSDOWN)  { zone.h -= (c->y - zone.y) + c->sh + vague; zone.y = c->y + c->sh - vague; }
 
 		// again, prefer windows overlapping
-		tag_descend(c->xattr.root, i, w, o, current_tag)
+		tag_descend(c->xattr.root, i, w, o, 0)
 			if (w != c->window && INTERSECT(zone.x, zone.y, zone.w, zone.h, o->x, o->y, o->sw, o->sh) && (
 				((direction == FOCUSLEFT || direction == FOCUSRIGHT) && OVERLAP(c->y, c->sh, o->y, o->sh)) ||
 				((direction == FOCUSUP   || direction == FOCUSDOWN ) && OVERLAP(c->x, c->sw, o->x, o->sw))))
 					{ match = o; break; }
 
 		// last ditch: anything!
-		if (!match) tag_descend(c->xattr.root, i, w, o, current_tag)
+		if (!match) tag_descend(c->xattr.root, i, w, o, 0)
 			if (w != c->window && INTERSECT(zone.x, zone.y, zone.w, zone.h, o->x, o->y, o->sw, o->sh))
 				{ match = o; break; }
 	}
@@ -2354,7 +2354,7 @@ void client_focusto(client *c, int direction)
 void client_duplicate(client *c)
 {
 	int i; Window w; client *o; client_commit(c);
-	tag_descend(c->xattr.root, i, w, o, current_tag)
+	tag_descend(c->xattr.root, i, w, o, 0)
 		if (c->window != w && clients_intersect(c, o))
 			{ client_moveresize(c, 0, o->x, o->y, o->sw, o->sh); return; }
 }
