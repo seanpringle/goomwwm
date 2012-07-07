@@ -3629,18 +3629,18 @@ int main(int argc, char *argv[])
 
 	// raise mode
 	config_raise_mode = RAISEFOCUS;
-	mode = find_arg_str(ac, av, "-raisemode", "focus");
+	mode = find_arg_str(ac, av, "-raisemode", config_focus_mode == FOCUSCLICK ? "focus": "click");
 	if (!strcasecmp(mode, "click")) config_raise_mode = RAISECLICK;
+
+	// warp mode
+	config_warp_mode = WARPNEVER;
+	mode = find_arg_str(ac, av, "-warpmode", config_focus_mode == FOCUSCLICK ? "never": "focus");
+	if (!strcasecmp(mode, "focus")) config_warp_mode = WARPFOCUS;
 
 	// steal mode
 	config_map_mode = MAPSTEAL;
 	mode = find_arg_str(ac, av, "-mapmode", "steal");
 	if (!strcasecmp(mode, "block")) config_map_mode = MAPBLOCK;
-
-	// warp mode
-	config_warp_mode = WARPNEVER;
-	mode = find_arg_str(ac, av, "-warpmode", "never");
-	if (!strcasecmp(mode, "focus")) config_warp_mode = WARPFOCUS;
 
 	// new-window placement mode
 	config_window_placement = PLACEANY;
