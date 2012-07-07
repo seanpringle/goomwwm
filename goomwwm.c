@@ -3278,7 +3278,7 @@ void handle_maprequest(XEvent *ev)
 		// default to current tag
 		if (!c->cache->tags) c->cache->tags = current_tag;
 
-		client_lower(c, 0);
+		if (c->trans == None) client_lower(c, 0);
 		XSync(display, False);
 	}
 	XMapWindow(display, ev->xmaprequest.window);
