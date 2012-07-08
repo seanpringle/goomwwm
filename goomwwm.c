@@ -832,16 +832,14 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 		if (attr && !attr->override_redirect && attr->root == root
 			&& INTERSECT(attr->x, attr->y, attr->width, attr->height, mon->x, mon->y, mon->w, mon->h))
 		{
-			unsigned long *strut, c, d; Atom a; int b; unsigned char *res;
-			if (XGetWindowProperty(display, win, netatoms[_NET_WM_STRUT_PARTIAL], 0L, 12,
-				False, XA_CARDINAL, &a, &b, &c, &d, &res) == Success && res)
+			unsigned long strut[12];
+			if (window_get_cardinal_prop(win, netatoms[_NET_WM_STRUT_PARTIAL], strut, 12)
+				|| window_get_cardinal_prop(win, netatoms[_NET_WM_STRUT], strut, 4))
 			{
 				// we only pay attention to the first four params
 				// this is no more complex that _NET_WM_STRUT, but newer stuff uses _PARTIAL
-				strut = (unsigned long*)res;
 				left  = MAX(left, strut[0]); right  = MAX(right,  strut[1]);
 				top   = MAX(top,  strut[2]); bottom = MAX(bottom, strut[3]);
-				XFree(res);
 			}
 		}
 	}
@@ -2799,62 +2797,84 @@ void handle_keypress(XEvent *ev)
 		if (key == keymap[KEY_TSWITCH])
 			window_switcher(c->xattr.root, current_tag);
 		else
+		// Page Up/Down makes the focused window larger and smaller respectively
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN])
 			&& (key == keymap[KEY_GROW] || key == keymap[KEY_SHRINK]))
 		{
-			// a maxh/maxv client stays that way
-			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
-				width1 = width2 = width3 = width4 = screen_width;
+			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy;
 
-			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
-				height1 = height2 = height3 = height4 = screen_height;
-
-			smart = 1;
 			// window width zone
 			int isw4 = (w >= width4 || NEAR(width4, vague, w)) ?1:0;
 			int isw3 = !isw4 && (w >= width3 || NEAR(width3, vague, w)) ?1:0;
 			int isw2 = !isw4 && !isw3 && (w >= width2 || NEAR(width2, vague, w)) ?1:0;
 			int isw1 = !isw4 && !isw3 && !isw2 && (w >= width1 || NEAR(width1, vague, w)) ?1:0;
+			int isw0 = !isw4 && !isw3 && !isw2 && !isw1 ? 1:0;
 
 			// window height zone
 			int ish4 = (h >= height4 || NEAR(height4, vague, h)) ?1:0;
 			int ish3 = !ish4 && (h >= height3 || NEAR(height3, vague, h)) ?1:0;
 			int ish2 = !ish4 && !ish3 && (h >= height2 || NEAR(height2, vague, h)) ?1:0;
 			int ish1 = !ish4 && !ish3 && !ish2 && (h >= height1 || NEAR(height1, vague, h)) ?1:0;
+			int ish0 = !ish4 && !ish3 && !ish2 && !ish1 ? 1:0;
 
-			int prefer_width = w > h ? 1:0;
-
-			// window zone ballpark. try to make resize changes intuitive
-			int is4 = (isw4 && ish4) || (isw4 && prefer_width) || (ish4 && !prefer_width) ? 1:0;
-			int is3 = !is4 && ((isw3 && ish3) || (isw3 && prefer_width) || (ish3 && !prefer_width)) ? 1:0;
-			int is2 = !is4 && !is3 && ((isw2 && ish2) || (isw2 && prefer_width) || (ish2 && !prefer_width)) ? 1:0;
-			int is1 = !is4 && !is3 && !is2 && ((isw1 && ish1) || (isw1 && prefer_width) || (ish1 && !prefer_width)) ? 1:0;
-
-			// horz/vert locks override stuff
-			if (c->cache->hlock) { is4 = ish4; is3 = ish3; is2 = ish2; is1 = ish1; }
-			if (c->cache->vlock) { is4 = isw4; is3 = isw3; is2 = isw2; is1 = isw1; }
-
-			int is0 = !is4 && !is3 && !is2 && !is1 ?1:0;
-
-			// Page Up/Down makes the focused window larger and smaller respectively
-			if (key == keymap[KEY_GROW])
+			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 			{
-				fx = screen_x + c->sx; fy = screen_y + c->sy;
-				if (is0) { fw = width1; fh = height1; }
-				else if (is1) { fw = width2; fh = height2; }
-				else if (is2) { fw = width3; fh = height3; }
-				else if (is3) { fw = width4; fh = height4; }
-				else { fw = width4; fh = height4; }
-				smart = 1;
-			}
-			else
-			if (key == keymap[KEY_SHRINK])
+				fw = screen_width;
+				if (key == keymap[KEY_GROW])
+				{
+					if (ish0) fh = height1;
+					else if (ish1) fh = height2;
+					else if (ish2) fh = height3;
+					else fh = height4;
+				}
+				if (key == keymap[KEY_SHRINK])
+				{
+					if (ish4) fh = height3;
+					else if (ish3) fh = height2;
+					else fh = height1;
+				}
+			} else
+			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 			{
-				fx = screen_x + c->sx; fy = screen_y + c->sy;
-				if (is4) { fw = width3; fh = height3; }
-				else if (is3) { fw = width2; fh = height2; }
-				else { fw = width1; fh = height1; }
-				smart = 1;
+				fh = screen_height;
+				if (key == keymap[KEY_GROW])
+				{
+					if (isw0) fw = width1;
+					else if (isw1) fw = width2;
+					else if (isw2) fw = width3;
+					else fw = width4;
+				}
+				if (key == keymap[KEY_SHRINK])
+				{
+					if (isw4) fw = width3;
+					else if (isw3) fw = width2;
+					else fw = width1;
+				}
+			} else
+			{
+				int prefer_width = w > h ? 1:0;
+
+				int is4 = (isw4 && ish4) || (isw4 && prefer_width) || (ish4 && !prefer_width) ?1:0;
+				int is3 = !is4 && ((isw3 && ish3) || (isw3 && prefer_width) || (ish3 && !prefer_width)) ?1:0;
+				int is2 = !is4 && !is3 && ((isw2 && ish2) || (isw2 && prefer_width) || (ish2 && !prefer_width)) ?1:0;
+				int is1 = !is4 && !is3 && !is2 && ((isw1 && ish1) || (isw1 && prefer_width) || (ish1 && !prefer_width)) ?1:0;
+				int is0 = !is4 && !is3 && !is2 && !is1 ?1:0;
+
+				if (key == keymap[KEY_GROW])
+				{
+					if (is0) { fw = width1; fh = height1; }
+					else if (is1) { fw = width2; fh = height2; }
+					else if (is2) { fw = width3; fh = height3; }
+					else if (is3) { fw = width4; fh = height4; }
+					else { fw = width4; fh = height4; }
+				}
+				else
+				if (key == keymap[KEY_SHRINK])
+				{
+					if (is4) { fw = width3; fh = height3; }
+					else if (is3) { fw = width2; fh = height2; }
+					else { fw = width1; fh = height1; }
+				}
 			}
 		}
 		else
@@ -2872,7 +2892,7 @@ void handle_keypress(XEvent *ev)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->monitor.x-c->monitor.l-vague, c->y, &mon);
 				if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-				{ fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
+					{ fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
 			}
 			else
 			if (key == keymap[KEY_RIGHT] && c->is_right)
