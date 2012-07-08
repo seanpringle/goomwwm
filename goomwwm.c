@@ -2871,25 +2871,29 @@ void handle_keypress(XEvent *ev)
 			if (key == keymap[KEY_LEFT] && c->is_left)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->monitor.x-c->monitor.l-vague, c->y, &mon);
-				if (mon.x < c->monitor.x) { fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
+				if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+				{ fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
 			}
 			else
 			if (key == keymap[KEY_RIGHT] && c->is_right)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
-				if (mon.x > c->monitor.x) { fx = mon.x; fy = y; fw = w; fh = h; }
+				if (mon.x > c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+					{ fx = mon.x; fy = y; fw = w; fh = h; }
 			}
 			else
 			if (key == keymap[KEY_UP] && c->is_top)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y-c->monitor.t-vague, &mon);
-				if (mon.y < c->monitor.y) { fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
+				if (mon.y < c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+					{ fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
 			}
 			else
 			if (key == keymap[KEY_DOWN] && c->is_bottom)
 			{
 				monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
-				if (mon.y > c->monitor.y) { fx = x; fy = mon.y; fw = w; fh = h; }
+				if (mon.y > c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+					{ fx = x; fy = mon.y; fw = w; fh = h; }
 			}
 			else
 			// MODKEY+Arrow movement occurs on a 3x3 grid for non-fullscreen, managed windows
