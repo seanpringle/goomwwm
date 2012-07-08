@@ -2809,6 +2809,9 @@ void handle_keypress(XEvent *ev)
 			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 				height1 = height2 = height3 = height4 = screen_height;
 
+			double screen_ratio = screen_width/screen_height;
+			double client_ratio = w/h;
+
 			smart = 1;
 			// window width zone
 			int isw4 = (w >= width4 || NEAR(width4, vague, w)) ?1:0;
@@ -2822,11 +2825,13 @@ void handle_keypress(XEvent *ev)
 			int ish2 = !ish4 && !ish3 && (h >= height2 || NEAR(height2, vague, h)) ?1:0;
 			int ish1 = !ish4 && !ish3 && !ish2 && (h >= height1 || NEAR(height1, vague, h)) ?1:0;
 
-			// window zone ballpark. try to make resize changes intuitive base on window area
-			int is4 = (isw4 && ish4) || (w*h >= width4*height4) ?1:0;
-			int is3 = !is4 && ((isw3 && ish3) || (w*h >= width3*height3)) ?1:0;
-			int is2 = !is4 && !is3 && ((isw2 && ish2) || (w*h >= width2*height2)) ?1:0;
-			int is1 = !is4 && !is3 && !is2 && ((isw1 && ish1) || (w*h >= width1*height1)) ?1:0;
+			int prefer_width = client_ratio > screen_ratio ? 1:0;
+
+			// window zone ballpark. try to make resize changes intuitive
+			int is4 = (isw4 && ish4) || (isw4 && prefer_width) || (ish4 && !prefer_width) ? 1:0;
+			int is3 = !is4 && ((isw3 && ish3) || (isw3 && prefer_width) || (ish3 && !prefer_width)) ? 1:0;
+			int is2 = !is4 && !is3 && ((isw2 && ish2) || (isw2 && prefer_width) || (ish2 && !prefer_width)) ? 1:0;
+			int is1 = !is4 && !is3 && !is2 && ((isw1 && ish1) || (isw1 && prefer_width) || (ish1 && !prefer_width)) ? 1:0;
 
 			// horz/vert locks override stuff
 			if (c->cache->hlock) { is4 = ish4; is3 = ish3; is2 = ish2; is1 = ish1; }
