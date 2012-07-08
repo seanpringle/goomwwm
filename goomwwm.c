@@ -41,6 +41,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <unistd.h>
 #include <ctype.h>
 #include <math.h>
+#include <sys/time.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <fcntl.h>
@@ -89,6 +90,11 @@ void strtrim(char *str)
 	while (str[i]) str[i++] = str[j++];
 	while (isspace(str[--j]));
 	str[++j] = '\0';
+}
+double timestamp()
+{
+	struct timeval tv; gettimeofday(&tv, NULL);
+	return tv.tv_sec + (double)tv.tv_usec/1000000;
 }
 
 void catch_exit(int sig)
@@ -188,6 +194,7 @@ typedef struct {
 	int sx, sy, sw, sh;
 	int have_mr;
 	int mr_x, mr_y, mr_w, mr_h;
+	double mr_time;
 	int have_closed;
 	int last_corner;
 	unsigned int tags;
@@ -1349,6 +1356,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		c->cache->have_mr = 1;
 		c->cache->mr_x = fx; c->cache->mr_y = fy;
 		c->cache->mr_w = fw; c->cache->mr_h = fh;
+		c->cache->mr_time = timestamp();
 	}
 }
 
@@ -2803,16 +2811,16 @@ void handle_keypress(XEvent *ev)
 
 			smart = 1;
 			// window width zone
-			int isw4 = w >= width4 ?1:0;
-			int isw3 = !isw4 && w >= width3 ?1:0;
-			int isw2 = !isw4 && !isw3 && w >= width2 ?1:0;
-			int isw1 = !isw4 && !isw3 && !isw2 && w >= width1 ?1:0;
+			int isw4 = (w >= width4 || NEAR(width4, vague, w)) ?1:0;
+			int isw3 = !isw4 && (w >= width3 || NEAR(width3, vague, w)) ?1:0;
+			int isw2 = !isw4 && !isw3 && (w >= width2 || NEAR(width2, vague, w)) ?1:0;
+			int isw1 = !isw4 && !isw3 && !isw2 && (w >= width1 || NEAR(width1, vague, w)) ?1:0;
 
 			// window height zone
-			int ish4 = h >= height4 ?1:0;
-			int ish3 = !ish4 && h >= height3 ?1:0;
-			int ish2 = !ish4 && !ish3 && h >= height2 ?1:0;
-			int ish1 = !ish4 && !ish3 && !ish2 && h >= height1 ?1:0;
+			int ish4 = (h >= height4 || NEAR(height4, vague, h)) ?1:0;
+			int ish3 = !ish4 && (h >= height3 || NEAR(height3, vague, h)) ?1:0;
+			int ish2 = !ish4 && !ish3 && (h >= height2 || NEAR(height2, vague, h)) ?1:0;
+			int ish1 = !ish4 && !ish3 && !ish2 && (h >= height1 || NEAR(height1, vague, h)) ?1:0;
 
 			// window zone ballpark. try to make resize changes intuitive base on window area
 			int is4 = (isw4 && ish4) || (w*h >= width4*height4) ?1:0;
@@ -3064,8 +3072,15 @@ void handle_motionnotify(XEvent *ev)
 			else if (ratio > maxr) w = (int)(h * maxr);
 		}
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
-		// cancel any cached moves done by client_moveresize()
-		c->cache->have_mr = 0;
+		// update move/req cache. allows client_flash() and handle_configurerequest to
+		// play nice with mouse-based stuff
+		if (c->cache)
+		{
+			c->cache->have_mr = 1;
+			c->cache->mr_x = x; c->cache->mr_y = y;
+			c->cache->mr_w = w; c->cache->mr_h = h;
+			c->cache->mr_time = timestamp();
+		}
 	}
 }
 
@@ -3116,9 +3131,9 @@ void handle_configurerequest(XEvent *ev)
 			wc.border_width = c->manage ? config_border_width: 0;
 			wc.sibling = None; wc.stack_mode = None;
 
-			// if we previously instructed the window to an x/y/w/h which conforms to
+			// if we recently (0.1s) instructed the window to an x/y/w/h which conforms to
 			// their w/h hints, demand co-operation!
-			if (c->cache && c->cache->have_mr)
+			if (c->cache && c->cache->have_mr && timestamp() < c->cache->mr_time + 0.1)
 			{
 				mask = CWX|CWY|CWWidth|CWHeight|CWBorderWidth;
 				wc.x = c->cache->mr_x; wc.y = c->cache->mr_y;
