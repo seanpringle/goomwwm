@@ -2804,48 +2804,28 @@ void handle_keypress(XEvent *ev)
 			int isw3 = !isw4 && (w >= width3 || NEAR(width3, vague, w)) ?1:0;
 			int isw2 = !isw4 && !isw3 && (w >= width2 || NEAR(width2, vague, w)) ?1:0;
 			int isw1 = !isw4 && !isw3 && !isw2 && (w >= width1 || NEAR(width1, vague, w)) ?1:0;
-			int isw0 = !isw4 && !isw3 && !isw2 && !isw1 ? 1:0;
+			int widths[7] = { width1, width1, width1, width2, width3, width4, width4 };
+			int isw = isw4 ? 5: (isw3 ? 4: (isw2 ? 3: (isw1 ? 2: 1)));
 
 			// window height zone
 			int ish4 = (h >= height4 || NEAR(height4, vague, h)) ?1:0;
 			int ish3 = !ish4 && (h >= height3 || NEAR(height3, vague, h)) ?1:0;
 			int ish2 = !ish4 && !ish3 && (h >= height2 || NEAR(height2, vague, h)) ?1:0;
 			int ish1 = !ish4 && !ish3 && !ish2 && (h >= height1 || NEAR(height1, vague, h)) ?1:0;
-			int ish0 = !ish4 && !ish3 && !ish2 && !ish1 ? 1:0;
+			int heights[7] = { height1, height1, height1, height2, height3, height4, height4 };
+			int ish = ish4 ? 5: (ish3 ? 4: (ish2 ? 3: (ish1 ? 2: 1)));
 
 			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 			{
 				fw = screen_width;
-				if (key == keymap[KEY_GROW])
-				{
-					if (ish0) fh = height1;
-					else if (ish1) fh = height2;
-					else if (ish2) fh = height3;
-					else fh = height4;
-				}
-				if (key == keymap[KEY_SHRINK])
-				{
-					if (ish4) fh = height3;
-					else if (ish3) fh = height2;
-					else fh = height1;
-				}
+				if (key == keymap[KEY_GROW]) fh = heights[ish+1];
+				if (key == keymap[KEY_SHRINK]) fh = heights[ish-1];
 			} else
 			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 			{
 				fh = screen_height;
-				if (key == keymap[KEY_GROW])
-				{
-					if (isw0) fw = width1;
-					else if (isw1) fw = width2;
-					else if (isw2) fw = width3;
-					else fw = width4;
-				}
-				if (key == keymap[KEY_SHRINK])
-				{
-					if (isw4) fw = width3;
-					else if (isw3) fw = width2;
-					else fw = width1;
-				}
+				if (key == keymap[KEY_GROW]) fw = widths[isw+1];
+				if (key == keymap[KEY_SHRINK]) fw = widths[isw-1];
 			} else
 			{
 				int prefer_width = w > h ? 1:0;
@@ -2854,23 +2834,10 @@ void handle_keypress(XEvent *ev)
 				int is3 = !is4 && ((isw3 && ish3) || (isw3 && prefer_width) || (ish3 && !prefer_width)) ?1:0;
 				int is2 = !is4 && !is3 && ((isw2 && ish2) || (isw2 && prefer_width) || (ish2 && !prefer_width)) ?1:0;
 				int is1 = !is4 && !is3 && !is2 && ((isw1 && ish1) || (isw1 && prefer_width) || (ish1 && !prefer_width)) ?1:0;
-				int is0 = !is4 && !is3 && !is2 && !is1 ?1:0;
+				int is = is4 ? 5: (is3 ? 4: (is2 ? 3: (is1 ? 2: 1)));
 
-				if (key == keymap[KEY_GROW])
-				{
-					if (is0) { fw = width1; fh = height1; }
-					else if (is1) { fw = width2; fh = height2; }
-					else if (is2) { fw = width3; fh = height3; }
-					else if (is3) { fw = width4; fh = height4; }
-					else { fw = width4; fh = height4; }
-				}
-				else
-				if (key == keymap[KEY_SHRINK])
-				{
-					if (is4) { fw = width3; fh = height3; }
-					else if (is3) { fw = width2; fh = height2; }
-					else { fw = width1; fh = height1; }
-				}
+				if (key == keymap[KEY_GROW])   { fw = widths[is+1]; fh = heights[is+1]; }
+				if (key == keymap[KEY_SHRINK]) { fw = widths[is-1]; fh = heights[is-1]; }
 			}
 		}
 		else
