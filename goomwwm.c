@@ -2230,7 +2230,6 @@ void client_htile(client *c)
 		{
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 			client_moveresize(o, 0, c->x+(width*i), c->y, width, c->sh);
 		}
 	} else
@@ -2238,7 +2237,6 @@ void client_htile(client *c)
 	{
 		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
 	}
 	winlist_free(tiles);
@@ -2261,7 +2259,6 @@ void client_vtile(client *c)
 		clients_ascend(tiles, i, w, o)
 		{
 			client_commit(o);
-			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 			client_moveresize(o, 0, c->x, c->y+(height*i), c->sw, height);
 		}
@@ -2269,7 +2266,6 @@ void client_vtile(client *c)
 	// nothing to tile with. still make a gap for something subsequent
 	{
 		client_commit(c);
-		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
 	}
