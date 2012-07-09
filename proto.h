@@ -22,7 +22,7 @@ void client_save_position_vert(client *c);
 void client_restore_position(client *c, int smart, int x, int y, int w, int h);
 void client_restore_position_horz(client *c, int smart, int x, int w);
 void client_restore_position_vert(client *c, int smart, int y, int h);
-winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag);
+winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag, Window ignore);
 void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, int mx, int my, int mw, int mh);
 void client_contract(client *c, int directions);
 void client_flash(client *c, unsigned int color, int delay);

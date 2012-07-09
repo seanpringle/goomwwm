@@ -511,7 +511,7 @@ void client_restore_position_vert(client *c, int smart, int y, int h)
 }
 
 // build list of unobscured windows within a workarea
-winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag)
+winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag, Window ignore)
 {
 	winlist *hits = winlist_new();
 	winlist *inplay = windows_in_play(root);
@@ -523,7 +523,7 @@ winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag)
 	{
 		client_extended_data(o);
 		// only concerned about windows in the zone
-		if (INTERSECT(o->x, o->y, o->sw, o->sh, zone->x, zone->y, zone->w, zone->h))
+		if (ignore != o->window && INTERSECT(o->x, o->y, o->sw, o->sh, zone->x, zone->y, zone->w, zone->h))
 		{
 			int j, obscured = 0;
 			for (j = inplay->len-1; j > i; j--)
@@ -557,7 +557,7 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	if (c->cache->vlock) { my = c->y; mh = c->sh; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
-	winlist *visible = clients_fully_visible(c->xattr.root, &c->monitor, 0);
+	winlist *visible = clients_fully_visible(c->xattr.root, &c->monitor, 0, c->window);
 
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
@@ -565,6 +565,8 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	int i, n = 0, relevant = visible->len; Window win; client *o;
 	clients_descend(visible, i, win, o)
 	{
+		client_extended_data(o);
+		event_note("visible: %s %s", o->class, o->title);
 		regions[n].x = o->sx; regions[n].y = o->sy;
 		regions[n].w = o->sw; regions[n].h = o->sh;
 		n++;
@@ -1242,7 +1244,7 @@ void client_focusto(client *c, int direction)
 		if (direction == FOCUSDOWN)  { zone.h -= self.y + self.h - zone.y; zone.y = self.y + self.h; }
 
 		// look for a fully visible immediately adjacent in the chosen 'zone'
-		visible = clients_fully_visible(c->xattr.root, &zone, 0);
+		visible = clients_fully_visible(c->xattr.root, &zone, 0, c->window);
 
 		// prefer window that overlaps vertically
 		if (!match && (direction == FOCUSLEFT || direction == FOCUSRIGHT))
