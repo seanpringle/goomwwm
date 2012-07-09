@@ -114,6 +114,7 @@ void event_log(const char *e, Window w);
 void event_note(const char *fmt, ...);
 void window_select(Window w);
 int window_is_root(Window w);
+XWindowAttributes* window_get_attributes(Window w);
 int window_get_prop(Window w, Atom prop, Atom *type, int *items, void *buffer, int bytes);
 char* window_get_text_prop(Window w, Atom atom);
 int window_get_atom_prop(Window w, Atom atom, Atom *list, int count);
