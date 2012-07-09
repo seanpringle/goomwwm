@@ -214,7 +214,12 @@ int main(int argc, char *argv[])
 	for (i = 0; keyargs[i]; i++)
 	{
 		char *key = find_arg_str(ac, av, keyargs[i], NULL);
-		if (key) keymap[i] = XStringToKeysym(key);
+		if (!key) continue;
+
+		KeySym sym = XStringToKeysym(key);
+		// remove existing refs to this key, so only one action is bound
+		for (j = 0; keymap[j]; j++) if (keymap[j] == sym) keymap[j] = XK_VoidSymbol;
+		keymap[i] = sym;
 	}
 
 	// border colors

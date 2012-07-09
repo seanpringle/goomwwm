@@ -62,7 +62,7 @@ void grab_keys_and_buttons()
 	{
 		Window root = RootWindow(display, scr);
 		XUngrabKey(display, AnyKey, AnyModifier, root);
-		for (i = 0; keymap[i]; i++) grab_key(root, keymap[i]);
+		for (i = 0; keymap[i]; i++) if (keymap[i] != XK_VoidSymbol) grab_key(root, keymap[i]);
 		for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
 		for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
 		// grab mouse buttons for click-to-focus. these get passed through to the windows
