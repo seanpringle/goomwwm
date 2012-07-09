@@ -7,7 +7,7 @@ normal:
 	$(CC) -o goomwwm goomwwm.c $(CFLAGS) $(LDADD) $(LDFLAGS)
 
 debug:
-	$(CC) $(CFLAGS) -g -DDEBUG $(LDADD) -o goomwwm-debug goomwwm.c
+	$(CC) -o goomwwm-debug goomwwm.c $(CFLAGS) -g -DDEBUG $(LDADD)
 
 clean:
 	rm -f goomwwm goomwwm-debug
