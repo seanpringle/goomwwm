@@ -372,6 +372,7 @@ void handle_motionnotify(XEvent *ev)
 				if (ratio < minr) h = (int)(w / minr);
 			else if (ratio > maxr) w = (int)(h * maxr);
 		}
+		w = MAX(100, w); h = MAX(100, h);
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
 		// update move/req cache. allows client_flash() and handle_configurerequest to
 		// play nice with mouse-based stuff

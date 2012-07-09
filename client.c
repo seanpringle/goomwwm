@@ -347,9 +347,10 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		}
 
 		// bump onto screen. shrink if necessary
-		fw = MAX(1, MIN(fw, monitor.w+monitor.l+monitor.r)); fh = MAX(1, MIN(fh, monitor.h+monitor.t+monitor.b));
+		fw = MAX(100, MIN(fw, monitor.w+monitor.l+monitor.r));
+		fh = MAX(100, MIN(fh, monitor.h+monitor.t+monitor.b));
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
-			{ fw = MAX(1, MIN(fw, monitor.w)); fh = MAX(1, MIN(fh, monitor.h)); }
+			{ fw = MAX(100, MIN(fw, monitor.w)); fh = MAX(100, MIN(fh, monitor.h)); }
 		fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
 		fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
 	}
