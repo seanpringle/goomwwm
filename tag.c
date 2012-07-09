@@ -49,14 +49,13 @@ void tag_set_current(unsigned int tag)
 void tag_raise(unsigned int tag)
 {
 	int i; Window w; client *c;
-	winlist *stack; Window focus;
+	winlist *stack;
 
 	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
 	{
 		Window root = RootWindow(display, scr);
 		winlist *inplay = windows_in_play(root);
 		stack = winlist_new();
-		focus = None;
 
 		// locate windows with _NET_WM_STATE_ABOVE and _NET_WM_STATE_STICKY
 		clients_descend(inplay, i, w, c)
@@ -74,15 +73,10 @@ void tag_raise(unsigned int tag)
 			if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
 				&& c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 					client_stack_family(c, stack);
-		// locate all other windows in the tag, and the top one to be focused
+		// locate all other windows in the tag
 		managed_descend(root, i, w, c)
-		{
 			if (winlist_find(stack, w) < 0 && c->trans == None && c->cache->tags & tag)
-			{
-				if (focus == None) focus = w;
 				client_stack_family(c, stack);
-			}
-		}
 		if (stack->len)
 		{
 			// raise the top window in the stack
@@ -91,16 +85,13 @@ void tag_raise(unsigned int tag)
 			if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
 		}
 		winlist_free(stack);
-
-		// focus the top-most non-_NET_WM_STATE_ABOVE managable client in the tag
-		if (focus != None)
-		{
-			client *c = client_create(focus);
-			if (c) client_activate(c, RAISEDEF, WARPDEF);
-		}
 	}
 	// runs on all screens/roots
 	tag_set_current(tag);
+
+	// focus the last-focused client in the tag
+	clients_descend(windows_activated, i, w, c) if (c->cache->tags & tag)
+		{ client_activate(c, RAISE, WARPDEF); break; }
 }
 
 // check active client. if
