@@ -4,7 +4,7 @@ LDADD?=$(shell pkg-config --cflags --libs x11 xinerama x11 xft)
 all: normal
 
 normal:
-	$(CC) $(CFLAGS) $(LDADD) $(LDFLAGS) -o goomwwm goomwwm.c
+	$(CC) -o goomwwm goomwwm.c $(CFLAGS) $(LDADD) $(LDFLAGS)
 
 debug:
 	$(CC) $(CFLAGS) -g -DDEBUG $(LDADD) -o goomwwm-debug goomwwm.c
