@@ -8,7 +8,7 @@ debug:
 	$(CC) -o goomwwm-debug goomwwm.c $(CFLAGS) -g -DDEBUG $(LDADD)
 
 proto:
-	cat *.c | egrep '^(void|int|char|unsigned|client|Window|winlist)' | sed -r 's/\)/);/' > proto.h
+	cat *.c | egrep '^(void|int|char|unsigned|client|Window|winlist|XWindow)' | sed -r 's/\)/);/' > proto.h
 
 all: proto normal debug
 
