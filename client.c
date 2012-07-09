@@ -1407,7 +1407,6 @@ client* client_find(Window root, char *pattern)
 	return found;
 }
 
-
 // search for and activate first open window matching class/name/title
 void client_find_or_start(Window root, char *pattern)
 {

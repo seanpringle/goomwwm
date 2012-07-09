@@ -241,6 +241,7 @@ void handle_buttonpress(XEvent *ev)
 				GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
 			memcpy(&mouse_attr, &c->xattr, sizeof(c->xattr));
 			memcpy(&mouse_button, &ev->xbutton, sizeof(ev->xbutton));
+			mouse_dragging = 1;
 		} else
 		{
 			// events we havn't snaffled for move/resize may be relevant to the subwindow. replay them
@@ -274,6 +275,7 @@ void handle_buttonrelease(XEvent *ev)
 			client_lower(c, 0);
 	}
 	XUngrabPointer(display, CurrentTime);
+	mouse_dragging = 0;
 }
 
 // only get these if a window move/resize has been started in buttonpress
@@ -478,7 +480,7 @@ void handle_configurenotify(XEvent *ev)
 		event_client_dump(c);
 		client_review_border(c);
 		client_review_position(c);
-		if (c->active && config_warp_mode == WARPFOCUS)
+		if (c->active && config_warp_mode == WARPFOCUS && !mouse_dragging)
 		{
 			client_warp_pointer(c);
 			// dump any enterynotify events that have been generated
@@ -743,6 +745,8 @@ void handle_enternotify(XEvent *ev)
 	if (config_focus_mode == FOCUSCLICK) return;
 	// ensure it's a proper enter event without keys or buttons down
 	if (ev->xcrossing.type != EnterNotify) return;
+	// if we're in the process of dragging something, bail out
+	if (mouse_dragging) return;
 	// prevent focus flicker if mouse is moving through multiple windows fast
 	while(XCheckTypedEvent(display, EnterNotify, ev));
 

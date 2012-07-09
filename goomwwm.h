@@ -283,6 +283,7 @@ Display *display;
 
 // mouse move/resize controls
 // see ButtonPress,MotionNotify
+int mouse_dragging = 0;
 XButtonEvent mouse_button;
 XWindowAttributes mouse_attr;
 
