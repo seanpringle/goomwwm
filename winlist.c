@@ -31,6 +31,7 @@ winlist* winlist_new()
 	l->data  = allocate(sizeof(void*) * (WINLIST+1));
 	return l;
 }
+
 int winlist_append(winlist *l, Window w, void *d)
 {
 	if (l->len > 0 && !(l->len % WINLIST))
@@ -42,6 +43,7 @@ int winlist_append(winlist *l, Window w, void *d)
 	l->array[l->len++] = w;
 	return l->len-1;
 }
+
 void winlist_prepend(winlist *l, Window w, void *d)
 {
 	winlist_append(l, None, NULL);
@@ -50,18 +52,22 @@ void winlist_prepend(winlist *l, Window w, void *d)
 	l->array[0] = w;
 	l->data[0] = d;
 }
+
 void winlist_empty(winlist *l)
 {
 	while (l->len > 0) free(l->data[--(l->len)]);
 }
+
 void winlist_free(winlist *l)
 {
 	winlist_empty(l); free(l->array); free(l->data); free(l);
 }
+
 void winlist_empty_2d(winlist *l)
 {
 	while (l->len > 0) winlist_free(l->data[--(l->len)]);
 }
+
 int winlist_find(winlist *l, Window w)
 {
 	// iterate backwards. theory is: windows most often accessed will be
@@ -69,6 +75,7 @@ int winlist_find(winlist *l, Window w)
 	int i; Window o; winlist_descend(l, i, o) if (w == o) return i;
 	return -1;
 }
+
 int winlist_forget(winlist *l, Window w)
 {
 	int i, j;
@@ -81,6 +88,7 @@ int winlist_forget(winlist *l, Window w)
 	l->len -= (i-j);
 	return j != i ?1:0;
 }
+
 void winlist_reverse(winlist *l)
 {
 	int i, j;

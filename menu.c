@@ -24,7 +24,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-
 // redraw the popup menu window
 void menu_draw(struct localmenu *my)
 {

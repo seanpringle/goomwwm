@@ -24,7 +24,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-
 // update _NET_CLIENT_LIST
 void ewmh_client_list(Window root)
 {

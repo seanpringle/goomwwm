@@ -86,4 +86,3 @@ void rule_parse(char *rulestr)
 	config_rules = new;
 	free(str);
 }
-

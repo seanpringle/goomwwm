@@ -1448,4 +1448,3 @@ void event_client_dump(client *c)
 #else
 #define event_client_dump(...)
 #endif
-

@@ -24,7 +24,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-
 // find the dimensions of the monitor displaying point x,y
 void monitor_dimensions(Screen *screen, int x, int y, workarea *mon)
 {

@@ -37,7 +37,6 @@ unsigned int desktop_to_tag(unsigned int desktop)
 	return (desktop == 0xffffffff) ? 0: 1<<desktop;
 }
 
-
 // update current desktop on all roots
 void tag_set_current(unsigned int tag)
 {

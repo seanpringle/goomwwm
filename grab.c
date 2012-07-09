@@ -24,7 +24,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-
 // bind to a keycode in all lock states
 void grab_keycode(Window root, KeyCode keycode)
 {

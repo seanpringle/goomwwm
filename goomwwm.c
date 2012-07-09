@@ -27,7 +27,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define _GNU_SOURCE
 #include "goomwwm.h"
 #include "proto.h"
-
 #include "util.c"
 #include "winlist.c"
 #include "rule.c"

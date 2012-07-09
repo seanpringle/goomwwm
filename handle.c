@@ -763,4 +763,3 @@ void handle_mappingnotify(XEvent *ev)
 	while(XCheckTypedEvent(display, MappingNotify, ev));
 	grab_keys_and_buttons();
 }
-

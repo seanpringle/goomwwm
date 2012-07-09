@@ -34,12 +34,14 @@ void* allocate(unsigned long bytes)
 	}
 	return ptr;
 }
+
 void* allocate_clear(unsigned long bytes)
 {
 	void *ptr = allocate(bytes);
 	memset(ptr, 0, bytes);
 	return ptr;
 }
+
 void* reallocate(void *ptr, unsigned long bytes)
 {
 	ptr = realloc(ptr, bytes);
@@ -50,6 +52,7 @@ void* reallocate(void *ptr, unsigned long bytes)
 	}
 	return ptr;
 }
+
 // trim string in place
 void strtrim(char *str)
 {
@@ -59,6 +62,7 @@ void strtrim(char *str)
 	while (isspace(str[--j]));
 	str[++j] = '\0';
 }
+
 double timestamp()
 {
 	struct timeval tv; gettimeofday(&tv, NULL);

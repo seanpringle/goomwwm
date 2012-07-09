@@ -121,7 +121,6 @@ typedef struct {
 #define TAG7 (1<<6)
 #define TAG8 (1<<7)
 #define TAG9 (1<<8)
-
 #define TAGS 9
 
 // these must be above tag bits
