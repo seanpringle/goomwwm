@@ -303,11 +303,13 @@ typedef struct {
 #define PLACEPOINTER 3
 #define FLASH 1
 #define NOFLASH 0
+#define MENURETURN 1
+#define MENUMODUP 2
 
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus, config_border_blur, config_border_attention,
 	config_flash_on, config_flash_off, config_warp_mode,
-	config_border_width, config_flash_width, config_flash_ms, config_map_mode,
+	config_border_width, config_flash_width, config_flash_ms, config_map_mode, config_menu_select,
 	config_menu_width, config_menu_lines, config_focus_mode, config_raise_mode, config_window_placement;
 
 char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg;
@@ -323,6 +325,10 @@ int in_array_keysym(KeySym *array, KeySym code)
 		if (array[i] == code) return i;
 	return -1;
 }
+
+#define MAXMODCODES 16
+unsigned int config_modkeycodes[MAXMODCODES+1];
+
 
 #define KEY_ENUM(a,b,c) a
 #define KEY_KSYM(a,b,c) [a] = b
@@ -633,6 +639,31 @@ int pointer_get(Window root, int *x, int *y)
 	{
 		*x = rxr; *y = ryr;
 		return 1;
+	}
+	return 0;
+}
+
+// true if a keycode matches one of our modkeys
+int keycode_is_mod(unsigned int code)
+{
+	int k; for (k = 0; config_modkeycodes[k]; k++)
+		if (config_modkeycodes[k] == code)
+			return 1;
+	return 0;
+}
+
+// check whether our modkeys are currently pressed
+int modkey_is_down()
+{
+	char keys[32];	int i, j;
+	XQueryKeymap(display, keys);
+	for (i = 0; i < 32; i++)
+	{
+		if (!keys[i]) continue;
+		unsigned int bits = keys[i];
+		for (j = 0; j < 8; j++)
+			if (bits & 1<<j && keycode_is_mod((i*8)+j))
+				return 1;
 	}
 	return 0;
 }
@@ -2447,6 +2478,17 @@ void menu_draw(struct localmenu *my)
 	XCopyArea(display, my->canvas, my->window, my->gc, 0, 0, my->width, my->height, 0, 0);
 }
 
+// select currently highlighted line and exit
+void menu_select_current(struct localmenu *my)
+{
+	if (my->filtered[my->current])
+		my->selected = my->filtered[my->current];
+	else
+	if (my->manual)
+		strcpy(my->manual, my->input);
+	my->done = 1;
+}
+
 // handle popup menu text input for filtering
 void menu_key(struct localmenu *my, XEvent *ev)
 {
@@ -2460,27 +2502,18 @@ void menu_key(struct localmenu *my, XEvent *ev)
 	if (key == XK_Escape)
 		my->done = 1;
 	else
-	if (key == XK_BackSpace)
-	{
-		if (my->offset > 0)
-			my->input[--(my->offset)] = 0;
-	}
+	if (key == XK_BackSpace && my->offset > 0)
+		my->input[--(my->offset)] = 0;
 	else
 	if (key == XK_Up || key == XK_KP_Up || key == XK_KP_Subtract)
 		my->current = (my->current == 0 ? my->max_lines-1: my->current-1);
 	else
-	if (key == XK_Down || key == XK_KP_Down || key == XK_KP_Add || key == XK_Tab)
+	// TODO: XK_Tab and XK_grave shouldn't be hardcoded here. should check keymap intelligently
+	if (key == XK_Down || key == XK_KP_Down || key == XK_KP_Add || key == XK_Tab || key == XK_grave)
 		my->current = (my->current == my->max_lines-1 ? 0: my->current+1);
 	else
 	if (key == XK_Return || key == XK_KP_Enter)
-	{
-		if (my->filtered[my->current])
-			my->selected = my->filtered[my->current];
-		else
-		if (my->manual)
-			strcpy(my->manual, my->input);
-		my->done = 1;
-	}
+		menu_select_current(my);
 	else
 	if (!iscntrl(*pad) && my->offset < my->input_size-1)
 	{
@@ -2576,6 +2609,9 @@ int menu(Window root, char **lines, char *manual)
 		else
 		if (ev.type == KeyPress)
 			menu_key(my, &ev);
+
+		if (config_menu_select == MENUMODUP && !modkey_is_down())
+			menu_select_current(my);
 	}
 	free(my->filtered);
 	XftDrawDestroy(my->draw);
@@ -3563,14 +3599,6 @@ int main(int argc, char *argv[])
 	XSelectInput(display, DefaultRootWindow(display), SubstructureRedirectMask);
 	XSync(display, False); xerror = XSetErrorHandler(oops); XSync(display, False);
 
-	// determine numlock mask so we can bind on keys with and without it
-	XModifierKeymap *modmap = XGetModifierMapping(display);
-	for (i = 0; i < 8; i++)
-		for (j = 0; j < (int)modmap->max_keypermod; j++)
-			if (modmap->modifiermap[i*modmap->max_keypermod+j] == XKeysymToKeycode(display, XK_Num_Lock))
-				NumlockMask = (1<<i);
-	XFreeModifiermap(modmap);
-
 	// determine modkey
 	config_modkey = MODKEY;
 	char *modkeys = find_arg_str(ac, av, "-modkey", NULL);
@@ -3588,6 +3616,37 @@ int main(int argc, char *argv[])
 	}
 	// use by mouse-handling code
 	config_ignore_modkeys = (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask|LockMask|NumlockMask) & ~config_modkey;
+
+	// determine numlock mask so we can bind on keys with and without it
+	XModifierKeymap *modmap = XGetModifierMapping(display);
+	for (i = 0; i < 8; i++)
+		for (j = 0; j < (int)modmap->max_keypermod; j++)
+			if (modmap->modifiermap[i*modmap->max_keypermod+j] == XKeysymToKeycode(display, XK_Num_Lock))
+				NumlockMask = (1<<i);
+	// determine keysyms that trigger our modkey (used by popup menu to detect mod key release)
+	memset(config_modkeycodes, 0, sizeof(config_modkeycodes)); i = 0;
+	if (config_modkey & ShiftMask)
+		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
+			config_modkeycodes[i++] = modmap->modifiermap[0*modmap->max_keypermod+j];
+	if (config_modkey & ControlMask)
+		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
+			config_modkeycodes[i++] = modmap->modifiermap[2*modmap->max_keypermod+j];
+	if (config_modkey & Mod1Mask)
+		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
+			config_modkeycodes[i++] = modmap->modifiermap[3*modmap->max_keypermod+j];
+	if (config_modkey & Mod2Mask)
+		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
+			config_modkeycodes[i++] = modmap->modifiermap[4*modmap->max_keypermod+j];
+	if (config_modkey & Mod3Mask)
+		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
+			config_modkeycodes[i++] = modmap->modifiermap[5*modmap->max_keypermod+j];
+	if (config_modkey & Mod4Mask)
+		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
+			config_modkeycodes[i++] = modmap->modifiermap[6*modmap->max_keypermod+j];
+	if (config_modkey & Mod5Mask)
+		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
+			config_modkeycodes[i++] = modmap->modifiermap[7*modmap->max_keypermod+j];
+	XFreeModifiermap(modmap);
 
 	// custom keys
 	for (i = 0; keyargs[i]; i++)
@@ -3651,6 +3710,11 @@ int main(int argc, char *argv[])
 	mode = find_arg_str(ac, av, "-placement", "any");
 	if (!strcasecmp(mode, "center"))  config_window_placement = PLACECENTER;
 	if (!strcasecmp(mode, "pointer")) config_window_placement = PLACEPOINTER;
+
+	// menu select mode
+	config_menu_select = MENURETURN;
+	mode = find_arg_str(ac, av, "-menuselect", "return");
+	if (!strcasecmp(mode, "modkeyup")) config_menu_select = MENUMODUP;
 
 	// app_find_or_start() keys
 	for (i = 0; config_apps_keysyms[i]; i++)

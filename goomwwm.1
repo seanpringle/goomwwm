@@ -121,6 +121,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR mode ]
 .RB [ \-placement
 .IR mode ]
+.RB [ \-menuselect
+.IR mode ]
 .RB [ \-contract
 .IR key ]
 .RB [ \-tagnext
@@ -602,6 +604,21 @@ Maximum number of entries the window-switcher menu may show before scrolling (de
 .P
 .RS
 goomwwm -menulines 25
+.RE
+.TP
+.B -menuselect
+Control how menu items are selected (default: return).
+.P
+.RS
+goomwwm -menuselect return
+.P
+Valid settings are:
+.TP
+.B return
+Menu stays open until item is selected with Enter/Return key. This is dmenu-like.
+.TP
+.B modkeyup
+Menu stays open until item is selected by releasing the modkey. This is classic Alt-Tab window switching behavior.
 .RE
 .TP
 .B -menuwidth
