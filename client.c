@@ -694,7 +694,7 @@ void client_flash(client *c, unsigned int color, int delay)
 
 		Window bar = XCreateSimpleWindow(display, c->xattr.root,
 			x1 + c->sw/2 - bar_width/2, y1 + c->sh/2 - bar_height/2,
-			bar_width, bar_height, 0, None, None);
+			bar_width, bar_height, 1, color, None);
 
 		gc   = XCreateGC(display, bar, 0, 0);
 		draw = XftDrawCreate(display, bar, DefaultVisual(display, scr), DefaultColormap(display, scr));
