@@ -43,6 +43,12 @@ goomwwm \- Get out of my way, Window Manager!
 .IR mask ]
 .RB [ \-switcher
 .IR command ]
+.RB [ \-titlefont
+.IR xftfont ]
+.RB [ \-titlefg
+.IR color ]
+.RB [ \-titlebg
+.IR color ]
 .RB [ \-1
 .IR app ]
 .RB [ \-2
@@ -797,6 +803,27 @@ Set an X11 key to cycle tags in reverse (default: XK_n).
 .P
 .RS
 goomwwm -tagprev n
+.RE
+.TP
+.B -titlebg
+Set the background text color (X11 named color or hex #rrggbb) for window titles (default: #cccccc).
+.P
+.RS
+goomwwm -titlebg "#cccccc"
+.RE
+.TP
+.B -titlefg
+Set the foreground text color (X11 named color or hex #rrggbb) for window titles (default: #222222).
+.P
+.RS
+goomwwm -titlefg "#222222"
+.RE
+.TP
+.B -titlefont
+Xft font name for use by window titles (default: sans-14).
+.P
+.RS
+goomwwm -titlefont sans-14:medium
 .RE
 .TP
 .B -up

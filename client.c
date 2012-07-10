@@ -683,10 +683,10 @@ void client_flash(client *c, unsigned int color, int delay)
 		GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
 		int scr = XScreenNumberOfScreen(c->xattr.screen);
 
-		XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_fg, &fg);
-		XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bg, &bg);
+		XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_title_fg, &fg);
+		XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_title_bg, &bg);
 
-		font = XftFontOpenName(display, scr, config_menu_font);
+		font = XftFontOpenName(display, scr, config_title_font);
 		XftTextExtentsUtf8(display, font, (unsigned char*)c->title, strlen(c->title), &extents);
 
 		int line_height = font->ascent + font->descent, line_width = extents.width;

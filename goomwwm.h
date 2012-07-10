@@ -199,6 +199,9 @@ typedef struct {
 #define MENUBGALT "#282828"
 #define MENUHLFG "#ffffff"
 #define MENUHLBG "#005577"
+#define TITLEXFTFONT "sans-14"
+#define TITLEFG "#222222"
+#define TITLEBG "#cccccc"
 #define CONFIGFILE ".goomwwmrc"
 #define FOCUSCLICK 1
 #define FOCUSSLOPPY 2
@@ -227,7 +230,8 @@ unsigned int config_modkey, config_ignore_modkeys,
 	config_border_width, config_flash_width, config_flash_ms, config_map_mode, config_menu_select,
 	config_menu_width, config_menu_lines, config_focus_mode, config_raise_mode, config_window_placement;
 
-char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt;
+char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,
+	*config_title_font, *config_title_fg, *config_title_bg;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
 KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };

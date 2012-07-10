@@ -250,6 +250,11 @@ int main(int argc, char *argv[])
 	config_menu_hlfg  = find_arg_str(ac, av, "-menuhlfg",  MENUHLFG);
 	config_menu_hlbg  = find_arg_str(ac, av, "-menuhlbg",  MENUHLBG);
 
+	// window titles
+	config_title_font = find_arg_str(ac, av, "-titlefont", TITLEXFTFONT);
+	config_title_fg   = find_arg_str(ac, av, "-titlefg",   TITLEFG);
+	config_title_bg   = find_arg_str(ac, av, "-titlebg",   TITLEBG);
+
 	char *mode;
 
 	// focus mode
