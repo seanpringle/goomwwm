@@ -458,6 +458,7 @@ void handle_configurenotify(XEvent *ev)
 		Window root = ev->xconfigure.window;
 		event_log("ConfigureNotify", root);
 		event_note("root window change!");
+		memset(cache_monitor, 0, sizeof(cache_monitor));
 		ewmh_desktop_list(root);
 		XWindowAttributes *attr = window_get_attributes(root);
 		int i; Window w;
