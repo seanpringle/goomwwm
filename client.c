@@ -1362,10 +1362,12 @@ void client_switcher(Window root, unsigned int tag)
 			}
 		}
 	}
+	// truncate silly java WM_CLASS strings
+	classfield = MAX(5, MIN(classfield, 14));
 	maxtags = MAX(0, (maxtags*2)-1);
 	if (above || sticky) plen = sprintf(pattern, "%%-%ds  ", above+sticky);
 	if (maxtags) plen += sprintf(pattern+plen, "%%-%ds  ", maxtags);
-	plen += sprintf(pattern+plen, "%%-%ds   %%s", MAX(5, classfield));
+	plen += sprintf(pattern+plen, "%%-%ds   %%s", classfield);
 	list = allocate_clear(sizeof(char*) * (lines+1)); lines = 0;
 	// build the actual list
 	clients_ascend(ids, i, w, c)
@@ -1382,10 +1384,13 @@ void client_switcher(Window root, unsigned int tag)
 			if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) strcat(aos, "a");
 			if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) strcat(aos, "s");
 
+			char class[15]; memset(class, 0, 15); int clen = strlen(c->class);
+			strncpy(class, c->class, MIN(14, clen)); if (clen > 14) strcpy(class+11, "...");
+
 			char *line = allocate(strlen(c->title) + strlen(tags) + strlen(c->class) + classfield + 50);
-			if ((above || sticky) && maxtags) sprintf(line, pattern, aos, tags, c->class, c->title);
-			else if (maxtags) sprintf(line, pattern, tags, c->class, c->title);
-			else sprintf(line, pattern, c->class, c->title);
+			if ((above || sticky) && maxtags) sprintf(line, pattern, aos, tags, class, c->title);
+			else if (maxtags) sprintf(line, pattern, tags, class, c->title);
+			else sprintf(line, pattern, class, c->title);
 			list[lines++] = line;
 		}
 	}
