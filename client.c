@@ -530,14 +530,14 @@ winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag, Wi
 			for (j = inplay->len-1; j > i; j--)
 			{
 				// if the window intersects with any other window higher in the stack order, it must be at least partially obscured
-				if (allregions[j].w && INTERSECT(o->sx, o->sy, o->sw, o->sh,
+				if (allregions[j].w && INTERSECT(o->x, o->y, o->sw, o->sh,
 					allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h))
 						{ obscured = 1; break; }
 			}
 			// record a full visible window
 			if (!obscured && o->x >= zone->x && o->y >= zone->y && (o->x + o->sw) <= (zone->x + zone->w) && (o->y + o->sh) <= (zone->y + zone->h))
 				winlist_append(hits, o->window, NULL);
-			allregions[i].x = o->sx; allregions[i].y = o->sy;
+			allregions[i].x = o->x; allregions[i].y = o->y;
 			allregions[i].w = o->sw; allregions[i].h = o->sh;
 		}
 	}
@@ -567,16 +567,16 @@ winlist* clients_partly_visible(Window root, workarea *zone, unsigned int tag, W
 			{
 				if (!allregions[j].w) continue;
 				// if the window's corners intersects with any other window higher in the stack order, assume it is covered
-				if (INTERSECT(o->sx, o->sy, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c1 = 1;
-				if (INTERSECT(o->sx, o->sy+o->sh-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c2 = 1;
-				if (INTERSECT(o->sx+o->sw-1, o->sy, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c3 = 1;
-				if (INTERSECT(o->sx+o->sw-1, o->sy+o->sh-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c4 = 1;
+				if (INTERSECT(o->x, o->y, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c1 = 1;
+				if (INTERSECT(o->x, o->y+o->sh-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c2 = 1;
+				if (INTERSECT(o->x+o->sw-1, o->y, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c3 = 1;
+				if (INTERSECT(o->x+o->sw-1, o->y+o->sh-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c4 = 1;
 				if (c1 && c2 && c3 && c4) break;
 			}
 			// record a full visible window
 			if ((!c1 || !c2 || !c3 || !c4) && o->x >= zone->x && o->y >= zone->y && (o->x + o->sw) <= (zone->x + zone->w) && (o->y + o->sh) <= (zone->y + zone->h))
 				winlist_append(hits, o->window, NULL);
-			allregions[i].x = o->sx; allregions[i].y = o->sy;
+			allregions[i].x = o->x; allregions[i].y = o->y;
 			allregions[i].w = o->sw; allregions[i].h = o->sh;
 		}
 	}
