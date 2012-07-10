@@ -91,7 +91,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_VTILE])      client_vtile(c);
 		else if (key == keymap[KEY_UNDO])       client_rollback(c);
 		else if (key == keymap[KEY_DUPLICATE])  client_duplicate(c);
-		else if (key == keymap[KEY_INFO])       client_flash(c, config_border_focus, FLASHMSTITLE);
+		else if (key == keymap[KEY_INFO])       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
 
 		// directional focus change
 		else if (key == keymap[KEY_FOCUSLEFT])  client_focusto(c, FOCUSLEFT);
@@ -630,7 +630,7 @@ void handle_mapnotify(XEvent *ev)
 				winlist_forget(windows_activated, c->window);
 				winlist_prepend(windows_activated, c->window, NULL);
 			}
-			client_flash(c, config_flash_on, config_flash_ms);
+			client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 		}
 		// post-placement rules. yes, can do both contract and expand in one rule. it makes sense...
 		unsigned int tag = current_tag; current_tag = desktop_to_tag(tag_to_desktop(c->cache->tags));

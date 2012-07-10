@@ -696,7 +696,7 @@ void client_contract(client *c, int directions)
 
 // visually highlight a client to attract attention
 // for now, four coloured squares in the corners. could get fancier?
-void client_flash(client *c, unsigned int color, int delay)
+void client_flash(client *c, unsigned int color, int delay, int title)
 {
 	client_descriptive_data(c);
 	client_extended_data(c);
@@ -748,7 +748,7 @@ void client_flash(client *c, unsigned int color, int delay)
 		XMapRaised(display, tl); XMapRaised(display, tr);
 		XMapRaised(display, bl); XMapRaised(display, br);
 
-		XMapRaised(display, bar);
+		if (title || config_flash_title) XMapRaised(display, bar);
 		XftDrawRect(draw, &bg, 0, 0, c->sw, line_height+10);
 		XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)c->title, strlen(c->title));
 
@@ -1002,7 +1002,7 @@ void client_activate(client *c, int raise, int warp)
 	ewmh_active_window(c->xattr.root, c->window);
 
 	// tell the user something happened
-	if (!c->active) client_flash(c, config_border_focus, config_flash_ms);
+	if (!c->active) client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
 
 	// must happen last, after all move/resize/focus/raise stuff is sent
 	if (config_warp_mode == WARPFOCUS || warp)
@@ -1047,12 +1047,12 @@ client* client_active(Window root, unsigned int tag)
 void client_toggle_vlock(client *c)
 {
 	c->cache->vlock = c->cache->vlock ? 0:1;
-	client_flash(c, c->cache->vlock ? config_flash_on: config_flash_off, config_flash_ms);
+	client_flash(c, c->cache->vlock ? config_flash_on: config_flash_off, config_flash_ms, FLASHTITLEDEF);
 }
 void client_toggle_hlock(client *c)
 {
 	c->cache->hlock = c->cache->hlock ? 0:1;
-	client_flash(c, c->cache->hlock ? config_flash_on: config_flash_off, config_flash_ms);
+	client_flash(c, c->cache->hlock ? config_flash_on: config_flash_off, config_flash_ms, FLASHTITLEDEF);
 }
 
 // go fullscreen on current monitor
@@ -1093,13 +1093,13 @@ void client_nws_above(client *c, int action)
 	{
 		client_add_state(c, netatoms[_NET_WM_STATE_ABOVE]);
 		client_raise(c, 0);
-		client_flash(c, config_flash_on, config_flash_ms);
+		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
 		client_remove_state(c, netatoms[_NET_WM_STATE_ABOVE]);
-		client_flash(c, config_flash_off, config_flash_ms);
+		client_flash(c, config_flash_off, config_flash_ms, FLASHTITLEDEF);
 	}
 }
 
@@ -1113,13 +1113,13 @@ void client_nws_below(client *c, int action)
 	{
 		client_add_state(c, netatoms[_NET_WM_STATE_BELOW]);
 		client_lower(c, 0);
-		client_flash(c, config_flash_on, config_flash_ms);
+		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
 		client_remove_state(c, netatoms[_NET_WM_STATE_BELOW]);
-		client_flash(c, config_flash_off, config_flash_ms);
+		client_flash(c, config_flash_off, config_flash_ms, FLASHTITLEDEF);
 	}
 }
 
@@ -1132,13 +1132,13 @@ void client_nws_sticky(client *c, int action)
 	{
 		client_add_state(c, netatoms[_NET_WM_STATE_STICKY]);
 		client_raise(c, 0);
-		client_flash(c, config_flash_on, config_flash_ms);
+		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
 		client_remove_state(c, netatoms[_NET_WM_STATE_STICKY]);
-		client_flash(c, config_flash_off, config_flash_ms);
+		client_flash(c, config_flash_off, config_flash_ms, FLASHTITLEDEF);
 	}
 }
 
@@ -1155,7 +1155,7 @@ void client_nws_maxvert(client *c, int action)
 		client_save_position_vert(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
-		client_flash(c, config_flash_on, config_flash_ms);
+		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
@@ -1163,7 +1163,7 @@ void client_nws_maxvert(client *c, int action)
 		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_restore_position_vert(c, 0, c->monitor.y + (c->monitor.h/4), c->monitor.h/2);
-		client_flash(c, config_flash_off, config_flash_ms);
+		client_flash(c, config_flash_off, config_flash_ms, FLASHTITLEDEF);
 	}
 }
 
@@ -1180,7 +1180,7 @@ void client_nws_maxhorz(client *c, int action)
 		client_save_position_horz(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->sh);
-		client_flash(c, config_flash_on, config_flash_ms);
+		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
@@ -1188,7 +1188,7 @@ void client_nws_maxhorz(client *c, int action)
 		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 		client_restore_position_horz(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.w/2);
-		client_flash(c, config_flash_off, config_flash_ms);
+		client_flash(c, config_flash_off, config_flash_ms, FLASHTITLEDEF);
 	}
 }
 
@@ -1454,11 +1454,11 @@ void client_toggle_tag(client *c, unsigned int tag, int flash)
 	if (c->cache->tags & tag)
 	{
 		c->cache->tags &= ~tag;
-		if (flash) client_flash(c, config_flash_off, config_flash_ms);
+		if (flash) client_flash(c, config_flash_off, config_flash_ms, FLASHTITLEDEF);
 	} else
 	{
 		c->cache->tags |= tag;
-		if (flash) client_flash(c, config_flash_on, config_flash_ms);
+		if (flash) client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	// update _NET_WM_DESKTOP using lowest tag number.
 	// this is a bit of a fudge as we can have windows on multiple

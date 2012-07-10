@@ -21,6 +21,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR pixels ]
 .RB [ \-flashms
 .IR msec ]
+.RB [ \-flashtitle
+.IR mode ]
 .RB [ \-launcher
 .IR command ]
 .RB [ \-menuwidth
@@ -459,6 +461,23 @@ Set the size in pixels of window flash indicators (currently a colored square in
 .P
 .RS
 goomwwm -flashpx 20
+.RE
+.TP
+.B -flashtitle
+Wether to flash a window's title when changing focus or other modes (default: hide). Regardless of this setting,
+.B Mod-w
+always displays a window's title.
+.P
+.RS
+goomwwm -flashtitle hide
+.P
+Valid modes:
+.TP
+.B show
+Flash title bar centered on the window.
+.TP
+.B hide
+Do no flash title bar.
 .RE
 .TP
 .B -focus

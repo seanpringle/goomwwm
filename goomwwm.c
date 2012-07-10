@@ -290,6 +290,11 @@ int main(int argc, char *argv[])
 	mode = find_arg_str(ac, av, "-menuselect", "return");
 	if (!strcasecmp(mode, "modkeyup")) config_menu_select = MENUMODUP;
 
+	// flash title mode
+	config_flash_title = 0;
+	mode = find_arg_str(ac, av, "-flashtitle", "hide");
+	if (!strcasecmp(mode, "show")) config_flash_title = 1;
+
 	// app_find_or_start() keys
 	for (i = 0; config_apps_keysyms[i]; i++)
 	{

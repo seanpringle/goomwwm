@@ -190,6 +190,8 @@ typedef struct {
 #define FLASHPX 10
 #define FLASHMS 500
 #define FLASHMSTITLE 2000
+#define FLASHTITLE 1
+#define FLASHTITLEDEF 0
 #define MODKEY Mod4Mask
 #define MENUXFTFONT "mono-14"
 #define MENUWIDTH 50
@@ -226,7 +228,7 @@ typedef struct {
 
 unsigned int config_modkey, config_ignore_modkeys,
 	config_border_focus, config_border_blur, config_border_attention,
-	config_flash_on, config_flash_off, config_warp_mode,
+	config_flash_on, config_flash_off, config_warp_mode, config_flash_title,
 	config_border_width, config_flash_width, config_flash_ms, config_map_mode, config_menu_select,
 	config_menu_width, config_menu_lines, config_focus_mode, config_raise_mode, config_window_placement;
 
