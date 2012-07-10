@@ -195,6 +195,7 @@ typedef struct {
 #define MENULINES 25
 #define MENUFG "#cccccc"
 #define MENUBG "#222222"
+#define MENUBGALT "#282828"
 #define MENUHLFG "#ffffff"
 #define MENUHLBG "#005577"
 #define CONFIGFILE ".goomwwmrc"
@@ -225,7 +226,7 @@ unsigned int config_modkey, config_ignore_modkeys,
 	config_border_width, config_flash_width, config_flash_ms, config_map_mode, config_menu_select,
 	config_menu_width, config_menu_lines, config_focus_mode, config_raise_mode, config_window_placement;
 
-char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg;
+char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
 KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };
@@ -233,7 +234,6 @@ KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7
 
 #define MAXMODCODES 16
 unsigned int config_modkeycodes[MAXMODCODES+1];
-
 
 #define KEY_ENUM(a,b,c) a
 #define KEY_KSYM(a,b,c) [a] = b
@@ -385,7 +385,7 @@ struct localmenu {
 	XftFont *font;
 	XftColor *color;
 	XftDraw *draw;
-	XftColor fg, bg, hlfg, hlbg;
+	XftColor fg, bg, hlfg, hlbg, bgalt;
 	unsigned long xbg;
 	char **lines, **filtered;
 	int done, max_lines, num_lines, input_size, line_height;

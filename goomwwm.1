@@ -33,6 +33,8 @@ goomwwm \- Get out of my way, Window Manager!
 .IR color ]
 .RB [ \-menubg
 .IR color ]
+.RB [ \-menubgalt
+.IR color ]
 .RB [ \-menuhlfg
 .IR color ]
 .RB [ \-menuhlbg
@@ -568,7 +570,14 @@ new windows do not get focus.
 Set the background text color (X11 named color or hex #rrggbb) for the window-switcher menu (default: #222222).
 .P
 .RS
-goomwwm -menufg "#222222"
+goomwwm -menubg "#222222"
+.RE
+.TP
+.B -menubgalt
+Set the alternate background text color (X11 named color or hex #rrggbb) for the window-switcher menu (default: #282828).
+.P
+.RS
+goomwwm -menubgalt "#282828"
 .RE
 .TP
 .B -menufg

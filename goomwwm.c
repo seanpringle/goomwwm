@@ -243,11 +243,12 @@ int main(int argc, char *argv[])
 	// window switcher
 	config_menu_width = find_arg_int(ac, av, "-menuwidth", MENUWIDTH);
 	config_menu_lines = find_arg_int(ac, av, "-menulines", MENULINES);
-	config_menu_font  = find_arg_str(ac, av, "-menufont", MENUXFTFONT);
-	config_menu_fg    = find_arg_str(ac, av, "-menufg", MENUFG);
-	config_menu_bg    = find_arg_str(ac, av, "-menubg", MENUBG);
-	config_menu_hlfg  = find_arg_str(ac, av, "-menuhlfg", MENUHLFG);
-	config_menu_hlbg  = find_arg_str(ac, av, "-menuhlbg", MENUHLBG);
+	config_menu_font  = find_arg_str(ac, av, "-menufont",  MENUXFTFONT);
+	config_menu_fg    = find_arg_str(ac, av, "-menufg",    MENUFG);
+	config_menu_bg    = find_arg_str(ac, av, "-menubg",    MENUBG);
+	config_menu_bgalt = find_arg_str(ac, av, "-menubgalt", MENUBGALT);
+	config_menu_hlfg  = find_arg_str(ac, av, "-menuhlfg",  MENUHLFG);
+	config_menu_hlbg  = find_arg_str(ac, av, "-menuhlbg",  MENUHLBG);
 
 	char *mode;
 

@@ -52,6 +52,11 @@ void menu_draw(struct localmenu *my)
 		{
 			fg = my->hlfg;
 			XftDrawRect(my->draw, &my->hlbg, my->horz_pad, y, my->width-(my->horz_pad*2), my->line_height);
+		} else
+		if (!(i%2))
+		{
+			// shade alternate lines for better readability
+			XftDrawRect(my->draw, &my->bgalt, my->horz_pad, y, my->width-(my->horz_pad*2), my->line_height);
 		}
 		XftDrawStringUtf8(my->draw, &fg, my->font, my->horz_pad, font_baseline, (unsigned char*)my->filtered[i], strlen(my->filtered[i]));
 	}
@@ -129,10 +134,11 @@ int menu(Window root, char **lines, char *manual)
 
 	// this never fails, afaics. we get some sort of font, no matter what
 	my->font = XftFontOpenName(display, scr, config_menu_font);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_fg, &my->fg);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bg, &my->bg);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlfg, &my->hlfg);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlbg, &my->hlbg);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_fg,    &my->fg);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bg,    &my->bg);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bgalt, &my->bgalt);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlfg,  &my->hlfg);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlbg,  &my->hlbg);
 	my->line_height = my->font->ascent + my->font->descent +2; // +2 pixel extra line spacing
 
 	for (l = 0, i = 0; lines[i]; i++) l = MAX(l, strlen(lines[i]));
