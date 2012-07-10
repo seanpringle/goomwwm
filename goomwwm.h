@@ -187,8 +187,9 @@ typedef struct {
 #define FLASHOFF "Dark Red"
 #define SWITCHER NULL
 #define LAUNCHER "dmenu_run"
-#define FLASHPX 20
-#define FLASHMS 300
+#define FLASHPX 10
+#define FLASHMS 500
+#define FLASHMSTITLE 2000
 #define MODKEY Mod4Mask
 #define MENUXFTFONT "mono-14"
 #define MENUWIDTH 50
@@ -272,6 +273,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_TAGNEXT, XK_m, -tagnext),\
 	X(KEY_TAGPREV, XK_n, -tagprev),\
 	X(KEY_DUPLICATE, XK_d, -duplicate),\
+	X(KEY_INFO, XK_w, -info),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
 enum { KEYLIST(KEY_ENUM) };

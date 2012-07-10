@@ -233,7 +233,7 @@ int main(int argc, char *argv[])
 	// window flashing
 	config_flash_on  = color_get(display, find_arg_str(ac, av, "-flashon",  FLASHON));
 	config_flash_off = color_get(display, find_arg_str(ac, av, "-flashoff", FLASHOFF));
-	config_flash_width = MAX(0, find_arg_int(ac, av, "-flashpx", FLASHPX));
+	config_flash_width = MAX(config_border_width, find_arg_int(ac, av, "-flashpx", FLASHPX));
 	config_flash_ms    = MAX(FLASHMS, find_arg_int(ac, av, "-flashms", FLASHMS));
 
 	// customizable keys

@@ -267,6 +267,9 @@ Cycle tag forward.
 .TP
 .B Mod4-n
 Cycle tag backward.
+.TP
+.B Mod4-w
+Display active window title.
 
 .SH OPTIONS
 .P
@@ -425,10 +428,10 @@ goomwwm -launcher dmenu_run
 .RE
 .TP
 .B -flashms
-Set the duration in milliseconds of the window flash indicators (default: 300).
+Set the duration in milliseconds of the window flash indicators (default: 500).
 .P
 .RS
-goomwwm -flashms 300
+goomwwm -flashms 500
 .RE
 .TP
 .B -flashon
@@ -540,6 +543,13 @@ Set an X11 key to horizontally tile the active window and others with the same t
 .P
 .RS
 goomwwm -htile h
+.RE
+.TP
+.B -info
+Set an X11 key to briefly display the active window's title (default: XK_w).
+.P
+.RS
+goomwwm -info w
 .RE
 .TP
 .B -left

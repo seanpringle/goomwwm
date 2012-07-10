@@ -659,8 +659,9 @@ void client_contract(client *c, int directions)
 // for now, four coloured squares in the corners. could get fancier?
 void client_flash(client *c, unsigned int color, int delay)
 {
+	client_descriptive_data(c);
 	client_extended_data(c);
-	if (config_flash_width > 0 && !fork())
+	if (!fork())
 	{
 		display = XOpenDisplay(0x0);
 
@@ -679,18 +680,49 @@ void client_flash(client *c, unsigned int color, int delay)
 		Window bl = XCreateSimpleWindow(display, c->xattr.root, x1, y2, config_flash_width, config_flash_width, 0, None, color);
 		Window br = XCreateSimpleWindow(display, c->xattr.root, x2, y2, config_flash_width, config_flash_width, 0, None, color);
 
+		GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
+		int scr = XScreenNumberOfScreen(c->xattr.screen);
+
+		XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_fg, &fg);
+		XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bg, &bg);
+
+		font = XftFontOpenName(display, scr, config_menu_font);
+		XftTextExtentsUtf8(display, font, (unsigned char*)c->title, strlen(c->title), &extents);
+
+		int line_height = font->ascent + font->descent, line_width = extents.width;
+		int bar_width = MIN(line_width+20, (c->sw/10)*9), bar_height = line_height+10;
+
+		Window bar = XCreateSimpleWindow(display, c->xattr.root,
+			x1 + c->sw/2 - bar_width/2, y1 + c->sh/2 - bar_height/2,
+			bar_width, bar_height, 0, None, None);
+
+		gc   = XCreateGC(display, bar, 0, 0);
+		draw = XftDrawCreate(display, bar, DefaultVisual(display, scr), DefaultColormap(display, scr));
+
 		XSetWindowAttributes attr; attr.override_redirect = True;
 		XChangeWindowAttributes(display, tl, CWOverrideRedirect, &attr);
 		XChangeWindowAttributes(display, tr, CWOverrideRedirect, &attr);
 		XChangeWindowAttributes(display, bl, CWOverrideRedirect, &attr);
 		XChangeWindowAttributes(display, br, CWOverrideRedirect, &attr);
+		XChangeWindowAttributes(display, bar, CWOverrideRedirect, &attr);
 
 		XMapRaised(display, tl); XMapRaised(display, tr);
 		XMapRaised(display, bl); XMapRaised(display, br);
-		XSync(display, False);
-		usleep(delay*1000);
+
+		XMapRaised(display, bar);
+		XftDrawRect(draw, &bg, 0, 0, c->sw, line_height+10);
+		XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)c->title, strlen(c->title));
+
+		XSync(display, False); usleep(delay*1000);
+
 		XDestroyWindow(display, tl); XDestroyWindow(display, tr);
 		XDestroyWindow(display, bl); XDestroyWindow(display, br);
+		XDestroyWindow(display, bar);
+
+		XftDrawDestroy(draw);
+		XFreeGC(display, gc);
+		XftFontClose(display, font);
+
 		exit(EXIT_SUCCESS);
 	}
 }

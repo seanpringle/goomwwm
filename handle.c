@@ -91,6 +91,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_VTILE])      client_vtile(c);
 		else if (key == keymap[KEY_UNDO])       client_rollback(c);
 		else if (key == keymap[KEY_DUPLICATE])  client_duplicate(c);
+		else if (key == keymap[KEY_INFO])       client_flash(c, config_border_focus, FLASHMSTITLE);
 
 		// directional focus change
 		else if (key == keymap[KEY_FOCUSLEFT])  client_focusto(c, FOCUSLEFT);
