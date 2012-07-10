@@ -404,8 +404,6 @@ void handle_destroynotify(XEvent *ev)
 	// remove any cached data on a window
 	winlist_forget(windows, w);
 	winlist_forget(windows_activated, w);
-	if (window_is_root(ev->xdestroywindow.event))
-		ewmh_client_list(ev->xdestroywindow.event);
 }
 
 // very loose with configure requests
@@ -733,11 +731,12 @@ void handle_propertynotify(XEvent *ev)
 	client *c = client_create(p->window);
 	if (c && c->visible && c->manage)
 	{
-		//if (p->atom == atoms[WM_NAME] || p->atom == netatoms[_NET_WM_NAME])
-		//	ewmh_client_list(c->xattr.root);
 		if (p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION] && !c->active)
 			client_deactivate(c);
 	}
+	// clear monitor workarea/strut cache
+	if (p->atom == netatoms[_NET_WM_STRUT] || p->atom == netatoms[_NET_WM_STRUT_PARTIAL])
+		memset(cache_monitor, 0, sizeof(cache_monitor));
 }
 
 // sloppy focus

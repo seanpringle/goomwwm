@@ -27,14 +27,15 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // find the dimensions of the monitor displaying point x,y
 void monitor_dimensions(Screen *screen, int x, int y, workarea *mon)
 {
+	int monitors, i;
 	memset(mon, 0, sizeof(workarea));
+
 	mon->w = WidthOfScreen(screen);
 	mon->h = HeightOfScreen(screen);
 
 	// locate the current monitor
 	if (XineramaIsActive(display))
 	{
-		int monitors, i;
 		XineramaScreenInfo *info = XineramaQueryScreens(display, &monitors);
 		if (info)
 		{
@@ -55,6 +56,18 @@ void monitor_dimensions(Screen *screen, int x, int y, workarea *mon)
 // find the dimensions, EXCLUDING STRUTS, of the monitor displaying point x,y
 void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 {
+	int i;
+	// check cache. we may be able to avoid walking all windows
+	for (i = 0; i < sizeof(cache_monitor)/sizeof(workarea); i++)
+	{
+		workarea *cm = &cache_monitor[i]; if (!cm->w) continue;
+		if (INTERSECT(x, y, 1, 1, cm->x-cm->l, cm->y-cm->t, cm->w+cm->l+cm->r, cm->h+cm->t+cm->b))
+		{
+			memmove(mon, cm, sizeof(workarea));
+			return;
+		}
+	}
+
 	monitor_dimensions(screen, x, y, mon);
 	Window root = RootWindow(display, XScreenNumberOfScreen(screen));
 
@@ -62,7 +75,7 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 	XWindowAttributes *rattr = window_get_attributes(root);
 	int left = 0, right = 0, top = 0, bottom = 0;
 
-	int i; Window win;
+	Window win;
 	// walk the open apps and check for struts
 	// this is fairly lightweight thanks to some caches
 	winlist_ascend(windows_in_play(root), i, win)
@@ -77,8 +90,8 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 			{
 				// we only pay attention to the first four params
 				// this is no more complex that _NET_WM_STRUT, but newer stuff uses _PARTIAL
-				left  = MAX(left, strut[0]); right  = MAX(right,  strut[1]);
-				top   = MAX(top,  strut[2]); bottom = MAX(bottom, strut[3]);
+				left = MAX(left, strut[0]); right  = MAX(right,  strut[1]);
+				top  = MAX(top,  strut[2]); bottom = MAX(bottom, strut[3]);
 			}
 		}
 	}
@@ -89,6 +102,18 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 	mon->x += mon->l; mon->y += mon->t;
 	mon->w -= (mon->l+mon->r);
 	mon->h -= (mon->t+mon->b);
+
+	// update cache. strust change rarely, so this is long-lived.
+	// see handle_propertynotify() also
+	for (i = 0; i < sizeof(cache_monitor)/sizeof(workarea); i++)
+	{
+		workarea *cm = &cache_monitor[i];
+		if (!cm->w)
+		{
+			memmove(cm, mon, sizeof(workarea));
+			break;
+		}
+	}
 }
 
 // determine which monitor holds the active window, or failing that the mouse pointer

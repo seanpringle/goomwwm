@@ -302,6 +302,8 @@ winlist *cache_client;
 winlist *cache_xattr;
 winlist *cache_inplay;
 
+workarea cache_monitor[10];
+
 static int (*xerror)(Display *, XErrorEvent *);
 
 #define ATOM_ENUM(x) x

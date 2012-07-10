@@ -156,6 +156,7 @@ int main(int argc, char *argv[])
 	cache_client = winlist_new();
 	cache_xattr  = winlist_new();
 	cache_inplay = winlist_new();
+	memset(cache_monitor, 0, sizeof(cache_monitor));
 
 	// do this before setting error handler, so it fails if other wm in place
 	XSelectInput(display, DefaultRootWindow(display), SubstructureRedirectMask);
