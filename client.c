@@ -547,6 +547,45 @@ winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag, Wi
 	return hits;
 }
 
+// build list of unobscured windows within a workarea
+winlist* clients_partly_visible(Window root, workarea *zone, unsigned int tag, Window ignore)
+{
+	winlist *hits = winlist_new();
+	winlist *inplay = windows_in_play(root);
+	// list of coords/sizes for all windows on this desktop
+	workarea *allregions = allocate_clear(sizeof(workarea) * inplay->len);
+
+	int i; Window win; client *o;
+	tag_descend(root, i, win, o, tag)
+	{
+		client_extended_data(o);
+		// only concerned about windows in the zone
+		if (ignore != o->window && INTERSECT(o->x, o->y, o->sw, o->sh, zone->x, zone->y, zone->w, zone->h))
+		{
+			int j, c1 = 0, c2 = 0, c3 = 0, c4 = 0;
+			for (j = inplay->len-1; j > i; j--)
+			{
+				if (!allregions[j].w) continue;
+				// if the window's corners intersects with any other window higher in the stack order, assume it is covered
+				if (INTERSECT(o->sx, o->sy, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c1 = 1;
+				if (INTERSECT(o->sx, o->sy+o->sh-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c2 = 1;
+				if (INTERSECT(o->sx+o->sw-1, o->sy, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c3 = 1;
+				if (INTERSECT(o->sx+o->sw-1, o->sy+o->sh-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c4 = 1;
+				if (c1 && c2 && c3 && c4) break;
+			}
+			// record a full visible window
+			if ((!c1 || !c2 || !c3 || !c4) && o->x >= zone->x && o->y >= zone->y && (o->x + o->sw) <= (zone->x + zone->w) && (o->y + o->sh) <= (zone->y + zone->h))
+				winlist_append(hits, o->window, NULL);
+			allregions[i].x = o->sx; allregions[i].y = o->sy;
+			allregions[i].w = o->sw; allregions[i].h = o->sh;
+		}
+	}
+	// return it in stacking order, bottom to top
+	winlist_reverse(hits);
+	free(allregions);
+	return hits;
+}
+
 // expand a window to take up available space around it on the current monitor
 // do not cover any window that is entirely visible (snap to surrounding edges)
 void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, int mx, int my, int mw, int mh)
@@ -1277,7 +1316,7 @@ void client_focusto(client *c, int direction)
 		if (direction == FOCUSDOWN)  { zone.h -= self.y + self.h - zone.y; zone.y = self.y + self.h; }
 
 		// look for a fully visible immediately adjacent in the chosen 'zone'
-		visible = clients_fully_visible(c->xattr.root, &zone, 0, c->window);
+		visible = clients_fully_visible(c->xattr.root, &zone, 0, None);
 
 		// prefer window that overlaps vertically
 		if (!match && (direction == FOCUSLEFT || direction == FOCUSRIGHT))
@@ -1299,7 +1338,7 @@ void client_focusto(client *c, int direction)
 		winlist_free(visible);
 		winlist_empty(consider);
 	}
-	// if we failed to find something fully visible, look for anything available
+	// if we failed to find something fully visible, look for anything partly visible
 	if (!match)
 	{
 		monitor_dimensions(c->xattr.screen, -1, -1, &zone);
@@ -1309,17 +1348,18 @@ void client_focusto(client *c, int direction)
 		if (direction == FOCUSUP)    { zone.h = c->y - zone.y + vague; }
 		if (direction == FOCUSDOWN)  { zone.h -= (c->y - zone.y) + c->sh + vague; zone.y = c->y + c->sh - vague; }
 
+		visible = clients_partly_visible(c->xattr.root, &zone, 0, None);
+
 		// again, prefer windows overlapping
-		tag_descend(c->xattr.root, i, w, o, 0)
-			if (w != c->window && INTERSECT(zone.x, zone.y, zone.w, zone.h, o->x, o->y, o->sw, o->sh) && (
-				((direction == FOCUSLEFT || direction == FOCUSRIGHT) && OVERLAP(c->y, c->sh, o->y, o->sh)) ||
-				((direction == FOCUSUP   || direction == FOCUSDOWN ) && OVERLAP(c->x, c->sw, o->x, o->sw))))
+		clients_descend(visible, i, w, o)
+			if (((direction == FOCUSLEFT || direction == FOCUSRIGHT) && OVERLAP(c->y, c->sh, o->y, o->sh)) ||
+				((direction == FOCUSUP || direction == FOCUSDOWN ) && OVERLAP(c->x, c->sw, o->x, o->sw)))
 					{ match = o; break; }
 
 		// last ditch: anything!
-		if (!match) tag_descend(c->xattr.root, i, w, o, 0)
-			if (w != c->window && INTERSECT(zone.x, zone.y, zone.w, zone.h, o->x, o->y, o->sw, o->sh))
-				{ match = o; break; }
+		if (!match) clients_descend(visible, i, w, o) { match = o; break; }
+
+		winlist_free(visible);
 	}
 
 	if (match) client_activate(match, RAISEDEF, WARPDEF);
