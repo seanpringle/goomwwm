@@ -71,7 +71,7 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 		if (attr && !attr->override_redirect && attr->root == root
 			&& INTERSECT(attr->x, attr->y, attr->width, attr->height, mon->x, mon->y, mon->w, mon->h))
 		{
-			unsigned long strut[12];
+			unsigned long strut[12]; memset(strut, 0, sizeof(strut));
 			if (window_get_cardinal_prop(win, netatoms[_NET_WM_STRUT_PARTIAL], strut, 12)
 				|| window_get_cardinal_prop(win, netatoms[_NET_WM_STRUT], strut, 4))
 			{
