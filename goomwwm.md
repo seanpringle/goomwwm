@@ -24,117 +24,119 @@ License: MIT/X11
 
 See options below for custom key combinations. These are the defaults.
 
-Mod4-Button1
+Below, **Mod** refers to the global modifier key which is **Mod4** by default. Usually Mod4 is mapped to the left Windows key. To change it, see **-modkey**.
+
+Mod-Button1
 :	(Mouse!) Move a window.
 
-Mod4-Button3
+Mod-Button3
 :	(Mouse!) Resize a window.
 
-Mod4-[F1-F9]
+Mod-[F1-F9]
 :	Set the current tag and raise all its windows. A window may be in multiple tags. For EWMH panel and pager integration tags roughly simulate desktops (always 9), but there will be differences in behavior.
 
-Mod4-[1-9]
+Mod-[1-9]
 :	Do a case-insensitive keyword search for window by WM_CLASS and title. If found, raise and focus. If not found, try to execute the keyword and start the app. See **-1** through **-9** args.
 
-Mod4-Tab
+Mod-Tab
 :	Switch between all windows by popup menu. This is partly based on **dmenu** but more tightly integrated with the window manager and centered on screen. Type text to filter the menu entries. Navigate with the arrow keys. Return to select.
 
-Mod4-` (Grave/Backtick)
+Mod-` (Grave/Backtick)
 :	Switch between all windows in current tag by popup menu.
 
-Mod4-c
+Mod-c
 :	Cycle through windows in the same tag and position as the active window.
 
-Mod4-Escape
+Mod-Escape
 :	Close the active window.
 
-Mod4-Page_Up
+Mod-Page_Up
 :	Grow the active window through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
 
-Mod4-Page_Down
+Mod-Page_Down
 :	Shrink the active window through the same four sizes.
 
-Mod4-h
+Mod-h
 :	Horizontally tile the active window and others with the same tag, position, and size.
 
-Mod4-v
+Mod-v
 :	Vertically tile the active window and others with the same tag, position, and size.
 
-Mod4-x
+Mod-x
 :	Run the launcher (by default: dmenu_run).
 
-Mod4-a
+Mod-a
 :	Toggle _NET_WM_STATE_ABOVE for the active window. Corners will flash to acknowledge.
 
-Mod4-b
+Mod-b
 :	Toggle _NET_WM_STATE_BELOW for the active window. Corners will flash to acknowledge.
 
-Mod4-f
+Mod-f
 :	Toggle _NET_WM_STATE_FULLSCREEN for the active window. Corners will flash to acknowledge.
 
-Mod4-d
+Mod-d
 :	Resize active window to match the window immediately underneath, in the same tag.
 
-Mod4-Home
+Mod-Home
 :	Toggle _NET_WM_STATE_MAXIMIXED_HORZ for the active window. Corners will flash to acknowledge.
 
-Mod4-End
+Mod-End
 :	Toggle _NET_WM_STATE_MAXIMIXED_VERT for the active window. Corners will flash to acknowledge.
 
-Mod4-Return
+Mod-Return
 :	Expand active window to fill surrounding space without obscuring any fully visible window.
 
-Mod4-Backspace
+Mod-Backspace
 :	Contract active window to fill an underlying space without obscuring window that would then be fully visible.
 
-Mod4-Insert
+Mod-Insert
 :	Toggle vertical move/resize lock for the active window.
 
-Mod4-Delete
+Mod-Delete
 :	Toggle horizontal move/resize lock for the active window.
 
-Mod4-Left
+Mod-Left
 :	Move the active window left within a 3x3 grid.
 
-Mod4-Right
+Mod-Right
 :	Move the active window right within a 3x3 grid.
 
-Mod4-Up
+Mod-Up
 :	Move the active window up within a 3x3 grid.
 
-Mod4-Down
+Mod-Down
 :	Move the active window down within a 3x3 grid.
 
-Mod4-u
+Mod-u
 :	Undo the last size/position change for the active window. Undo is 10 levels deep.
 
-Mod4-j
+Mod-j
 :	Switch focus to the left of the active window.
 
-Mod4-l
+Mod-l
 :	Switch focus to the right of the active window.
 
-Mod4-i
+Mod-i
 :	Switch focus upward from the active window.
 
-Mod4-k
+Mod-k
 :	Switch focus downward from the active window.
 
-Mod4-t
+Mod-t
 :	Toggle the active window's membership of the current tag.
 
-Mod4-m
+Mod-m
 :	Cycle tag forward.
 
-Mod4-n
+Mod-n
 :	Cycle tag backward.
 
-Mod4-w
+Mod-w
 :	Display active window title.
 
 # OPTIONS
 
-All key combinations use the same global modifier key (default: Mod4). If the modkey is changed with **-modkey** then all key combinations change to use it.
+All key combinations use the same global modifier key (default: Mod). If the modkey is changed with **-modkey** then all key combinations change to use it.
 
 All options below that set a custom key implicitly combine it with the modifier key.
 
@@ -143,7 +145,7 @@ All options below that set a custom key implicitly combine it with the modifier 
 
 	goomwwm -1 chromium -2 firefox -3 xterm
 
-	Above, Mod4-1 would match the top-most Chromium window.
+	Above, Mod-1 would match the top-most Chromium window.
 
 	Many applications politely set their WM_CLASS to a sane value (eg, Chromium uses Chromium, xterm uses XTerm) or append their name to their window titles, which nicely matches their binary names if we use case-insensitive string comparison. This allows us to use the one string to both search and start.
 
@@ -239,7 +241,7 @@ All options below that set a custom key implicitly combine it with the modifier 
 	goomwwm -launch x
 
 -launcher
-:	Set a custom application launcher to execute on **Mod4-x** (default: dmenu_run).
+:	Set a custom application launcher to execute on **Mod-x** (default: dmenu_run).
 
 	goomwwm -launcher dmenu_run
 
@@ -446,7 +448,7 @@ All options below that set a custom key implicitly combine it with the modifier 
 
 	goomwwm -prefix z
 
-	Above, **Mod4-z** would now need to preceed all other keys. For example, cycling windows would become preass and relases **Mod4-z** then press **c**.
+	Above, **Mod-z** would now need to preceed all other keys. For example, cycling windows would become preass and relases **Mod-z** then press **c**.
 
 	Of course, **-prefix** can also be combined with **-modkey**:
 
@@ -472,7 +474,7 @@ All options below that set a custom key implicitly combine it with the modifier 
 	:	Window is raised on focus (default for -focusmode click).
 
 	click
-	:	Window is raised on Mod4-AnyButton click (default for -focusmode sloppy[tag]).
+	:	Window is raised on Mod-AnyButton click (default for -focusmode sloppy[tag]).
 
 -right
 :	Set an X11 key name to move the active window to the right in a 3x3 grid (default: XK_Right).

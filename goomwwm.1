@@ -35,18 +35,23 @@ License: MIT/X11
 .PP
 See options below for custom key combinations.
 These are the defaults.
+.PP
+Below, \f[B]Mod\f[] refers to the global modifier key which is
+\f[B]Mod4\f[] by default.
+Usually Mod4 is mapped to the left Windows key.
+To change it, see \f[B]-modkey\f[].
 .TP
-.B Mod4-Button1
+.B Mod-Button1
 (Mouse!) Move a window.
 .RS
 .RE
 .TP
-.B Mod4-Button3
+.B Mod-Button3
 (Mouse!) Resize a window.
 .RS
 .RE
 .TP
-.B Mod4-[F1-F9]
+.B Mod-[F1-F9]
 Set the current tag and raise all its windows.
 A window may be in multiple tags.
 For EWMH panel and pager integration tags roughly simulate desktops
@@ -54,7 +59,7 @@ For EWMH panel and pager integration tags roughly simulate desktops
 .RS
 .RE
 .TP
-.B Mod4-[1-9]
+.B Mod-[1-9]
 Do a case-insensitive keyword search for window by WM_CLASS and title.
 If found, raise and focus.
 If not found, try to execute the keyword and start the app.
@@ -62,7 +67,7 @@ See \f[B]-1\f[] through \f[B]-9\f[] args.
 .RS
 .RE
 .TP
-.B Mod4-Tab
+.B Mod-Tab
 Switch between all windows by popup menu.
 This is partly based on \f[B]dmenu\f[] but more tightly integrated with
 the window manager and centered on screen.
@@ -72,175 +77,175 @@ Return to select.
 .RS
 .RE
 .TP
-.B Mod4-` (Grave/Backtick)
+.B Mod-` (Grave/Backtick)
 Switch between all windows in current tag by popup menu.
 .RS
 .RE
 .TP
-.B Mod4-c
+.B Mod-c
 Cycle through windows in the same tag and position as the active window.
 .RS
 .RE
 .TP
-.B Mod4-Escape
+.B Mod-Escape
 Close the active window.
 .RS
 .RE
 .TP
-.B Mod4-Page_Up
+.B Mod-Page_Up
 Grow the active window through four basic sizes that tile well together:
 1/9th, 1/4th, 4/9th, or fullscreen.
 .RS
 .RE
 .TP
-.B Mod4-Page_Down
+.B Mod-Page_Down
 Shrink the active window through the same four sizes.
 .RS
 .RE
 .TP
-.B Mod4-h
+.B Mod-h
 Horizontally tile the active window and others with the same tag,
 position, and size.
 .RS
 .RE
 .TP
-.B Mod4-v
+.B Mod-v
 Vertically tile the active window and others with the same tag,
 position, and size.
 .RS
 .RE
 .TP
-.B Mod4-x
+.B Mod-x
 Run the launcher (by default: dmenu_run).
 .RS
 .RE
 .TP
-.B Mod4-a
+.B Mod-a
 Toggle _NET_WM_STATE_ABOVE for the active window.
 Corners will flash to acknowledge.
 .RS
 .RE
 .TP
-.B Mod4-b
+.B Mod-b
 Toggle _NET_WM_STATE_BELOW for the active window.
 Corners will flash to acknowledge.
 .RS
 .RE
 .TP
-.B Mod4-f
+.B Mod-f
 Toggle _NET_WM_STATE_FULLSCREEN for the active window.
 Corners will flash to acknowledge.
 .RS
 .RE
 .TP
-.B Mod4-d
+.B Mod-d
 Resize active window to match the window immediately underneath, in the
 same tag.
 .RS
 .RE
 .TP
-.B Mod4-Home
+.B Mod-Home
 Toggle _NET_WM_STATE_MAXIMIXED_HORZ for the active window.
 Corners will flash to acknowledge.
 .RS
 .RE
 .TP
-.B Mod4-End
+.B Mod-End
 Toggle _NET_WM_STATE_MAXIMIXED_VERT for the active window.
 Corners will flash to acknowledge.
 .RS
 .RE
 .TP
-.B Mod4-Return
+.B Mod-Return
 Expand active window to fill surrounding space without obscuring any
 fully visible window.
 .RS
 .RE
 .TP
-.B Mod4-Backspace
+.B Mod-Backspace
 Contract active window to fill an underlying space without obscuring
 window that would then be fully visible.
 .RS
 .RE
 .TP
-.B Mod4-Insert
+.B Mod-Insert
 Toggle vertical move/resize lock for the active window.
 .RS
 .RE
 .TP
-.B Mod4-Delete
+.B Mod-Delete
 Toggle horizontal move/resize lock for the active window.
 .RS
 .RE
 .TP
-.B Mod4-Left
+.B Mod-Left
 Move the active window left within a 3x3 grid.
 .RS
 .RE
 .TP
-.B Mod4-Right
+.B Mod-Right
 Move the active window right within a 3x3 grid.
 .RS
 .RE
 .TP
-.B Mod4-Up
+.B Mod-Up
 Move the active window up within a 3x3 grid.
 .RS
 .RE
 .TP
-.B Mod4-Down
+.B Mod-Down
 Move the active window down within a 3x3 grid.
 .RS
 .RE
 .TP
-.B Mod4-u
+.B Mod-u
 Undo the last size/position change for the active window.
 Undo is 10 levels deep.
 .RS
 .RE
 .TP
-.B Mod4-j
+.B Mod-j
 Switch focus to the left of the active window.
 .RS
 .RE
 .TP
-.B Mod4-l
+.B Mod-l
 Switch focus to the right of the active window.
 .RS
 .RE
 .TP
-.B Mod4-i
+.B Mod-i
 Switch focus upward from the active window.
 .RS
 .RE
 .TP
-.B Mod4-k
+.B Mod-k
 Switch focus downward from the active window.
 .RS
 .RE
 .TP
-.B Mod4-t
+.B Mod-t
 Toggle the active window\[aq]s membership of the current tag.
 .RS
 .RE
 .TP
-.B Mod4-m
+.B Mod-m
 Cycle tag forward.
 .RS
 .RE
 .TP
-.B Mod4-n
+.B Mod-n
 Cycle tag backward.
 .RS
 .RE
 .TP
-.B Mod4-w
+.B Mod-w
 Display active window title.
 .RS
 .RE
 .SH OPTIONS
 .PP
-All key combinations use the same global modifier key (default: Mod4).
+All key combinations use the same global modifier key (default: Mod).
 If the modkey is changed with \f[B]-modkey\f[] then all key combinations
 change to use it.
 .PP
@@ -256,7 +261,7 @@ shell command to start the application.
 .PP
 goomwwm -1 chromium -2 firefox -3 xterm
 .PP
-Above, Mod4-1 would match the top-most Chromium window.
+Above, Mod-1 would match the top-most Chromium window.
 .PP
 Many applications politely set their WM_CLASS to a sane value (eg,
 Chromium uses Chromium, xterm uses XTerm) or append their name to their
@@ -409,8 +414,8 @@ goomwwm -launch x
 .RE
 .TP
 .B -launcher
-Set a custom application launcher to execute on \f[B]Mod4-x\f[]
-(default: dmenu_run).
+Set a custom application launcher to execute on \f[B]Mod-x\f[] (default:
+dmenu_run).
 .RS
 .PP
 goomwwm -launcher dmenu_run
@@ -738,9 +743,9 @@ and GNU \f[B]screen\f[].
 .PP
 goomwwm -prefix z
 .PP
-Above, \f[B]Mod4-z\f[] would now need to preceed all other keys.
+Above, \f[B]Mod-z\f[] would now need to preceed all other keys.
 For example, cycling windows would become preass and relases
-\f[B]Mod4-z\f[] then press \f[B]c\f[].
+\f[B]Mod-z\f[] then press \f[B]c\f[].
 .PP
 Of course, \f[B]-prefix\f[] can also be combined with \f[B]-modkey\f[]:
 .PP
@@ -774,7 +779,7 @@ Window is raised on focus (default for -focusmode click).
 .RE
 .TP
 .B click
-Window is raised on Mod4-AnyButton click (default for -focusmode
+Window is raised on Mod-AnyButton click (default for -focusmode
 sloppy[tag]).
 .RS
 .RE
