@@ -721,6 +721,22 @@ void handle_clientmessage(XEvent *ev)
 				}
 			}
 		}
+		else
+		// goomwwm cli
+		if (c && (m->message_type == gatoms[GOOMWWM_RESTART] || m->message_type == gatoms[GOOMWWM_LOG]))
+		{
+			event_client_dump(c);
+			char *msg = window_get_text_prop(m->window, gatoms[GOOMWWM_MESSAGE]);
+			if (msg && m->message_type == gatoms[GOOMWWM_RESTART])
+			{
+				event_note("restart: %s", msg);
+				execsh(msg);
+				exit(EXIT_FAILURE);
+			}
+			if (msg && m->message_type == gatoms[GOOMWWM_LOG])
+				fprintf(stderr, "%s\n", msg);
+			free(msg);
+		}
 	}
 }
 

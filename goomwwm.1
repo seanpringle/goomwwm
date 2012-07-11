@@ -3,154 +3,7 @@
 goomwwm \- Get out of my way, Window Manager!
 .SH SYNOPSIS
 .B goomwwm
-.RB [ \-config
-.IR file ]
-.RB [ \-blur
-.IR color ]
-.RB [ \-border
-.IR pixels ]
-.RB [ \-focus
-.IR color ]
-.RB [ \-attention
-.IR color ]
-.RB [ \-flashon
-.IR color ]
-.RB [ \-flashoff
-.IR color ]
-.RB [ \-flashpx
-.IR pixels ]
-.RB [ \-flashms
-.IR msec ]
-.RB [ \-flashtitle
-.IR mode ]
-.RB [ \-launcher
-.IR command ]
-.RB [ \-menuwidth
-.IR pct_scr ]
-.RB [ \-menulines
-.IR lines ]
-.RB [ \-menufont
-.IR xftfont ]
-.RB [ \-menufg
-.IR color ]
-.RB [ \-menubg
-.IR color ]
-.RB [ \-menubgalt
-.IR color ]
-.RB [ \-menuhlfg
-.IR color ]
-.RB [ \-menuhlbg
-.IR color ]
-.RB [ \-modkey
-.IR mask ]
-.RB [ \-switcher
-.IR command ]
-.RB [ \-titlefont
-.IR xftfont ]
-.RB [ \-titlefg
-.IR color ]
-.RB [ \-titlebg
-.IR color ]
-.RB [ \-1
-.IR app ]
-.RB [ \-2
-.IR app ]
-.RB [ \-3
-.IR app ]
-.RB [ \-4
-.IR app ]
-.RB [ \-5
-.IR app ]
-.RB [ \-6
-.IR app ]
-.RB [ \-7
-.IR app ]
-.RB [ \-8
-.IR app ]
-.RB [ \-9
-.IR app ]
-.RB [ \-0
-.IR app ]
-.RB [ \-right
-.IR key ]
-.RB [ \-left
-.IR key ]
-.RB [ \-up
-.IR key ]
-.RB [ \-down
-.IR key ]
-.RB [ \-focusright
-.IR key ]
-.RB [ \-focusleft
-.IR key ]
-.RB [ \-focusup
-.IR key ]
-.RB [ \-focusdown
-.IR key ]
-.RB [ \-grow
-.IR key ]
-.RB [ \-shrink
-.IR key ]
-.RB [ \-fullscreen
-.IR key ]
-.RB [ \-above
-.IR key ]
-.RB [ \-below
-.IR key ]
-.RB [ \-vmax
-.IR key ]
-.RB [ \-hmax
-.IR key ]
-.RB [ \-expand
-.IR key ]
-.RB [ \-tag
-.IR key ]
-.RB [ \-switch
-.IR key ]
-.RB [ \-tswitch
-.IR key ]
-.RB [ \-cycle
-.IR key ]
-.RB [ \-close
-.IR key ]
-.RB [ \-htile
-.IR key ]
-.RB [ \-vtile
-.IR key ]
-.RB [ \-undo
-.IR key ]
-.RB [ \-launch
-.IR key ]
-.RB [ \-focusmode
-.IR mode ]
-.RB [ \-raisemode
-.IR mode ]
-.RB [ \-mapmode
-.IR mode ]
-.RB [ \-warpmode
-.IR mode ]
-.RB [ \-placement
-.IR mode ]
-.RB [ \-menuselect
-.IR mode ]
-.RB [ \-contract
-.IR key ]
-.RB [ \-tagnext
-.IR key ]
-.RB [ \-tagprev
-.IR key ]
-.RB [ \-duplicate
-.IR key ]
-.RB [ \-hlock
-.IR key ]
-.RB [ \-vlock
-.IR key ]
-.RB [ \-rule
-.IR string ]
-.RB [ \-exec
-.IR string ]
-.RB [ \-auto
-.IR string ]
+[ options ]
 .SH DESCRIPTION
 .I goomwwm
 is an X11 window manager implemented in C as a cleanroom software project. It manages windows in a minimal floating layout with normal mouse controls, while also providing flexible keyboard-driven controls for window switching, sizing, moving, tagging, and tiling. It is fast, lightweight, modeless, Xinerama-aware, and EWMH compatible wherever possible.
@@ -897,6 +750,25 @@ pointer is never moved (default for -focusmode click).
 .B focus
 pointer is warped to a newly focused window (default for -focusmode sloppy[tag]).
 .RE
+.RE
+.SH OPTIONS (cli mode)
+.P
+When run with
+.B -cli
+(command line interface) goomwwm may be used to dispatch commands to another running instance of goomwwm. Valid arguments are:
+.TP
+.B -restart
+Restart a running goomwwm instance in place (without restarting X). Useful for reloading .goomwwmrc or upgrading to a new version.
+.P
+.RS
+goomwwm -cli -restart
+.RE
+.TP
+.B -exec
+Switch to another window manager in place (without restarting X).
+.P
+.RS
+goomwwm -cli -exec dwm
 .RE
 .SH SEE ALSO
 .BR dmenu (1)

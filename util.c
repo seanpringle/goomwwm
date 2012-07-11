@@ -74,6 +74,12 @@ void catch_exit(int sig)
 	while (0 < waitpid(-1, NULL, WNOHANG));
 }
 
+int execsh(char *cmd)
+{
+	// use sh for args parsing
+	return execlp("/bin/sh", "sh", "-c", cmd, NULL);
+}
+
 // execute sub-process
 pid_t exec_cmd(char *cmd)
 {
@@ -83,7 +89,7 @@ pid_t exec_cmd(char *cmd)
 	if (!pid)
 	{
 		setsid();
-		execlp("/bin/sh", "sh", "-c", cmd, NULL);
+		execsh(cmd);
 		exit(EXIT_FAILURE);
 	}
 	return pid;

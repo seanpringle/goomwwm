@@ -101,6 +101,17 @@ char* window_get_text_prop(Window w, Atom atom)
 	return res;
 }
 
+int window_set_text_prop(Window w, Atom atom, char *txt)
+{
+	XTextProperty prop;
+	if (XStringListToTextProperty(&txt, 1, &prop))
+	{
+		XSetTextProperty(display, w, &prop, atom);
+		XFree(prop.value);
+	}
+	return 0;
+}
+
 int window_get_atom_prop(Window w, Atom atom, Atom *list, int count)
 {
 	Atom type; int items;

@@ -24,47 +24,30 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-#define _GNU_SOURCE
-#include "goomwwm.h"
-#include "proto.h"
-#include "util.c"
-#include "winlist.c"
-#include "rule.c"
-#include "window.c"
-#include "monitor.c"
-#include "client.c"
-#include "ewmh.c"
-#include "tag.c"
-#include "menu.c"
-#include "handle.c"
-#include "grab.c"
-#include "cli.c"
-#include "wm.c"
-
-int main(int argc, char *argv[])
+void cli_message(Atom atom, char *cmd)
 {
-	int i;
+	Window root = DefaultRootWindow(display);
+	Window cli = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, None, None);
+	window_set_text_prop(cli, gatoms[GOOMWWM_MESSAGE], cmd);
+	window_send_message(root, cli, atom, 0, SubstructureNotifyMask | SubstructureRedirectMask);
+}
 
-	// catch help request
-	if (find_arg(argc, argv, "-help") >= 0
-		|| find_arg(argc, argv, "--help") >= 0
-		|| find_arg(argc, argv, "-h") >= 0)
-	{
-		fprintf(stderr, "See the man page or visit http://github.com/seanpringle/goomwwm\n");
-		return EXIT_FAILURE;
-	}
+// command line interface
+int cli_main(int argc, char *argv[])
+{
+	char *arg;
 
-	if(!(display = XOpenDisplay(0)))
-	{
-		fprintf(stderr, "cannot open display!\n");
-		return EXIT_FAILURE;
-	}
-	signal(SIGCHLD, catch_exit);
+	if ((arg = find_arg_str(argc, argv, "-log", NULL)))
+		cli_message(gatoms[GOOMWWM_LOG], arg);
 
-	// X atom values
-	for (i = 0; i < ATOMS; i++) atoms[i] = XInternAtom(display, atom_names[i], False);
-	for (i = 0; i < GATOMS; i++) gatoms[i] = XInternAtom(display, gatom_names[i], False);
-	for (i = 0; i < NETATOMS; i++) netatoms[i] = XInternAtom(display, netatom_names[i], False);
+	if (find_arg(argc, argv, "-restart") >= 0)
+		cli_message(gatoms[GOOMWWM_RESTART], argv[0]);
 
-	return find_arg(argc, argv, "-cli") >= 0 ? cli_main(argc, argv): wm_main(argc, argv);
+	if ((arg = find_arg_str(argc, argv, "-exec", NULL)))
+		cli_message(gatoms[GOOMWWM_RESTART], arg);
+
+
+	//TODO: make this a two-way event exchange
+	usleep(300000); // 0.3s
+	return EXIT_SUCCESS;
 }

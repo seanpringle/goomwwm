@@ -387,6 +387,15 @@ Atom netatoms[NETATOMS];
 #define REMOVE 0
 #define TOGGLE 2
 
+#define GOOMWWM_ATOMS(X) \
+	X(GOOMWWM_LOG),\
+	X(GOOMWWM_MESSAGE),\
+	X(GOOMWWM_RESTART)
+
+enum { GOOMWWM_ATOMS(ATOM_ENUM), GATOMS };
+const char *gatom_names[] = { GOOMWWM_ATOMS(ATOM_CHAR) };
+Atom gatoms[GATOMS];
+
 // built-in filterable popup menu list
 struct localmenu {
 	Window window;
