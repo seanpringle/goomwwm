@@ -508,6 +508,9 @@ All options below that set a custom key implicitly combine it with the modifier 
 	above below fullscreen maximize_horz maximize_vert sticky skip_taskbar skip_pager
 	:	Apply respective _NET_WM_STATE_* to a window.
 
+	raise lower
+	:	Pre-raise or lower a window in the stacking order. These only take effect for a blocked window. For unblocked windows that take focus, -raisemode takes precedence.
+
 	left right top bottom
 	:	Align a window with a screen edge. May be combined. Top trumps bottom. Left trumps right.
 

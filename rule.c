@@ -57,6 +57,8 @@ winrulemap rulemap[] = {
 	{ "contract", RULE_CONTRACT },
 	{ "skip_taskbar", RULE_SKIPTBAR },
 	{ "skip_pager", RULE_SKIPPAGE },
+	{ "raise", RULE_RAISE },
+	{ "lower", RULE_LOWER },
 };
 
 // load a rule specified on cmd line or .goomwwmrc

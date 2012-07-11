@@ -543,6 +543,7 @@ void handle_maprequest(XEvent *ev)
 		// received, some clients seem to be able to map before applying the border change,
 		// resulting in a little jump on screen. ensure border is done first
 		client_review_border(c);
+		client_deactivate(c);
 		// adjust for borders on remembered co-ords
 		if (c->type == netatoms[_NET_WM_WINDOW_TYPE_NORMAL])
 			{ c->w += config_border_width*2; c->h += config_border_width*2; }
@@ -657,18 +658,26 @@ void handle_mapnotify(XEvent *ev)
 			client_activate(c, RAISE, WARPDEF);
 		} else
 		{
-			// if on current tag, place new window under active window and next in activate-order
+			// if on current tag, place new window under active window and next in activate order by default
+			// if specifically raised, raise window and leave second in activate order
+			// if specifically lowered, lower window and place last in activate order
 			if (c->cache->tags & current_tag && (a = client_active(c->xattr.root, current_tag)) && a->window != c->window)
 			{
-				client_raise_under(c, a);
-				winlist_forget(windows_activated, a->window);
-				winlist_append(windows_activated, c->window, NULL);
-				winlist_append(windows_activated, a->window, NULL);
+				winlist_forget(windows_activated, c->window);
+				if (client_rule(c, RULE_LOWER))
+					// client was already pre-lowered in configurerequest
+					winlist_prepend(windows_activated, c->window, NULL);
+				else {
+					if (client_rule(c, RULE_RAISE)) client_raise(c, 0); else client_raise_under(c, a);
+					winlist_forget(windows_activated, a->window);
+					winlist_append(windows_activated, c->window, NULL);
+					winlist_append(windows_activated, a->window, NULL);
+				}
 			} else
 			{
 				// TODO: make this smart enough to place window on top on another tag
 				winlist_forget(windows_activated, c->window);
-				winlist_prepend(windows_activated, c->window, NULL);
+				winlist_append(windows_activated, c->window, NULL);
 			}
 			client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 		}

@@ -845,6 +845,13 @@ Apply respective \f[I]NET_WM_STATE\f[]* to a window.
 .RS
 .RE
 .TP
+.B raise lower
+Pre-raise or lower a window in the stacking order.
+These only take effect for a blocked window.
+For unblocked windows that take focus, -raisemode takes precedence.
+.RS
+.RE
+.TP
 .B left right top bottom
 Align a window with a screen edge.
 May be combined.
