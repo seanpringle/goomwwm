@@ -723,7 +723,10 @@ void handle_clientmessage(XEvent *ev)
 		}
 		else
 		// goomwwm cli
-		if (c && (m->message_type == gatoms[GOOMWWM_RESTART] || m->message_type == gatoms[GOOMWWM_LOG]))
+		if (c && (
+			m->message_type == gatoms[GOOMWWM_RESTART] ||
+			m->message_type == gatoms[GOOMWWM_LOG] ||
+			m->message_type == gatoms[GOOMWWM_QUIT]))
 		{
 			event_client_dump(c);
 			char *msg = window_get_text_prop(m->window, gatoms[GOOMWWM_MESSAGE]);
@@ -735,6 +738,8 @@ void handle_clientmessage(XEvent *ev)
 			}
 			if (msg && m->message_type == gatoms[GOOMWWM_LOG])
 				fprintf(stderr, "%s\n", msg);
+			if (m->message_type == gatoms[GOOMWWM_QUIT])
+				exit(EXIT_SUCCESS);
 			free(msg);
 		}
 	}

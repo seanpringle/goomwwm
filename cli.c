@@ -28,7 +28,7 @@ void cli_message(Atom atom, char *cmd)
 {
 	Window root = DefaultRootWindow(display);
 	Window cli = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, None, None);
-	window_set_text_prop(cli, gatoms[GOOMWWM_MESSAGE], cmd);
+	if (cmd) window_set_text_prop(cli, gatoms[GOOMWWM_MESSAGE], cmd);
 	window_send_message(root, cli, atom, 0, SubstructureNotifyMask | SubstructureRedirectMask);
 }
 
@@ -45,6 +45,9 @@ int cli_main(int argc, char *argv[])
 
 	if ((arg = find_arg_str(argc, argv, "-exec", NULL)))
 		cli_message(gatoms[GOOMWWM_RESTART], arg);
+
+	if (find_arg(argc, argv, "-quit") >= 0)
+		cli_message(gatoms[GOOMWWM_QUIT], NULL);
 
 
 	//TODO: make this a two-way event exchange
