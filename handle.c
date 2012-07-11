@@ -552,8 +552,10 @@ void handle_maprequest(XEvent *ev)
 			if (client_rule(c, RULE_ABOVE)) client_add_state(c, netatoms[_NET_WM_STATE_ABOVE]);
 		else if (client_rule(c, RULE_BELOW)) client_add_state(c, netatoms[_NET_WM_STATE_BELOW]);
 
-		// sticky can be on anything
+		// sticky,skip_taskbar,skip_pager can be on anything
 		if (client_rule(c, RULE_STICKY)) client_add_state(c, netatoms[_NET_WM_STATE_STICKY]);
+		if (client_rule(c, RULE_SKIPTBAR)) client_add_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]);
+		if (client_rule(c, RULE_SKIPPAGE)) client_add_state(c, netatoms[_NET_WM_STATE_SKIP_PAGER]);
 
 		// fullscreen overrides max h/v
 		if (client_rule(c, RULE_FULLSCREEN))

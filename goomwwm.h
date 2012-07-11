@@ -146,6 +146,8 @@ typedef struct {
 #define RULE_VLOCK 1<<27
 #define RULE_EXPAND 1<<28
 #define RULE_CONTRACT 1<<29
+#define RULE_SKIPTBAR 1<<30
+#define RULE_SKIPPAGE 1<<31
 
 #define RULEPATTERN CLIENTCLASS
 
