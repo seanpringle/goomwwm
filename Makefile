@@ -10,7 +10,10 @@ debug:
 proto:
 	cat *.c | egrep '^(void|int|char|unsigned|client|Window|winlist|XWindow)' | sed -r 's/\)/);/' > proto.h
 
-all: proto normal debug
+docs:
+	pandoc -s -w man goomwwm.md -o goomwwm.1
+
+all: proto normal debug docs
 
 clean:
 	rm -f goomwwm goomwwm-debug

@@ -1,792 +1,1012 @@
-.TH GOOMWWM 1 goomwwm
+.TH GOOMWWM 1 "" 
 .SH NAME
-goomwwm \- Get out of my way, Window Manager!
+.PP
+goomwwm - Get out of my way, Window Manager!
 .SH SYNOPSIS
-.B goomwwm
-[ options ]
+.PP
+\f[B]goomwwm\f[] [ options ]
 .SH DESCRIPTION
-.I goomwwm
-is an X11 window manager implemented in C as a cleanroom software project. It manages windows in a minimal floating layout with normal mouse controls, while also providing flexible keyboard-driven controls for window switching, sizing, moving, tagging, and tiling. It is fast, lightweight, modeless, Xinerama-aware, and EWMH compatible wherever possible.
-.P
-Keyboard window movement occurs on a 3x3 fullscreen grid. For example, a top-left aligned window moved to the right would reappear top-center, and if moved again, top-right.
-.P
-Keyboard window sizing moves windows through four basic sizes that tile well: 1/9th of screen (1/3 width, 1/3 height), 1/4th, 4/9th, and fullscreen. Combined with EWMH horizontal and vertical maxmimization, plus some snap-to-edge and expand-to-fill-space controls, manual tiling is easy.
-.P
-Windows are grouped by tags. Activating a tag raises all windows in the tag. A window may have multiple tags. EWMH panels, pagers, and taskbars see tags as desktops.
-.P
+.PP
+\f[B]goomwwm\f[] is an X11 window manager implemented in C as a
+cleanroom software project.
+It manages windows in a minimal floating layout with normal mouse
+controls, while also providing flexible keyboard-driven controls for
+window switching, sizing, moving, tagging, and tiling.
+It is fast, lightweight, modeless, Xinerama-aware, and EWMH compatible
+wherever possible.
+.PP
+Keyboard window movement occurs on a 3x3 fullscreen grid.
+For example, a top-left aligned window moved to the right would reappear
+top-center, and if moved again, top-right.
+.PP
+Keyboard window sizing moves windows through four basic sizes that tile
+well: 1/9th of screen (1/3 width, 1/3 height), 1/4th, 4/9th, and
+fullscreen.
+Combined with EWMH horizontal and vertical maxmimization, plus some
+snap-to-edge and expand-to-fill-space controls, manual tiling is easy.
+.PP
+Windows are grouped by tags.
+Activating a tag raises all windows in the tag.
+A window may have multiple tags.
+EWMH panels, pagers, and taskbars see tags as desktops.
+.PP
 License: MIT/X11
 .SH USAGE
-See options below for custom key combinations. These are the defaults.
+.PP
+See options below for custom key combinations.
+These are the defaults.
 .TP
 .B Mod4-Button1
 (Mouse!) Move a window.
+.RS
+.RE
 .TP
 .B Mod4-Button3
 (Mouse!) Resize a window.
+.RS
+.RE
 .TP
 .B Mod4-[F1-F9]
-Set the current tag and raise all its windows. A window may be in multiple tags. For EWMH panel and pager integration tags roughly simulate desktops (always 9), but there will be differences in behavior.
+Set the current tag and raise all its windows.
+A window may be in multiple tags.
+For EWMH panel and pager integration tags roughly simulate desktops
+(always 9), but there will be differences in behavior.
+.RS
+.RE
 .TP
 .B Mod4-[1-9]
-Do a case-insensitive keyword search for window by WM_CLASS and title. If found, raise and focus. If not found, try to execute the keyword and start the app. See
-.B -1
-through
-.B -9
-args.
+Do a case-insensitive keyword search for window by WM_CLASS and title.
+If found, raise and focus.
+If not found, try to execute the keyword and start the app.
+See \f[B]-1\f[] through \f[B]-9\f[] args.
+.RS
+.RE
 .TP
 .B Mod4-Tab
-Switch between all windows by popup menu. This is partly based on
-.B dmenu
-but more tightly integrated with the window manager, and centered on screen. Type text to filter the menu entries. Navigate with the arrow keys. Return to select.
+Switch between all windows by popup menu.
+This is partly based on \f[B]dmenu\f[] but more tightly integrated with
+the window manager and centered on screen.
+Type text to filter the menu entries.
+Navigate with the arrow keys.
+Return to select.
+.RS
+.RE
 .TP
-.B Mod4-`
-(Grave/Backtick) Switch between all windows in current tag by popup menu.
+.B Mod4-` (Grave/Backtick)
+Switch between all windows in current tag by popup menu.
+.RS
+.RE
 .TP
 .B Mod4-c
 Cycle through windows in the same tag and position as the active window.
+.RS
+.RE
 .TP
 .B Mod4-Escape
 Close the active window.
+.RS
+.RE
 .TP
 .B Mod4-Page_Up
-Grow the active window through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
+Grow the active window through four basic sizes that tile well together:
+1/9th, 1/4th, 4/9th, or fullscreen.
+.RS
+.RE
 .TP
 .B Mod4-Page_Down
 Shrink the active window through the same four sizes.
+.RS
+.RE
 .TP
 .B Mod4-h
-Horizontally tile the active window and others with the same tag, position, and size.
+Horizontally tile the active window and others with the same tag,
+position, and size.
+.RS
+.RE
 .TP
 .B Mod4-v
-Vertically tile the active window and others with the same tag, position, and size.
+Vertically tile the active window and others with the same tag,
+position, and size.
+.RS
+.RE
 .TP
 .B Mod4-x
 Run the launcher (by default: dmenu_run).
+.RS
+.RE
 .TP
 .B Mod4-a
-Toggle _NET_WM_STATE_ABOVE for the active window. Corners will flash to acknowledge.
+Toggle _NET_WM_STATE_ABOVE for the active window.
+Corners will flash to acknowledge.
+.RS
+.RE
 .TP
 .B Mod4-b
-Toggle _NET_WM_STATE_BELOW for the active window. Corners will flash to acknowledge.
+Toggle _NET_WM_STATE_BELOW for the active window.
+Corners will flash to acknowledge.
+.RS
+.RE
 .TP
 .B Mod4-f
-Toggle _NET_WM_STATE_FULLSCREEN for the active window. Corners will flash to acknowledge.
+Toggle _NET_WM_STATE_FULLSCREEN for the active window.
+Corners will flash to acknowledge.
+.RS
+.RE
 .TP
 .B Mod4-d
-Resize active window to match the window immediately underneath, in the same tag.
+Resize active window to match the window immediately underneath, in the
+same tag.
+.RS
+.RE
 .TP
 .B Mod4-Home
-Toggle _NET_WM_STATE_MAXIMIXED_HORZ for the active window. Corners will flash to acknowledge.
+Toggle _NET_WM_STATE_MAXIMIXED_HORZ for the active window.
+Corners will flash to acknowledge.
+.RS
+.RE
 .TP
 .B Mod4-End
-Toggle _NET_WM_STATE_MAXIMIXED_VERT for the active window. Corners will flash to acknowledge.
+Toggle _NET_WM_STATE_MAXIMIXED_VERT for the active window.
+Corners will flash to acknowledge.
+.RS
+.RE
 .TP
 .B Mod4-Return
-Expand active window to fill surrounding space without obscuring any fully visible window.
+Expand active window to fill surrounding space without obscuring any
+fully visible window.
+.RS
+.RE
 .TP
 .B Mod4-Backspace
-Contract active window to fill an underlying space without obscuring window that would then be fully visible.
+Contract active window to fill an underlying space without obscuring
+window that would then be fully visible.
+.RS
+.RE
 .TP
 .B Mod4-Insert
 Toggle vertical move/resize lock for the active window.
+.RS
+.RE
 .TP
 .B Mod4-Delete
 Toggle horizontal move/resize lock for the active window.
+.RS
+.RE
 .TP
 .B Mod4-Left
 Move the active window left within a 3x3 grid.
+.RS
+.RE
 .TP
 .B Mod4-Right
 Move the active window right within a 3x3 grid.
+.RS
+.RE
 .TP
 .B Mod4-Up
 Move the active window up within a 3x3 grid.
+.RS
+.RE
 .TP
 .B Mod4-Down
 Move the active window down within a 3x3 grid.
+.RS
+.RE
 .TP
 .B Mod4-u
-Undo the last size/position change for the active window. Undo is 10 levels deep.
+Undo the last size/position change for the active window.
+Undo is 10 levels deep.
+.RS
+.RE
 .TP
 .B Mod4-j
 Switch focus to the left of the active window.
+.RS
+.RE
 .TP
 .B Mod4-l
 Switch focus to the right of the active window.
+.RS
+.RE
 .TP
 .B Mod4-i
 Switch focus upward from the active window.
+.RS
+.RE
 .TP
 .B Mod4-k
 Switch focus downward from the active window.
+.RS
+.RE
 .TP
 .B Mod4-t
-Toggle the active window's membership of the current tag.
+Toggle the active window\[aq]s membership of the current tag.
+.RS
+.RE
 .TP
 .B Mod4-m
 Cycle tag forward.
+.RS
+.RE
 .TP
 .B Mod4-n
 Cycle tag backward.
+.RS
+.RE
 .TP
 .B Mod4-w
 Display active window title.
-
+.RS
+.RE
 .SH OPTIONS
-.P
-All key combinations use the same global modifier key (default: Mod4). If the modkey is changed with
-.B -modkey
-then all key combinations change to use it. All options below that set a custom key implicitly combine it with the modifier key.
+.PP
+All key combinations use the same global modifier key (default: Mod4).
+If the modkey is changed with \f[B]-modkey\f[] then all key combinations
+change to use it.
+.PP
+All options below that set a custom key implicitly combine it with the
+modifier key.
 .TP
 .B -1 -2 -3 -4 -5 -6 -7 -8 -9
-Set a number key to a keyword to search for a window by WM_CLASS, applicaiton name, or title, and then raise and focus it. If a window is not found, the string supplied will be executed as a shell command to start the application.
+Set a number key to a keyword to search for a window by WM_CLASS,
+applicaiton name, or title, and then raise and focus it.
+If a window is not found, the string supplied will be executed as a
+shell command to start the application.
 .RS
-.P
+.PP
 goomwwm -1 chromium -2 firefox -3 xterm
-.P
+.PP
 Above, Mod4-1 would match the top-most Chromium window.
-.P
-Many applications politely set their WM_CLASS to a sane value (eg, Chromium uses Chromium, xterm uses XTerm) or append their name to their window titles, which nicely matches their binary names if we use case-insensitive string comparison. This allows us to use the one string to both search and start.
-.P
-Applications that are not so friendly can sometimes be wrapped in a shell script of the appropriate name in your $PATH somewhere.
+.PP
+Many applications politely set their WM_CLASS to a sane value (eg,
+Chromium uses Chromium, xterm uses XTerm) or append their name to their
+window titles, which nicely matches their binary names if we use
+case-insensitive string comparison.
+This allows us to use the one string to both search and start.
+.PP
+Applications that are not so friendly can sometimes be wrapped in a
+shell script of the appropriate name in your $PATH somewhere.
 .RE
 .TP
 .B -above
-Set an X11 key name to toggle _NET_WM_STATE_ABOVE for the active window (default: XK_a).
-.P
+Set an X11 key name to toggle _NET_WM_STATE_ABOVE for the active window
+(default: XK_a).
 .RS
+.PP
 goomwwm -above a
 .RE
 .TP
 .B -attention
-Set the border color (X11 named color or hex #rrggbb) for an inactive window with _NET_WM_STATE_DEMANDS_ATTENTION (default: Red).
-.P
+Set the border color (X11 named color or hex #rrggbb) for an inactive
+window with _NET_WM_STATE_DEMANDS_ATTENTION (default: Red).
 .RS
+.PP
 goomwwm -attention Red
 .RE
 .TP
 .B -auto
-Search for an app at startup and autostart it if not found. Uses the same WM_CLASS/name/title matching rules as the -1 through -9 arguments (default: none).
-.P
+Search for an app at startup and autostart it if not found.
+Uses the same WM_CLASS/name/title matching rules as the -1 through -9
+arguments (default: none).
 .RS
+.PP
 goomwwm -auto chromium
-.P
-Above, chromium will only be started if a chromium window does not already exist.
+.PP
+Above, chromium will only be started if a chromium window does not
+already exist.
 .RE
 .TP
 .B -below
-Set an X11 key name to toggle _NET_WM_STATE_BELOW for the active window (default: XK_b).
-.P
+Set an X11 key name to toggle _NET_WM_STATE_BELOW for the active window
+(default: XK_b).
 .RS
+.PP
 goomwwm -below b
 .RE
 .TP
 .B -blur
-Set the border color (X11 named color or hex #rrggbb) for unfocused windows (default: Dark Gray).
-.P
+Set the border color (X11 named color or hex #rrggbb) for unfocused
+windows (default: Dark Gray).
 .RS
+.PP
 goomwwm -blur "Dark Gray"
 .RE
 .TP
 .B -border
 Set the border width in pixels for all managed windows (default: 2).
-.P
 .RS
+.PP
 goomwwm -border 2
 .RE
 .TP
 .B -close
-Set an X11 key name to gracefully close the active window (default: XK_Escape).
-.P
+Set an X11 key name to gracefully close the active window (default:
+XK_Escape).
 .RS
+.PP
 goomwwm -close Escape
 .RE
 .TP
 .B -config
 Parse extra options from a text file.
-.P
 .RS
+.PP
 goomwwm -config /path/to/config.txt
-.P
-The file format is any command line options
-.I without
-the leading hyphen. Comments and blank lines are acceptable.
-.RS
-.P
-# a comment
-.br
-1 chromium
-.br
-2 konsole
-.br
-close Escape
-.br
-menufont mono-14
-.RE
-.P
-If it exists,
-.B $HOME/.goomwwmrc
-is automatically parsed.
+.PP
+The file format is any command line options without the leading hyphen.
+Comments and blank lines are acceptable.
+.IP
+.nf
+\f[C]
+#\ a\ comment
+2\ chromium
+2\ konsole
+close\ Escape
+menufont\ mono-14
+\f[]
+.fi
+.PP
+If it exists, \f[B]$HOME/.goomwwmrc\f[] is automatically parsed.
 .RE
 .TP
 .B -cycle
-Set an X11 key name to cycle windows in the same tag and position as the active window (default: XK_c).
-.P
+Set an X11 key name to cycle windows in the same tag and position as the
+active window (default: XK_c).
 .RS
+.PP
 goomwwm -cycle c
 .RE
 .TP
 .B -contract
-Set an X11 key name to contract the active window to fill an underlying space without obscuring any other window that would then be fully visible (default: XK_Contract). Opposite of -expand.
-.P
+Set an X11 key name to contract the active window to fill an underlying
+space without obscuring any other window that would then be fully
+visible (default: XK_Contract).
+Opposite of -expand.
 .RS
+.PP
 goomwwm -contract BackSpace
 .RE
 .TP
 .B -down
-Set an X11 key name to move the active window downward in a 3x3 grid (default: XK_Down).
-.P
+Set an X11 key name to move the active window downward in a 3x3 grid
+(default: XK_Down).
 .RS
+.PP
 goomwwm -down Down
 .RE
 .TP
 .B -duplicate
-Set an X11 key name to resize the active window to match the window immediately underneath, in the same tag (default: XK_d).
-.P
+Set an X11 key name to resize the active window to match the window
+immediately underneath, in the same tag (default: XK_d).
 .RS
+.PP
 goomwwm -duplicate d
 .RE
 .TP
 .B -exec
-Execute a command at startup but only after goomwwm has started successfully (default: none). Useful for pre-lanching apps, but also see
-.B -auto
-.P
+Execute a command at startup but only after goomwwm has started
+successfully (default: none).
+Useful for pre-lanching apps, but also see \f[B]-auto\f[].
 .RS
+.PP
 goomwwm -exec firefox
 .RE
 .TP
 .B -expand
-Set an X11 key name to expand the active window to fill adjacent space without obscuring any other fully visible window (default: XK_Return). Opposite of -contract.
-.P
+Set an X11 key name to expand the active window to fill adjacent space
+without obscuring any other fully visible window (default: XK_Return).
+Opposite of -contract.
 .RS
+.PP
 goomwwm -expand Return
 .RE
 .TP
 .B -launch
 Set an X11 key to run the application launcher (default: XK_x).
-.P
 .RS
+.PP
 goomwwm -launch x
 .RE
 .TP
 .B -launcher
-Set a custom application launcher to execute on
-.B Mod4-x
+Set a custom application launcher to execute on \f[B]Mod4-x\f[]
 (default: dmenu_run).
-.P
 .RS
+.PP
 goomwwm -launcher dmenu_run
 .RE
 .TP
 .B -flashms
-Set the duration in milliseconds of the window flash indicators (default: 500).
-.P
+Set the duration in milliseconds of the window flash indicators
+(default: 500).
 .RS
+.PP
 goomwwm -flashms 500
 .RE
 .TP
 .B -flashon
-Set the color (X11 named color or hex #rrggbb) of the flash indicator when toggling _NET_WM_STATE_* on (default: Dark Green).
-.P
+Set the color (X11 named color or hex #rrggbb) of the flash indicator
+when toggling \f[I]NET_WM_STATE\f[]* on (default: Dark Green).
 .RS
+.PP
 goomwwm -flashon "Dark Green"
 .RE
 .TP
 .B -flashoff
-Set the color (X11 named color or hex #rrggbb) of the flash indicator when toggling _NET_WM_STATE_* off (default: Dark Red).
-.P
+Set the color (X11 named color or hex #rrggbb) of the flash indicator
+when toggling \f[I]NET_WM_STATE\f[]* off (default: Dark Red).
 .RS
+.PP
 goomwwm -flashon "Dark Red"
 .RE
 .TP
 .B -flashpx
-Set the size in pixels of window flash indicators (currently a colored square in each window corner) (default: 20).
-.P
+Set the size in pixels of window flash indicators (currently a colored
+square in each window corner) (default: 10).
 .RS
-goomwwm -flashpx 20
+.PP
+goomwwm -flashpx 10
 .RE
 .TP
 .B -flashtitle
-Wether to flash a window's title when changing focus or other modes (default: hide). Regardless of this setting,
-.B Mod-w
-always displays a window's title.
-.P
+Wether to flash a window\[aq]s title when changing focus or other modes
+(default: hide).
+Regardless of this setting, \f[B]Mod-w\f[] always displays a
+window\[aq]s title.
 .RS
+.PP
 goomwwm -flashtitle hide
-.P
+.PP
 Valid modes:
 .TP
 .B show
 Flash title bar centered on the window.
+.RS
+.RE
 .TP
 .B hide
 Do no flash title bar.
+.RS
+.RE
 .RE
 .TP
 .B -focus
-Set the border color (X11 named color or hex #rrggbb) for the focused window (default: Royal Blue).
-.P
+Set the border color (X11 named color or hex #rrggbb) for the focused
+window (default: Royal Blue).
 .RS
+.PP
 goomwwm -focus "Royal Blue"
 .RE
 .TP
 .B -focusdown
-Set an X11 key name to switch focus downward form the active window (default: XK_k).
-.P
+Set an X11 key name to switch focus downward form the active window
+(default: XK_k).
 .RS
+.PP
 goomwwm -focusdown k
 .RE
 .TP
 .B -focusleft
-Set an X11 key name to switch focus to left of the active window (default: XK_j).
-.P
+Set an X11 key name to switch focus to left of the active window
+(default: XK_j).
 .RS
+.PP
 goomwwm -focusleft j
 .RE
 .TP
 .B -focusmode
 Control the window focus mode (default: click).
-.P
 .RS
+.PP
 goomwwm -focusmode click
-.P
+.PP
 Valid settings are:
-.RS
-.P
+.TP
 .B click
 focus on mouse click.
-.br
+.RS
+.RE
+.TP
 .B sloppy
 focus follows mouse
-.br
+.RS
+.RE
+.TP
 .B sloppytag
 focus follows mouse within current tag.
+.RS
 .RE
 .RE
 .TP
 .B -focusright
-Set an X11 key name to switch focus to right of the active window (default: XK_l).
-.P
+Set an X11 key name to switch focus to right of the active window
+(default: XK_l).
 .RS
+.PP
 goomwwm -focusright l
 .RE
 .TP
 .B -focusup
-Set an X11 key name to switch focus upward form the active window (default: XK_i).
-.P
+Set an X11 key name to switch focus upward form the active window
+(default: XK_i).
 .RS
+.PP
 goomwwm -focusup i
 .RE
 .TP
 .B -fullscreen
-Set an X11 key name to toggle _NET_WM_STATE_FULLSCREEN for the active window (default: XK_f).
-.P
+Set an X11 key name to toggle _NET_WM_STATE_FULLSCREEN for the active
+window (default: XK_f).
 .RS
+.PP
 goomwwm -fullscreen f
 .RE
 .TP
 .B -grow
-Set an X11 key name to increase the active window size (default: XK_Page_Up) through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
-.P
+Set an X11 key name to increase the active window size (default:
+XK_Page_Up) through four basic sizes that tile well together: 1/9th,
+1/4th, 4/9th, or fullscreen.
 .RS
+.PP
 goomwwm -grow Page_Up
 .RE
 .TP
 .B -hlock
-Set an X11 key name to toggle horizontal move/resize lock for the active window (default: XK_Delete).
-.P
+Set an X11 key name to toggle horizontal move/resize lock for the active
+window (default: XK_Delete).
 .RS
+.PP
 goomwwm -hlock Delete
 .RE
 .TP
 .B -hmax
-Set an X11 key name to toggle _NET_WM_STATE_MAXIMIXED_HORZ for the active window (default: XK_End).
-.P
+Set an X11 key name to toggle _NET_WM_STATE_MAXIMIXED_HORZ for the
+active window (default: XK_End).
 .RS
+.PP
 goomwwm -hmax End
 .RE
 .TP
 .B -htile
-Set an X11 key to horizontally tile the active window and others with the same tag, position, and size (default: XK_h). If no other window is found, a gap is created.
-.P
+Set an X11 key to horizontally tile the active window and others with
+the same tag, position, and size (default: XK_h).
+If no other window is found, a gap is created.
 .RS
+.PP
 goomwwm -htile h
 .RE
 .TP
 .B -info
-Set an X11 key to briefly display the active window's title (default: XK_w).
-.P
+Set an X11 key to briefly display the active window\[aq]s title
+(default: XK_w).
 .RS
+.PP
 goomwwm -info w
 .RE
 .TP
 .B -left
-Set an X11 key name to move the active window to the left in a 3x3 grid (default: XK_Left).
-.P
+Set an X11 key name to move the active window to the left in a 3x3 grid
+(default: XK_Left).
 .RS
+.PP
 goomwwm -left Left
 .RE
 .TP
 .B -mapmode
 Control the window initial map focus mode (default: steal).
-.P
 .RS
+.PP
 goomwwm -mapmode steal
-.P
+.PP
 Valid settings are:
-.RS
-.P
+.TP
 .B steal
 new windows get focus.
-.br
+.RS
+.RE
+.TP
 .B block
 new windows do not get focus.
+.RS
 .RE
 .RE
 .TP
 .B -menubg
-Set the background text color (X11 named color or hex #rrggbb) for the window-switcher menu (default: #f2f1f0).
-.P
+Set the background text color (X11 named color or hex #rrggbb) for the
+window-switcher menu (default: #f2f1f0).
 .RS
+.PP
 goomwwm -menubg "#f2f1f0"
 .RE
 .TP
 .B -menubgalt
-Set the alternate background text color (X11 named color or hex #rrggbb) for the window-switcher menu (default: #e9e8e7).
-.P
+Set the alternate background text color (X11 named color or hex #rrggbb)
+for the window-switcher menu (default: #e9e8e7).
 .RS
+.PP
 goomwwm -menubgalt "#e9e8e7"
 .RE
 .TP
 .B -menufg
-Set the foreground text color (X11 named color or hex #rrggbb) for the window-switcher menu (default: #222222).
-.P
+Set the foreground text color (X11 named color or hex #rrggbb) for the
+window-switcher menu (default: #222222).
 .RS
+.PP
 goomwwm -menufg "#222222"
 .RE
 .TP
 .B -menufont
 Xft font name for use by the window-switcher menu (default: mono-14).
-.P
 .RS
+.PP
 goomwwm -menufont monospace-14:medium
 .RE
 .TP
 .B -menuhlbg
-Set the background text color (X11 named color or hex #rrggbb) for the highlighted item in the window-switcher menu (default: #005577).
-.P
+Set the background text color (X11 named color or hex #rrggbb) for the
+highlighted item in the window-switcher menu (default: #005577).
 .RS
+.PP
 goomwwm -menufg "#005577"
 .RE
 .TP
 .B -menuhlfg
-Set the foreground text color (X11 named color or hex #rrggbb) for the highlighted item in the window-switcher menu (default: #ffffff).
-.P
+Set the foreground text color (X11 named color or hex #rrggbb) for the
+highlighted item in the window-switcher menu (default: #ffffff).
 .RS
+.PP
 goomwwm -menufg "#ffffff"
 .RE
 .TP
 .B -menulines
-Maximum number of entries the window-switcher menu may show before scrolling (default: 25).
-.P
+Maximum number of entries the window-switcher menu may show before
+scrolling (default: 25).
 .RS
+.PP
 goomwwm -menulines 25
 .RE
 .TP
 .B -menuselect
 Control how menu items are selected (default: return).
-.P
 .RS
+.PP
 goomwwm -menuselect return
-.P
+.PP
 Valid settings are:
 .TP
 .B return
-Menu stays open until item is selected with Enter/Return key. This is dmenu-like.
+Menu stays open until item is selected with Enter/Return key.
+This is dmenu-like.
+.RS
+.RE
 .TP
 .B modkeyup
-Menu stays open until item is selected by releasing the modkey. This is classic Alt-Tab window switching behavior.
+Menu stays open until item is selected by releasing the modkey.
+This is classic Alt-Tab window switching behavior.
+.RS
+.RE
 .RE
 .TP
 .B -menuwidth
-Set the width of the window-switcher menu as a percentage of the screen width if <= 100 (% symbol optional), or in pixels if >100 (default: 60%).
-.P
+Set the width of the window-switcher menu as a percentage of the screen
+width if <= 100 (% symbol optional), or in pixels if >100 (default:
+60%).
 .RS
-goomwwm -menuwidth 60%
-.br
-goomwwm -menuwidth 800
+.PP
+goomwwm -menuwidth 60% goomwwm -menuwidth 800
 .RE
 .TP
 .B -modkey
-Change the modifier key mask to any combination of: shift,control,mod1,mod2,mod3,mod4,mod5 (default: mod4).
-.P
+Change the modifier key mask to any combination of:
+shift,control,mod1,mod2,mod3,mod4,mod5 (default: mod4).
 .RS
+.PP
 goomwwm -modkey control,shift
 .RE
 .TP
 .B -placement
 Control the position of new windows (default: any).
-.P
 .RS
+.PP
 goomwwm -placement any
-.P
+.PP
 Valid settings are:
-.RS
-.P
+.TP
 .B any
-Windows that specify or remember their placement are honored. Everything else is centered on the current monitor.
-.br
+Windows that specify or remember their placement are honored.
+Everything else is centered on the current monitor.
+.RS
+.RE
+.TP
 .B center
 Windows are centered on the current monitor.
-.br
+.RS
+.RE
+.TP
 .B pointer
 Windows are centered under the mouse pointer.
+.RS
 .RE
-.P
-Sticky windows are special and always get placed wherever they specify. This allows tools like
-.B yakuake
-to work nicely.
 .RE
 .TP
 .B -quit
-Set an X11 key name to exit the window manager (default: XK_Pause). This key must be
-.B pressed twice
-to take effect!
-.P
+Set an X11 key name to exit the window manager (default: XK_Pause).
+This key must be \f[B]pressed twice\f[] to take effect!
 .RS
+.PP
 goomwwm -quit Pause
 .RE
 .TP
 .B -raisemode
 Control the window raise mode (default: focus).
-.P
 .RS
+.PP
 goomwwm -raisemode focus
-.P
+.PP
 Valid settings are:
-.RS
-.P
+.TP
 .B focus
-window is raised on focus (default for -focusmode click).
-.br
+Window is raised on focus (default for -focusmode click).
+.RS
+.RE
+.TP
 .B click
-window is raised on Mod4-AnyButton click (default for -focusmode sloppy[tag]).
+Window is raised on Mod4-AnyButton click (default for -focusmode
+sloppy[tag]).
+.RS
 .RE
 .RE
 .TP
 .B -right
-Set an X11 key name to move the active window to the right in a 3x3 grid (default: XK_Right).
-.P
+Set an X11 key name to move the active window to the right in a 3x3 grid
+(default: XK_Right).
 .RS
+.PP
 goomwwm -right Right
 .RE
 .TP
 .B -rule
-Define a window control rule (default: none). This argument can be specified multiple times to apply multiple rules. If a window matches multiple rules only the last rule specified is used.
-.P
+Define a window control rule (default: none).
+This argument can be specified multiple times to apply multiple rules.
+If a window matches multiple rules only the last rule specified is used.
 .RS
-goomwwm -rule "firefox tag9"
-.br
-goomwwm -rule "xfce4-notifyd ignore"
-.br
+.PP
+goomwwm -rule "firefox tag9" goomwwm -rule "xfce4-notifyd ignore"
 goomwwm -rule "xterm left,maximize_vert,medium"
-.RE
-.P
-.RS
+.PP
 Rules always have the format:
-.P
-.B pattern flag[...,flagN]
-.P
-.B pattern
-is a string matched against a window's WM_CLASS, application name, or title (in that order). All comparisons are case insensitive. When matching WM_CLASS or application name the pattern must match exactly. When matching a title the pattern need only appear somewhere in the text.
-.P
-Valid
-.B flags
-are:
-.P
+.IP
+.nf
+\f[C]
+pattern\ flag[...,flagN]
+\f[]
+.fi
+.PP
+The \f[B]pattern\f[] is string matched against a window\[aq]s WM_CLASS,
+application name, or title (in that order).
+All comparisons are case insensitive.
+When matching WM_CLASS or application name the pattern must match
+exactly.
+When matching a title the pattern need only appear somewhere in the
+text.
+.PP
+Valid \f[B]flags\f[] are:
 .TP
 .B ignore
-Do not manage a window. Effectively makes a window behave as it the override_redirect flag is set.
+Do not manage a window.
+Effectively makes a window behave as it the override_redirect flag is
+set.
+.RS
+.RE
 .TP
 .B block
 Do not immediately focus the window when it first maps.
+.RS
+.RE
 .TP
 .B tag1 tag2 tag3 tag4 tag5 tag6 tag7 tag8 tag9
-Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
+Apply tags to a window when it first opens.
+If the current tag is not in the list the window will not be raised or
+allowed to take focus.
+.RS
+.RE
 .TP
 .B above below fullscreen maximize_horz maximize_vert sticky
-Apply respective _NET_WM_STATE_* to a window.
+Apply respective \f[I]NET_WM_STATE\f[]* to a window.
+.RS
+.RE
 .TP
 .B left right top bottom
-Align a window with a screen edge. May be combined. Top trumps bottom. Left trumps right.
+Align a window with a screen edge.
+May be combined.
+Top trumps bottom.
+Left trumps right.
+.RS
+.RE
 .TP
 .B small medium large cover expand contract
-Set a window's initial size (same increments as PageUp/Down). May be combined.
+Set a window\[aq]s initial size (same increments as PageUp/Down).
+May be combined.
+.RS
+.RE
 .TP
 .B hlock vlock
 Lock window horizontally or vertically.
+.RS
+.RE
 .RE
 .TP
 .B -shrink
-Set an X11 key name to decrease the active window size (default: XK_Page_Down) through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
-.P
+Set an X11 key name to decrease the active window size (default:
+XK_Page_Down) through four basic sizes that tile well together: 1/9th,
+1/4th, 4/9th, or fullscreen.
 .RS
+.PP
 goomwwm -shrink Page_Down
 .RE
 .TP
 .B -switch
-Set an X11 key to start display window-switcher showing all open windows (default: XK_Tab).
-.P
+Set an X11 key to start display window-switcher showing all open windows
+(default: XK_Tab).
 .RS
+.PP
 goomwwm -switch Tab
 .RE
 .TP
 .B -switcher
 Command to run an alternate window-switcher (default: built-in menu).
-.P
 .RS
+.PP
 goomwwm -switcher dswitch
 .RE
 .TP
 .B -tag
-Set an X11 key to toggle the active window's membership of the current tag (default: XK_t).
-.P
+Set an X11 key to toggle the active window\[aq]s membership of the
+current tag (default: XK_t).
 .RS
+.PP
 goomwwm -tag t
 .RE
 .TP
 .B -tswitch
-Set an X11 key to start display window-switcher showing only windows in the current tag (default: XK_grave).
-.P
+Set an X11 key to start display window-switcher showing only windows in
+the current tag (default: XK_grave).
 .RS
+.PP
 goomwwm -tswitch grave
 .RE
 .TP
 .B -tagnext
 Set an X11 key to cycle tags forward (default: XK_m).
-.P
 .RS
+.PP
 goomwwm -tagnext m
 .RE
 .TP
 .B -tagprev
 Set an X11 key to cycle tags in reverse (default: XK_n).
-.P
 .RS
+.PP
 goomwwm -tagprev n
 .RE
 .TP
 .B -titlebg
-Set the background text color (X11 named color or hex #rrggbb) for window titles (default: #f2f1f0).
-.P
+Set the background text color (X11 named color or hex #rrggbb) for
+window titles (default: #f2f1f0).
 .RS
+.PP
 goomwwm -titlebg "#f2f1f0"
 .RE
 .TP
 .B -titlefg
-Set the foreground text color (X11 named color or hex #rrggbb) for window titles (default: #222222).
-.P
+Set the foreground text color (X11 named color or hex #rrggbb) for
+window titles (default: #222222).
 .RS
+.PP
 goomwwm -titlefg "#222222"
 .RE
 .TP
 .B -titlefont
 Xft font name for use by window titles (default: sans-14).
-.P
 .RS
+.PP
 goomwwm -titlefont sans-14:medium
 .RE
 .TP
 .B -up
-Set an X11 key name to move the active window upward in a 3x3 grid (default: XK_Up).
-.P
+Set an X11 key name to move the active window upward in a 3x3 grid
+(default: XK_Up).
 .RS
+.PP
 goomwwm -up Up
 .RE
 .TP
 .B -undo
-Set an X11 key to undo the last size/position change for the active window (default: XK_u). Undo is 10 levels deep.
-.P
+Set an X11 key to undo the last size/position change for the active
+window (default: XK_u).
+Undo is 10 levels deep.
 .RS
+.PP
 goomwwm -undo u
 .RE
 .TP
 .B -vlock
-Set an X11 key name to toggle vertical move/resize lock for the active window (default: XK_Insert).
-.P
+Set an X11 key name to toggle vertical move/resize lock for the active
+window (default: XK_Insert).
 .RS
+.PP
 goomwwm -vlock Insert
 .RE
 .TP
 .B -vmax
-Set an X11 key name to toggle _NET_WM_STATE_MAXIMIXED_VERT for the active window (default: XK_Home).
-.P
+Set an X11 key name to toggle _NET_WM_STATE_MAXIMIXED_VERT for the
+active window (default: XK_Home).
 .RS
+.PP
 goomwwm -vmax Home
 .RE
 .TP
 .B -vtile
-Set an X11 key to vertically tile the active window and other windows with the same tag, position, and size (default: XK_v). If no other window is found, a gap is created.
-.P
+Set an X11 key to vertically tile the active window and other windows
+with the same tag, position, and size (default: XK_v).
+If no other window is found, a gap is created.
 .RS
+.PP
 goomwwm -vtile h
 .RE
 .TP
 .B -warpmode
-Control whether the mouse pointer warps to a focused window (default: never). This setting can make focusmode
-.B sloppy
-more cooperative when focus is changed by means other than the mouse.
-.P
+Control whether the mouse pointer warps to a focused window (default:
+never).
+This setting can make focusmode \f[B]sloppy\f[] more cooperative when
+focus is changed by means other than the mouse.
 .RS
+.PP
 goomwwm -warpmode focus
-.P
+.PP
 Valid settings are:
-.RS
-.P
+.TP
 .B never
-pointer is never moved (default for -focusmode click).
-.br
+Pointer is never moved (default for -focusmode click).
+.RS
+.RE
+.TP
 .B focus
-pointer is warped to a newly focused window (default for -focusmode sloppy[tag]).
+Pointer is warped to a newly focused window (default for -focusmode
+sloppy[tag]).
+.RS
 .RE
 .RE
 .SH OPTIONS (cli mode)
-.P
-When run with
-.B -cli
-(command line interface) goomwwm may be used to dispatch commands to another running instance of goomwwm. Valid arguments are:
+.PP
+When run with \f[B]-cli\f[] (command line interface) goomwwm may be used
+to dispatch commands to another running instance of goomwwm.
+Valid arguments are:
 .TP
 .B -restart
-Restart a running goomwwm instance in place (without restarting X). Useful for reloading .goomwwmrc or upgrading to a new version.
-.P
+Restart a running goomwwm instance in place (without restarting X).
+Useful for reloading .goomwwmrc or upgrading to a new version.
 .RS
+.PP
 goomwwm -cli -restart
 .RE
 .TP
 .B -exec
 Switch to another window manager in place (without restarting X).
-.P
 .RS
+.PP
 goomwwm -cli -exec dwm
 .RE
 .TP
 .B -quit
 Exit goomwwm.
-.P
 .RS
+.PP
 goomwwm -cli -quit
 .RE
 .SH SEE ALSO
-.BR dmenu (1)
+.PP
+\f[B]dmenu\f[] (1)
 .SH AUTHOR
+.PP
 Sean Pringle <sean.pringle@gmail.com>
