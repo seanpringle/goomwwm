@@ -280,6 +280,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_TAGPREV, XK_n, -tagprev),\
 	X(KEY_DUPLICATE, XK_d, -duplicate),\
 	X(KEY_INFO, XK_w, -info),\
+	X(KEY_QUIT, XK_Pause, -quit),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
 enum { KEYLIST(KEY_ENUM) };
@@ -294,6 +295,7 @@ Display *display;
 int mouse_dragging = 0;
 XButtonEvent mouse_button;
 XWindowAttributes mouse_attr;
+int quit_pressed_once = 0;
 
 // tracking windows
 winlist *windows, *windows_activated;

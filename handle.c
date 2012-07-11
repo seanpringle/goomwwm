@@ -30,7 +30,9 @@ void handle_keypress(XEvent *ev)
 	event_log("KeyPress", ev->xany.window);
 	KeySym key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
 
-	int i; client *c = NULL;
+	int i, quit = quit_pressed_once;
+	quit_pressed_once = 0;
+	client *c = NULL;
 
 	if (key == keymap[KEY_SWITCH])
 	{
@@ -38,6 +40,14 @@ void handle_keypress(XEvent *ev)
 		else client_switcher(ev->xany.window, 0);
 	}
 	else if (key == keymap[KEY_LAUNCH]) exec_cmd(config_launcher);
+
+	else
+	// exec goomwwm. press twice
+	if (key == keymap[KEY_QUIT])
+	{
+		if (quit) exit(EXIT_SUCCESS);
+		quit_pressed_once = 1;
+	}
 
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
