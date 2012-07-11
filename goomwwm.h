@@ -193,6 +193,7 @@ typedef struct {
 #define FLASHMSTITLE 2000
 #define FLASHTITLE 1
 #define FLASHTITLEDEF 0
+#define SAYMS 2000
 #define MODKEY Mod4Mask
 #define MENUXFTFONT "mono-14"
 #define MENUWIDTH 50

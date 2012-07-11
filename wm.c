@@ -37,6 +37,50 @@ int oops(Display *d, XErrorEvent *ee)
 	return xerror(display, ee);
 }
 
+// say something informative
+void say(Screen *screen, char *txt)
+{
+	workarea mon; monitor_active(screen, &mon);
+	int scr = XScreenNumberOfScreen(screen);
+	Window root = RootWindow(display, scr);
+
+	if (fork()) return;
+
+	display = XOpenDisplay(0x0);
+
+	GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
+
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_title_fg, &fg);
+	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_title_bg, &bg);
+
+	font = XftFontOpenName(display, scr, config_title_font);
+	XftTextExtentsUtf8(display, font, (unsigned char*)txt, strlen(txt), &extents);
+
+	int line_height = font->ascent + font->descent, line_width = extents.width;
+	int bar_width = MIN(line_width+20, (mon.w/10)*9), bar_height = line_height+10;
+
+	Window bar = XCreateSimpleWindow(display, root, mon.x + mon.w - bar_width - 10, mon.y + mon.h - bar_height - 10,
+		bar_width, bar_height, 1, config_flash_on, None);
+
+	gc   = XCreateGC(display, bar, 0, 0);
+	draw = XftDrawCreate(display, bar, DefaultVisual(display, scr), DefaultColormap(display, scr));
+
+	XSetWindowAttributes attr; attr.override_redirect = True;
+	XChangeWindowAttributes(display, bar, CWOverrideRedirect, &attr);
+	XMapRaised(display, bar);
+	XftDrawRect(draw, &bg, 0, 0, mon.w, line_height+10);
+	XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)txt, strlen(txt));
+
+	XSync(display, False); usleep(SAYMS*1000);
+	XDestroyWindow(display, bar);
+
+	XftDrawDestroy(draw);
+	XFreeGC(display, gc);
+	XftFontClose(display, font);
+
+	exit(EXIT_SUCCESS);
+}
+
 // an X screen. may have multiple monitors, xinerama, etc
 void setup_screen(int scr)
 {
@@ -307,6 +351,9 @@ int wm_main(int argc, char *argv[])
 		}
 		exit(EXIT_SUCCESS);
 	}
+
+	// be polite
+	say(DefaultScreenOfDisplay(display), "Get out of my way, Window Manager!");
 
 	// main event loop
 	for(;;)

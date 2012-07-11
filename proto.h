@@ -141,5 +141,6 @@ int winlist_find(winlist *l, Window w);
 int winlist_forget(winlist *l, Window w);
 void winlist_reverse(winlist *l);
 int oops(Display *d, XErrorEvent *ee);
+void say(Screen *screen, char *txt);
 void setup_screen(int scr);
 int wm_main(int argc, char *argv[]);
