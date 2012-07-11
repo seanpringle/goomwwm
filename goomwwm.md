@@ -441,6 +441,21 @@ All options below that set a custom key implicitly combine it with the modifier 
 	pointer
 	:	Windows are centered under the mouse pointer.
 
+-prefix
+:	Set an X11 key name to act as a modal key combination that replaces the default modifier key for all other combinations (default: none). This is similar to the way key combinations work in **ratpoison** and GNU **screen**.
+
+	goomwwm -prefix z
+
+	Above, **Mod4-z** would now need to preceed all other keys. For example, cycling windows would become preass and relases **Mod4-z** then press **c**.
+
+	Of course, **-prefix** can also be combined with **-modkey**:
+
+	goomwwm -modkey control -prefix z
+
+	Cycling windows would then become **Control-z** then **c**.
+
+	Finally, if you press the prefix key combination by mistake, press the prefix key again to cancel.
+
 -quit
 :	Set an X11 key name to exit the window manager (default: XK_Pause). This key must be **pressed twice** to take effect!
 
