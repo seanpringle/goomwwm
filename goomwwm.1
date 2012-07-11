@@ -729,6 +729,29 @@ Windows are centered under the mouse pointer.
 .RE
 .RE
 .TP
+.B -prefix
+Set an X11 key name to act as a modal key combination that replaces the
+default modifier key for all other combinations (default: none).
+This is similar to the way key combinations work in \f[B]ratpoison\f[]
+and GNU \f[B]screen\f[].
+.RS
+.PP
+goomwwm -prefix z
+.PP
+Above, \f[B]Mod4-z\f[] would now need to preceed all other keys.
+For example, cycling windows would become preass and relases
+\f[B]Mod4-z\f[] then press \f[B]c\f[].
+.PP
+Of course, \f[B]-prefix\f[] can also be combined with \f[B]-modkey\f[]:
+.PP
+goomwwm -modkey control -prefix z
+.PP
+Cycling windows would then become \f[B]Control-z\f[] then \f[B]c\f[].
+.PP
+Finally, if you press the prefix key combination by mistake, press it
+again to cancel.
+.RE
+.TP
 .B -quit
 Set an X11 key name to exit the window manager (default: XK_Pause).
 This key must be \f[B]pressed twice\f[] to take effect!

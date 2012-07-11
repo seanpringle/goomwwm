@@ -61,10 +61,18 @@ void grab_keys_and_buttons()
 	for (scr = 0; scr < ScreenCount(display); scr++)
 	{
 		Window root = RootWindow(display, scr);
+
 		XUngrabKey(display, AnyKey, AnyModifier, root);
-		for (i = 0; keymap[i]; i++) if (keymap[i] != XK_VoidSymbol) grab_key(root, keymap[i]);
-		for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
-		for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
+		// only grab keys if prefix mode is disabled (default)
+		if (!config_prefix_mode)
+		{
+			for (i = 0; keymap[i]; i++) if (keymap[i] != XK_VoidSymbol) grab_key(root, keymap[i]);
+			for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
+			for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
+		}
+		// prefix mode key switches to XGrabKeyboard
+		else grab_key(root, keymap[KEY_PREFIX]);
+
 		// grab mouse buttons for click-to-focus. these get passed through to the windows
 		// not binding on button4 which is usually wheel scroll
 		XUngrabButton(display, AnyButton, AnyModifier, root);

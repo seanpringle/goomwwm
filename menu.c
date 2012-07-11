@@ -109,19 +109,6 @@ void menu_key(struct localmenu *my, XEvent *ev)
 	menu_draw(my);
 }
 
-// take over keyboard for popup menu
-int menu_grab(struct localmenu *my)
-{
-	int i;
-	for (i = 0; i < 1000; i++)
-	{
-		if (XGrabKeyboard(display, my->window, True, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
-			return 1;
-		usleep(1000);
-	}
-	return 0;
-}
-
 // menu
 int menu(Window root, char **lines, char *manual)
 {
@@ -181,7 +168,7 @@ int menu(Window root, char **lines, char *manual)
 
 	menu_draw(my);
 	XMapRaised(display, my->window);
-	if (!menu_grab(my))
+	if (!take_keyboard(my->window))
 	{
 		fprintf(stderr, "cannot grab keyboard!\n");
 		return my->max_lines;
@@ -205,7 +192,7 @@ int menu(Window root, char **lines, char *manual)
 	XftDrawDestroy(my->draw);
 	XFreeGC(display, my->gc);
 	XftFontClose(display, my->font);
-	XUngrabKeyboard(display, CurrentTime);
+	release_keyboard();
 	free(my->input);
 
 	if (my->selected)

@@ -30,16 +30,37 @@ void handle_keypress(XEvent *ev)
 	event_log("KeyPress", ev->xany.window);
 	KeySym key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
 
-	int i, quit = quit_pressed_once;
+	int i, quit = quit_pressed_once, prefix = prefix_mode_active;
+
+	// reset quit key if a non-quit keypress arrives
 	quit_pressed_once = 0;
+
+	// deactivate prefix mode if necessary. only one operation at a time
+	if (prefix_mode_active)
+	{
+		release_keyboard();
+		release_pointer();
+		prefix_mode_active = 0;
+	}
+
 	client *c = NULL;
 
+	// by checking !prefix, we allow a second press to cancel prefix mode
+	if (key == keymap[KEY_PREFIX] && !prefix)
+	{
+		// activate prefix mode
+		take_keyboard(ev->xany.window);
+		take_pointer(ev->xany.window, 0, prefix_cursor);
+		prefix_mode_active = 1;
+	}
+	else
 	if (key == keymap[KEY_SWITCH])
 	{
 		if (config_switcher) exec_cmd(config_switcher);
 		else client_switcher(ev->xany.window, 0);
 	}
-	else if (key == keymap[KEY_LAUNCH]) exec_cmd(config_launcher);
+	else
+	if (key == keymap[KEY_LAUNCH]) exec_cmd(config_launcher);
 
 	else
 	// exec goomwwm. press twice
@@ -234,7 +255,7 @@ void handle_buttonpress(XEvent *ev)
 	// all mouse button events except the wheel come here, so we can click-to-focus
 	// turn off caps and num locks bits. dont care about their states
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
-	int is_mod = state & config_modkey && !(state & config_ignore_modkeys);
+	int is_mod = prefix_mode_active || (state & config_modkey && !(state & config_ignore_modkeys));
 
 	if (ev->xbutton.subwindow != None && (c = client_create(ev->xbutton.subwindow)) && c && c->manage
 		&& !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
@@ -248,8 +269,8 @@ void handle_buttonpress(XEvent *ev)
 		// moving or resizing
 		if (is_mod)
 		{
-			XGrabPointer(display, c->window, True, PointerMotionMask|ButtonReleaseMask,
-				GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
+			if (prefix_mode_active) release_pointer();
+			take_pointer(c->window, PointerMotionMask|ButtonReleaseMask, None);
 			memcpy(&mouse_attr, &c->xattr, sizeof(c->xattr));
 			memcpy(&mouse_button, &ev->xbutton, sizeof(ev->xbutton));
 			mouse_dragging = 1;
@@ -274,7 +295,7 @@ void handle_buttonrelease(XEvent *ev)
 {
 	event_log("ButtonRelease", ev->xbutton.window);
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
-	int is_mod = state & config_modkey && !(state & config_ignore_modkeys);
+	int is_mod = prefix_mode_active || (state & config_modkey && !(state & config_ignore_modkeys));
 
 	if (ev->xbutton.window != None && (c = client_create(ev->xbutton.window)) && c && c->manage)
 	{
@@ -285,8 +306,15 @@ void handle_buttonrelease(XEvent *ev)
 		if (!xd && !yd && is_mod && ev->xbutton.button == Button3)
 			client_lower(c, 0);
 	}
-	XUngrabPointer(display, CurrentTime);
+	release_pointer();
 	mouse_dragging = 0;
+
+	// deactivate prefix mode if necessary
+	if (prefix_mode_active)
+	{
+		release_keyboard();
+		prefix_mode_active = 0;
+	}
 }
 
 // only get these if a window move/resize has been started in buttonpress

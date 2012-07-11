@@ -194,6 +194,10 @@ int wm_main(int argc, char *argv[])
 		keymap[i] = sym;
 	}
 
+	// check for prefix key mode
+	config_prefix_mode = keymap[KEY_PREFIX] == XK_VoidSymbol ? NOPREFIX: PREFIX;
+	prefix_cursor = XCreateFontCursor(display, XC_icon);
+
 	// border colors
 	config_border_focus     = color_get(display, find_arg_str(ac, av, "-focus", FOCUS));
 	config_border_blur      = color_get(display, find_arg_str(ac, av, "-blur",  BLUR));
@@ -258,8 +262,11 @@ int wm_main(int argc, char *argv[])
 
 	// menu select mode
 	config_menu_select = MENURETURN;
-	mode = find_arg_str(ac, av, "-menuselect", "return");
-	if (!strcasecmp(mode, "modkeyup")) config_menu_select = MENUMODUP;
+	if (!config_prefix_mode)
+	{
+		mode = find_arg_str(ac, av, "-menuselect", "return");
+		if (!strcasecmp(mode, "modkeyup")) config_menu_select = MENUMODUP;
+	}
 
 	// flash title mode
 	config_flash_title = 0;

@@ -175,6 +175,37 @@ int modkey_is_down()
 	return 0;
 }
 
+int take_keyboard(Window w)
+{
+	int i;
+	for (i = 0; i < 1000; i++)
+	{
+		if (XGrabKeyboard(display, w, True, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
+			return 1;
+		usleep(1000);
+	}
+	return 0;
+}
+int take_pointer(Window w, unsigned long mask, Cursor cur)
+{
+	int i;
+	for (i = 0; i < 1000; i++)
+	{
+		if (XGrabPointer(display, w, True, mask, GrabModeAsync, GrabModeAsync, None, cur, CurrentTime) == GrabSuccess)
+			return 1;
+		usleep(1000);
+	}
+	return 0;
+}
+void release_keyboard()
+{
+	XUngrabKeyboard(display, CurrentTime);
+}
+void release_pointer()
+{
+	XUngrabPointer(display, CurrentTime);
+}
+
 #ifdef DEBUG
 void event_log(const char *e, Window w)
 {

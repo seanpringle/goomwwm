@@ -31,6 +31,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <X11/Xutil.h>
 #include <X11/Xproto.h>
 #include <X11/keysym.h>
+#include <X11/cursorfont.h>
 #include <X11/XKBlib.h>
 #include <X11/Xft/Xft.h>
 #include <stdio.h>
@@ -225,8 +226,10 @@ typedef struct {
 #define NOFLASH 0
 #define MENURETURN 1
 #define MENUMODUP 2
+#define PREFIX 1
+#define NOPREFIX 0
 
-unsigned int config_modkey, config_ignore_modkeys,
+unsigned int config_modkey, config_ignore_modkeys, config_prefix_mode,
 	config_border_focus, config_border_blur, config_border_attention,
 	config_flash_on, config_flash_off, config_warp_mode, config_flash_title,
 	config_border_width, config_flash_width, config_flash_ms, config_map_mode, config_menu_select,
@@ -281,6 +284,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_DUPLICATE, XK_d, -duplicate),\
 	X(KEY_INFO, XK_w, -info),\
 	X(KEY_QUIT, XK_Pause, -quit),\
+	X(KEY_PREFIX, XK_VoidSymbol, -prefix),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
 enum { KEYLIST(KEY_ENUM) };
@@ -296,6 +300,8 @@ int mouse_dragging = 0;
 XButtonEvent mouse_button;
 XWindowAttributes mouse_attr;
 int quit_pressed_once = 0;
+int prefix_mode_active = 0;
+Cursor prefix_cursor;
 
 // tracking windows
 winlist *windows, *windows_activated;
