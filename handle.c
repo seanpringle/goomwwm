@@ -50,7 +50,7 @@ void handle_keypress(XEvent *ev)
 	{
 		// activate prefix mode
 		take_keyboard(ev->xany.window);
-		take_pointer(ev->xany.window, 0, prefix_cursor);
+		take_pointer(ev->xany.window, ButtonPressMask, prefix_cursor);
 		prefix_mode_active = 1;
 	}
 	else
