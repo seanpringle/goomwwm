@@ -45,6 +45,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <signal.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <regex.h>
 #include <X11/extensions/Xinerama.h>
 
 // window lists
@@ -155,6 +156,7 @@ typedef struct {
 
 typedef struct _rule {
 	char pattern[RULEPATTERN];
+	regex_t re;
 	unsigned long long flags;
 	struct _rule *next;
 } winrule;

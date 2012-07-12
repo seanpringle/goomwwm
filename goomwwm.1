@@ -798,9 +798,14 @@ Define a window control rule (default: none).
 This argument can be specified multiple times to apply multiple rules.
 If a window matches multiple rules only the last rule specified is used.
 .RS
-.PP
-goomwwm -rule "firefox tag9" goomwwm -rule "xfce4-notifyd ignore"
-goomwwm -rule "xterm left,maximize_vert,medium"
+.IP
+.nf
+\f[C]
+goomwwm\ -rule\ "firefox\ tag9"
+goomwwm\ -rule\ "xfce4-notifyd\ ignore"
+goomwwm\ -rule\ "xterm\ left,maximize_vert,medium"
+\f[]
+.fi
 .PP
 Rules always have the format:
 .IP
@@ -810,13 +815,20 @@ pattern\ flag[...,flagN]
 \f[]
 .fi
 .PP
-The \f[B]pattern\f[] is string matched against a window\[aq]s WM_CLASS,
-application name, or title (in that order).
-All comparisons are case insensitive.
-When matching WM_CLASS or application name the pattern must match
-exactly.
-When matching a title the pattern need only appear somewhere in the
-text.
+The \f[B]pattern\f[] is a case-insensitive POSIX regular expression
+matched against a window\[aq]s WM_CLASS, application name, or title
+fields (in that order).
+Alternatively, the pattern can be limited to one field by using
+\f[B]class:\f[], \f[B]name:\f[], or \f[B]title:\f[] pattern prefixes
+(this is also faster):
+.IP
+.nf
+\f[C]
+goomwwm\ -rule\ "class:firefox\ tag9"
+goomwwm\ -rule\ "name:xfce4-notifyd\ ignore"
+goomwwm\ -rule\ "title:xterm\ left,maximize_vert,medium"
+\f[]
+.fi
 .PP
 Valid \f[B]flags\f[] are:
 .TP
@@ -870,6 +882,8 @@ May be combined.
 Lock window horizontally or vertically.
 .RS
 .RE
+.PP
+Rules are not currently applied to transient windows (dialogs).
 .RE
 .TP
 .B -shrink

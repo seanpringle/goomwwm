@@ -134,14 +134,18 @@ void client_extended_data(client *c)
 // true if a client window matches a rule pattern
 int client_rule_match(client *c, winrule *r)
 {
+	if (c->trans) return 0;
 	client_descriptive_data(c);
 	if (strchr(r->pattern, ':') && strchr("cnt", r->pattern[0]))
 	{
-		     if (!strncasecmp(r->pattern, "class:", 6)) return strcasecmp(r->pattern+6, c->class) ?0:1;
-		else if (!strncasecmp(r->pattern, "name:",  5)) return strcasecmp(r->pattern+5, c->name)  ?0:1;
-		else if (!strncasecmp(r->pattern, "title:", 6)) return strcasestr(c->title, r->pattern+6) ?1:0;
+		if (r->pattern[0] == 'c') return regexec(&r->re, c->class, 0, NULL, 0) ?0:1;
+		if (r->pattern[0] == 'n') return regexec(&r->re, c->name,  0, NULL, 0) ?0:1;
+		if (r->pattern[0] == 't') return regexec(&r->re, c->title, 0, NULL, 0) ?0:1;
 	}
-	return !strcasecmp(c->name, r->pattern) || !strcasecmp(c->class, r->pattern) || strcasestr(c->title, r->pattern) ? 1:0;
+	return (
+		regexec(&r->re, c->class, 0, NULL, 0) == 0 ||
+		regexec(&r->re, c->name,  0, NULL, 0) == 0 ||
+		regexec(&r->re, c->title, 0, NULL, 0) == 0) ?1:0;
 }
 
 // find a client's rule, optionally filtered by flags

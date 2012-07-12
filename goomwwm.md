@@ -484,15 +484,19 @@ All options below that set a custom key implicitly combine it with the modifier 
 -rule
 :	Define a window control rule (default: none). This argument can be specified multiple times to apply multiple rules. If a window matches multiple rules only the last rule specified is used.
 
-	goomwwm -rule "firefox tag9"
-	goomwwm -rule "xfce4-notifyd ignore"
-	goomwwm -rule "xterm left,maximize_vert,medium"
+		goomwwm -rule "firefox tag9"
+		goomwwm -rule "xfce4-notifyd ignore"
+		goomwwm -rule "xterm left,maximize_vert,medium"
 
 	Rules always have the format:
 
 		pattern flag[...,flagN]
 
-	The **pattern** is string matched against a window's WM_CLASS, application name, or title (in that order). All comparisons are case insensitive. When matching WM_CLASS or application name the pattern must match exactly. When matching a title the pattern need only appear somewhere in the text.
+	The **pattern** is a case-insensitive POSIX regular expression matched against a window's WM_CLASS, application name, or title fields (in that order). Alternatively, the pattern can be limited to one field by using **class:**, **name:**, or **title:** pattern prefixes (this is also faster):
+
+		goomwwm -rule "class:firefox tag9"
+		goomwwm -rule "name:xfce4-notifyd ignore"
+		goomwwm -rule "title:xterm left,maximize_vert,medium"
 
 	Valid **flags** are:
 
@@ -519,6 +523,8 @@ All options below that set a custom key implicitly combine it with the modifier 
 
 	hlock vlock
 	:	Lock window horizontally or vertically.
+
+	Rules are not currently applied to transient windows (dialogs).
 
 -shrink
 :	Set an X11 key name to decrease the active window size (default: XK_Page_Down) through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
