@@ -121,7 +121,7 @@ void monitor_active(Screen *screen, workarea *mon)
 {
 	Window root = RootWindow(display, XScreenNumberOfScreen(screen));
 	client *c = client_active(root, 0);
-	if (c && c->focus)
+	if (c)
 	{
 		client_extended_data(c);
 		memmove(mon, &c->monitor, sizeof(workarea));
