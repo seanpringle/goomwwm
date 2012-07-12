@@ -141,6 +141,7 @@ int client_rule_match(client *c, winrule *r)
 		if (r->pattern[0] == 'c') return regexec(&r->re, c->class, 0, NULL, 0) ?0:1;
 		if (r->pattern[0] == 'n') return regexec(&r->re, c->name,  0, NULL, 0) ?0:1;
 		if (r->pattern[0] == 't') return regexec(&r->re, c->title, 0, NULL, 0) ?0:1;
+		return 0;
 	}
 	return (
 		regexec(&r->re, c->class, 0, NULL, 0) == 0 ||

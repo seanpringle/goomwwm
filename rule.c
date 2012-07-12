@@ -91,7 +91,6 @@ void rule_parse(char *rulestr)
 	regex_t re; regcomp(&re, "^(class|name|title):", REG_EXTENDED|REG_ICASE|REG_NOSUB);
 	if (regexec(&re, pat, 0, NULL, 0) == 0) pat = strchr(pat, ':')+1;
 	regfree(&re);
-	printf("rule: %s\n", pat);
 
 	if (regcomp(&new->re, pat, REG_EXTENDED|REG_ICASE|REG_NOSUB) == 0)
 	{
