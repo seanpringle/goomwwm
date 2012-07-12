@@ -1484,6 +1484,7 @@ client* client_find(Window root, char *pattern)
 	// use a tempoarary rule for searching
 	winrule rule; memset(&rule, 0, sizeof(winrule));
 	snprintf(rule.pattern, RULEPATTERN, "%s", pattern);
+	regcomp(&rule.re, rule.pattern, REG_EXTENDED|REG_ICASE|REG_NOSUB);
 
 	// first, try in current_tag only
 	tag_descend(root, i, w, c, current_tag)
@@ -1491,6 +1492,8 @@ client* client_find(Window root, char *pattern)
 	// failing that, search regardless of tag
 	if (!found) managed_descend(root, i, w, c)
 		if (client_rule_match(c, &rule)) { found = c; break; }
+
+	regfree(&rule.re);
 	return found;
 }
 
