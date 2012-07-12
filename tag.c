@@ -49,13 +49,11 @@ void tag_set_current(unsigned int tag)
 void tag_raise(unsigned int tag)
 {
 	int i; Window w; client *c;
-	char msg[32]; sprintf(msg, "Tag %d", tag_to_desktop(tag)+1);
 	winlist *stack;
 
 	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
 	{
 		Window root = RootWindow(display, scr);
-		XWindowAttributes *attr = window_get_attributes(root);
 		winlist *inplay = windows_in_play(root);
 		stack = winlist_new();
 
@@ -87,7 +85,6 @@ void tag_raise(unsigned int tag)
 			if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
 		}
 		winlist_free(stack);
-		say(attr->screen, msg);
 	}
 	// runs on all screens/roots
 	tag_set_current(tag);
@@ -95,6 +92,10 @@ void tag_raise(unsigned int tag)
 	// focus the last-focused client in the tag
 	clients_descend(windows_activated, i, w, c) if (c->cache->tags & tag)
 		{ client_activate(c, RAISE, WARPDEF); break; }
+
+	// in case no windows are in the tag, show some activity
+	char msg[32]; sprintf(msg, "Tag %d", tag_to_desktop(tag)+1);
+	say(DefaultScreenOfDisplay(display), msg);
 }
 
 // check active client. if

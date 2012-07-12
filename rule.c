@@ -88,9 +88,7 @@ void rule_parse(char *rulestr)
 	}
 	// prepare pattern regexes
 	char *pat = new->pattern;
-	regex_t re; regcomp(&re, "^(class|name|title):", REG_EXTENDED|REG_ICASE|REG_NOSUB);
-	if (regexec(&re, pat, 0, NULL, 0) == 0) pat = strchr(pat, ':')+1;
-	regfree(&re);
+	if (regquick("^(class|name|title):", pat)) pat = strchr(pat, ':')+1;
 
 	if (regcomp(&new->re, pat, REG_EXTENDED|REG_ICASE|REG_NOSUB) == 0)
 	{
@@ -98,7 +96,7 @@ void rule_parse(char *rulestr)
 		config_rules = new;
 	} else
 	{
-		fprintf(stderr, "failed to compiled regex: %s\n", pat);
+		fprintf(stderr, "failed to compile regex: %s\n", pat);
 		free(new);
 	}
 	free(str);
