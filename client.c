@@ -606,24 +606,26 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	clients_descend(visible, i, win, o)
 	{
 		client_extended_data(o);
+		if ((mw || mh) && !INTERSECT(o->x, o->y, o->sw, o->sh, mx, my, mw, mh)) continue;
+
 		event_note("visible: %s %s", o->class, o->title);
-		regions[n].x = o->sx; regions[n].y = o->sy;
+		regions[n].x = o->x; regions[n].y = o->y;
 		regions[n].w = o->sw; regions[n].h = o->sh;
 		n++;
 	}
 
-	int x = c->sx, y = c->sy, w = c->sw, h = c->sh;
+	int x = c->x, y = c->y, w = c->sw, h = c->sh;
 	if (w1 || h1) { x = x1; y = y1; w = w1; h = h1; }
 
 	if (directions & VERTICAL)
 	{
 		// try to grow upward. locate the lower edge of the nearest fully visible window
-		for (n = 0, i = 0; i < relevant; i++)
+		for (n = c->monitor.y, i = 0; i < relevant; i++)
 			if (regions[i].y + regions[i].h <= y && OVERLAP(x, w, regions[i].x, regions[i].w))
 				n = MAX(n, regions[i].y + regions[i].h);
 		h += y-n; y = n;
 		// try to grow downward. locate the upper edge of the nearest fully visible window
-		for (n = c->monitor.h, i = 0; i < relevant; i++)
+		for (n = c->monitor.y + c->monitor.h, i = 0; i < relevant; i++)
 			if (regions[i].y >= y+h && OVERLAP(x, w, regions[i].x, regions[i].w))
 				n = MIN(n, regions[i].y);
 		h = n-y;
@@ -631,12 +633,12 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	if (directions & HORIZONTAL)
 	{
 		// try to grow left. locate the right edge of the nearest fully visible window
-		for (n = 0, i = 0; i < relevant; i++)
+		for (n = c->monitor.x, i = 0; i < relevant; i++)
 			if (regions[i].x + regions[i].w <= x && OVERLAP(y, h, regions[i].y, regions[i].h))
 				n = MAX(n, regions[i].x + regions[i].w);
 		w += x-n; x = n;
 		// try to grow right. locate the left edge of the nearest fully visible window
-		for (n = c->monitor.w, i = 0; i < relevant; i++)
+		for (n = c->monitor.x + c->monitor.w, i = 0; i < relevant; i++)
 			if (regions[i].x >= x+w && OVERLAP(y, h, regions[i].y, regions[i].h))
 				n = MIN(n, regions[i].x);
 		w = n-x;
@@ -651,7 +653,7 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	}
 	// if there is nowhere to grow and we have a saved position, flip back to it.
 	// allows the expand key to be used as a toggle!
-	if (x == c->sx && y == c->sy && w == c->sw && h == c->sh && c->cache->have_old)
+	if (x == c->x && y == c->y && w == c->sw && h == c->sh && c->cache->have_old)
 	{
 		if (directions & VERTICAL && directions & HORIZONTAL)
 			client_restore_position(c, 0, c->x, c->y, c->cache->sw, c->cache->sh);
@@ -673,7 +675,7 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 		if (directions & HORIZONTAL)
 			client_save_position_horz(c);
 		client_commit(c);
-		client_moveresize(c, 0, c->monitor.x+x, c->monitor.y+y, w, h);
+		client_moveresize(c, 0, x, y, w, h);
 	}
 	free(regions);
 	winlist_free(visible);
@@ -685,13 +687,13 @@ void client_contract(client *c, int directions)
 	client_extended_data(c);
 	// cheat and shrink the window absurdly so it becomes just another expansion
 	if (directions & VERTICAL && directions & HORIZONTAL)
-		client_expand(c, directions, c->sx+(c->sw/2), c->sy+(c->sh/2), 5, 5, c->sx, c->sy, c->sw, c->sh);
+		client_expand(c, directions, c->x+(c->sw/2), c->y+(c->sh/2), 5, 5, c->x, c->y, c->sw, c->sh);
 	else
 	if (directions & VERTICAL)
-		client_expand(c, directions, c->sx, c->sy+(c->sh/2), c->sw, 5, c->sx, c->sy, c->sw, c->sh);
+		client_expand(c, directions, c->x, c->y+(c->sh/2), c->sw, 5, c->x, c->y, c->sw, c->sh);
 	else
 	if (directions & HORIZONTAL)
-		client_expand(c, directions, c->sx+(c->sw/2), c->sy, 5, c->sh, c->sx, c->sy, c->sw, c->sh);
+		client_expand(c, directions, c->x+(c->sw/2), c->y, 5, c->sh, c->x, c->y, c->sw, c->sh);
 }
 
 // visually highlight a client to attract attention

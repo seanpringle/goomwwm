@@ -568,12 +568,6 @@ void handle_maprequest(XEvent *ev)
 			if (client_rule(c, RULE_MAXHORZ)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 			if (client_rule(c, RULE_MAXVERT)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		}
-		else
-		if (client_rule(c, RULE_HLOCK|RULE_VLOCK))
-		{
-			if (client_rule(c, RULE_HLOCK)) c->cache->hlock = 1;
-			if (client_rule(c, RULE_VLOCK)) c->cache->vlock = 1;
-		}
 
 		workarea active; memset(&active, 0, sizeof(workarea));
 
@@ -629,7 +623,15 @@ void handle_maprequest(XEvent *ev)
 			client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->w) / 2)),
 				MAX(m->y, m->y + ((m->h - c->h) / 2)), c->w, c->h);
 		}
-		// apply and rule tags
+
+		// h/v lock must occur after the first client_moveresize
+		if (client_rule(c, RULE_HLOCK|RULE_VLOCK))
+		{
+			if (!client_rule(c, RULE_MAXHORZ) && client_rule(c, RULE_HLOCK)) c->cache->hlock = 1;
+			if (!client_rule(c, RULE_MAXVERT) && client_rule(c, RULE_VLOCK)) c->cache->vlock = 1;
+		}
+
+		// apply tags
 		if (client_rule(c, (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9)))
 			c->cache->tags = c->rule->flags & (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9);
 
