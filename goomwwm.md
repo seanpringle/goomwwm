@@ -536,6 +536,9 @@ All options below that set a custom key implicitly combine it with the modifier 
 	hlock vlock
 	:	Lock window horizontally or vertically.
 
+	snap_left snap_right snap_up snap_down
+	:	Immediately snap a window to another's edge.
+
 	Rules are not currently applied to transient windows (dialogs).
 
 -shrink
