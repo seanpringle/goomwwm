@@ -539,6 +539,10 @@ All options below that set a custom key implicitly combine it with the modifier 
 	snap_left snap_right snap_up snap_down
 	:	Immediately snap a window to another's edge.
 
+	NxN N%xN%
+	:	Apply a specific size in pixels or percent of monitor size.
+
+
 	Rules are not currently applied to transient windows (dialogs).
 
 -shrink

@@ -159,6 +159,7 @@ typedef struct {
 #define RULE_SNAPRIGHT 1LL<<35
 #define RULE_SNAPUP 1LL<<36
 #define RULE_SNAPDOWN 1LL<<37
+#define RULE_SIZE 1LL<<38
 
 #define RULEPATTERN CLIENTCLASS
 
@@ -166,6 +167,7 @@ typedef struct _rule {
 	char pattern[RULEPATTERN];
 	regex_t re;
 	unsigned long long flags;
+	int w, h, w_is_pct, h_is_pct;
 	struct _rule *next;
 } winrule;
 

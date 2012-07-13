@@ -83,9 +83,26 @@ void rule_parse(char *rulestr)
 		while (*right && !strchr(" ,\t", *right)) right++;
 		if (right > left)
 		{
-			int i; for (i = 0; i < sizeof(rulemap)/sizeof(winrulemap); i++)
-				if (!strncasecmp(left, rulemap[i].name, right-left))
-					{ new->flags |= rulemap[i].flag; break; }
+			char flag[32]; memset(flag, 0, sizeof(flag));
+			strncpy(flag, left, MIN(sizeof(flag)-1, right-left));
+			// check for geometry
+			if (regquick("^[0-9]*[%]*x[0-9]*[%]*$", flag))
+			{
+				new->flags |= RULE_SIZE;
+				char *p = flag;
+				new->w = strtol(p, &p, 10);
+				new->w_is_pct = (*p == '%') ? 1:0;
+				if (new->w_is_pct) p++;
+				if (*p == 'x') p++;
+				new->h = strtol(p, &p, 10);
+				new->h_is_pct = (*p == '%') ? 1:0;
+			} else
+			// check known flags
+			{
+				int i; for (i = 0; i < sizeof(rulemap)/sizeof(winrulemap); i++)
+					if (!strcasecmp(flag, rulemap[i].name))
+						{ new->flags |= rulemap[i].flag; break; }
+			}
 		}
 		// skip delimiters
 		while (*right && strchr(" ,\t", *right)) right++;

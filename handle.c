@@ -543,9 +543,6 @@ void handle_maprequest(XEvent *ev)
 		// resulting in a little jump on screen. ensure border is done first
 		client_review_border(c);
 		client_deactivate(c);
-		// adjust for borders on remembered co-ords
-		if (c->type == netatoms[_NET_WM_WINDOW_TYPE_NORMAL])
-			{ c->w += config_border_width*2; c->h += config_border_width*2; }
 
 		// process EWMH rules
 		// above below are mutally exclusize
@@ -571,17 +568,22 @@ void handle_maprequest(XEvent *ev)
 		workarea active; memset(&active, 0, sizeof(workarea));
 
 		// if a size rule exists, apply it
-		if (client_rule(c, RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER))
+		if (client_rule(c, RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER|RULE_SIZE))
 		{
 			if (!active.w) monitor_active(c->xattr.screen, &active);
 			if (client_rule(c, RULE_SMALL))  { c->sw = active.w/3; c->sh = active.h/3; }
 			if (client_rule(c, RULE_MEDIUM)) { c->sw = active.w/2; c->sh = active.h/2; }
 			if (client_rule(c, RULE_LARGE))  { c->sw = (active.w/3)*2; c->sh = (active.h/3)*2; }
 			if (client_rule(c, RULE_COVER))  { c->sw = active.w; c->sh = active.h; }
+			if (client_rule(c, RULE_SIZE))
+			{
+				c->sw = c->rule->w_is_pct ? active.w/100*c->rule->w: c->rule->w;
+				c->sh = c->rule->h_is_pct ? active.h/100*c->rule->h: c->rule->h;
+			}
 		}
 
 		//  if a placement rule exists, it trumps everything
-		if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM|RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER))
+		if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM))
 		{
 			if (!active.w) monitor_active(c->xattr.screen, &active);
 			c->x = MAX(active.x, active.x + ((active.w - c->sw) / 2));
@@ -599,7 +601,7 @@ void handle_maprequest(XEvent *ev)
 			// figure out which monitor holds the pointer, so we can nicely keep the window on-screen
 			int x, y; pointer_get(c->xattr.root, &x, &y);
 			workarea a; monitor_dimensions_struts(c->xattr.screen, x, y, &a);
-			client_moveresize(c, 0, MAX(a.x, x-(c->w/2)), MAX(a.y, y-(c->h/2)), c->w, c->h);
+			client_moveresize(c, 0, MAX(a.x, x-(c->sw/2)), MAX(a.y, y-(c->sh/2)), c->sw, c->sh);
 		}
 		else
 		// PLACEANY: windows which specify position hints are honored, all else gets centered on screen or their parent
@@ -619,8 +621,8 @@ void handle_maprequest(XEvent *ev)
 				if (!active.w) monitor_active(c->xattr.screen, &active);
 				m = &active;
 			}
-			client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->w) / 2)),
-				MAX(m->y, m->y + ((m->h - c->h) / 2)), c->w, c->h);
+			client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->sw) / 2)),
+				MAX(m->y, m->y + ((m->h - c->sh) / 2)), c->sw, c->sh);
 		}
 
 		// h/v lock must occur after the first client_moveresize
