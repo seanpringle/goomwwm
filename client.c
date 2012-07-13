@@ -1227,6 +1227,8 @@ void client_cycle(client *c)
 	tag_ascend(c->xattr.root, i, w, o, (c->cache->tags|current_tag))
 		if (w != c->window && clients_intersect(c, o))
 			{ client_activate(o, RAISE, WARPDEF); return; }
+	// nothing to cycle. do something visual to acknowledge key press
+	client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
 }
 
 // horizontally tile two windows in the same screen position and tag
