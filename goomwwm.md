@@ -423,9 +423,9 @@ All options below that set a custom key implicitly combine it with the modifier 
 	goomwwm -menuwidth 800
 
 -modkey
-:	Change the modifier key mask to any combination of: shift,control,mod1,mod2,mod3,mod4,mod5 (default: mod4).
+:	Change the modifier key mask to any combination of: control,mod1,mod2,mod3,mod4,mod5 (default: mod4).
 
-	goomwwm -modkey control,shift
+	goomwwm -modkey control,mod1
 
 -placement
 :	Control the position of new windows (default: any).

@@ -183,7 +183,6 @@ int wm_main(int argc, char *argv[])
 	if (modkeys)
 	{
 		config_modkey = 0;
-		if (strcasestr(modkeys, "shift"))   config_modkey |= ShiftMask;
 		if (strcasestr(modkeys, "control")) config_modkey |= ControlMask;
 		if (strcasestr(modkeys, "mod1"))    config_modkey |= Mod1Mask;
 		if (strcasestr(modkeys, "mod2"))    config_modkey |= Mod2Mask;
@@ -203,9 +202,6 @@ int wm_main(int argc, char *argv[])
 				NumlockMask = (1<<i);
 	// determine keysyms that trigger our modkey (used by popup menu to detect mod key release)
 	memset(config_modkeycodes, 0, sizeof(config_modkeycodes)); i = 0;
-	if (config_modkey & ShiftMask)
-		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
-			config_modkeycodes[i++] = modmap->modifiermap[0*modmap->max_keypermod+j];
 	if (config_modkey & ControlMask)
 		for (j = 0; i < MAXMODCODES && j < (int)modmap->max_keypermod; j++)
 			config_modkeycodes[i++] = modmap->modifiermap[2*modmap->max_keypermod+j];
