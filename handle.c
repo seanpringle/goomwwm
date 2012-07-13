@@ -467,32 +467,19 @@ void handle_configurerequest(XEvent *ev)
 		event_log("ConfigureRequest", c->window);
 		event_client_dump(c);
 		XConfigureRequestEvent *e = &ev->xconfigurerequest;
+		// only move/resize requests go through. never stacking
 		unsigned long mask = e->value_mask & (CWX|CWY|CWWidth|CWHeight|CWBorderWidth);
 
-		// only move/resize requests go through. never stacking
-		if (e->value_mask & (CWX|CWY|CWWidth|CWHeight))
-		{
-			XWindowChanges wc;
-			client_extended_data(c);
+		XWindowChanges wc;
+		client_extended_data(c);
 
-			wc.x = e->value_mask & CWX ? e->x: c->x;
-			wc.y = e->value_mask & CWY ? e->y: c->y;
-			wc.width  = e->value_mask & CWWidth  ? e->width : c->w;
-			wc.height = e->value_mask & CWHeight ? e->height: c->h;
-			wc.border_width = c->manage ? config_border_width: 0;
-			wc.sibling = None; wc.stack_mode = None;
-
-			// if we recently (0.1s) instructed the window to an x/y/w/h which conforms to
-			// their w/h hints, demand co-operation!
-			if (c->cache && c->cache->have_mr && timestamp() < c->cache->mr_time + 0.1)
-			{
-				mask = CWX|CWY|CWWidth|CWHeight|CWBorderWidth;
-				wc.x = c->cache->mr_x; wc.y = c->cache->mr_y;
-				wc.width  = c->cache->mr_w; wc.height = c->cache->mr_h;
-				c->cache->have_mr = 0;
-			}
-			XConfigureWindow(display, c->window, mask, &wc);
-		}
+		wc.x = e->value_mask & CWX ? e->x: c->x;
+		wc.y = e->value_mask & CWY ? e->y: c->y;
+		wc.width  = e->value_mask & CWWidth  ? e->width : c->w;
+		wc.height = e->value_mask & CWHeight ? e->height: c->h;
+		wc.border_width = c->manage ? config_border_width: 0;
+		wc.sibling = None; wc.stack_mode = None;
+		XConfigureWindow(display, c->window, mask, &wc);
 	}
 }
 
