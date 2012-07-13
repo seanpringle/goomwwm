@@ -545,7 +545,7 @@ void handle_configurenotify(XEvent *ev)
 void handle_maprequest(XEvent *ev)
 {
 	client *c = client_create(ev->xmaprequest.window);
-	if (c && c->manage && c->initial_state == NormalState)
+	if (c && c->manage && c->initial_state != IconicState)
 	{
 		window_select(c->window);
 		event_log("MapRequest", c->window);
@@ -661,10 +661,11 @@ void handle_maprequest(XEvent *ev)
 void handle_mapnotify(XEvent *ev)
 {
 	client *c = client_create(ev->xmap.window), *a;
-	if (c && c->manage && c->visible && c->initial_state == NormalState)
+	if (c && c->manage && c->visible)
 	{
 		event_log("MapNotify", c->window);
 		client_state(c, NormalState);
+		client_review_border(c);
 		// autoactivate only on:
 		if ((c->cache->tags & current_tag && config_map_mode == MAPSTEAL && !client_rule(c, RULE_BLOCK)) || client_rule(c, RULE_STEAL))
 		{
