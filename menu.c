@@ -30,8 +30,12 @@ void menu_draw(struct localmenu *my)
 	int i, n;
 
 	// draw text input bar
+	char bar[100]; int len = snprintf(bar, 100, ">.%s", my->input), cursor = MAX(2, my->line_height/10);
+	XGlyphInfo extents; XftTextExtentsUtf8(display, my->font, (unsigned char*)bar, len, &extents);
+	bar[1] = ' '; // XftTextExtentsUtf8 trims trailing space. replace the leading period we used to ensure cursor offset
 	XftDrawRect(my->draw, &my->bg, 0, 0, my->width, my->height);
-	XftDrawStringUtf8(my->draw, &my->fg, my->font, my->horz_pad, my->vert_pad+my->line_height-my->font->descent, (unsigned char*)my->input, strlen(my->input));
+	XftDrawStringUtf8(my->draw, &my->fg, my->font, my->horz_pad, my->vert_pad+my->line_height-my->font->descent, (unsigned char*)bar, len);
+	XftDrawRect(my->draw, &my->fg, extents.width + my->horz_pad + cursor, my->vert_pad+2, cursor, my->line_height-4);
 
 	// filter lines by current input text
 	memset(my->filtered, 0, sizeof(char*) * (my->num_lines+1));
@@ -46,7 +50,7 @@ void menu_draw(struct localmenu *my)
 		// vertical position of *top* of current line
 		int y = my->vert_pad+(my->line_height*(i+1));
 		// http://en.wikipedia.org/wiki/Typeface#Font_metrics
-		int font_baseline = y + my->line_height - my->font->descent -1;
+		int font_baseline = y + my->line_height - my->font->descent -2;
 		// are we highlighting this line?
 		if (i == my->current)
 		{
@@ -126,7 +130,7 @@ int menu(Window root, char **lines, char *manual)
 	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bgalt, &my->bgalt);
 	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlfg,  &my->hlfg);
 	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlbg,  &my->hlbg);
-	my->line_height = my->font->ascent + my->font->descent +2; // +2 pixel extra line spacing
+	my->line_height = my->font->ascent + my->font->descent +4; // +2 pixel extra line spacing
 
 	for (l = 0, i = 0; lines[i]; i++) l = MAX(l, strlen(lines[i]));
 
