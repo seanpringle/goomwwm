@@ -107,6 +107,18 @@ Mod-Up
 Mod-Down
 :	Move the active window down within a 3x3 grid.
 
+Mod-Shift-Left
+:	Snap the active window left.
+
+Mod-Shift-Right
+:	Snap the active window right.
+
+Mod-Shift-Up
+:	Snap the active window up.
+
+Mod-Shift-Down
+:	Snap the active window down.
+
 Mod-u
 :	Undo the last size/position change for the active window. Undo is 10 levels deep.
 

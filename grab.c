@@ -29,11 +29,15 @@ void grab_keycode(Window root, KeyCode keycode)
 {
 	XUngrabKey(display, keycode, AnyModifier, root);
 	XGrabKey(display, keycode, config_modkey, root, True, GrabModeAsync, GrabModeAsync);
+	XGrabKey(display, keycode, config_modkey|ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
 	XGrabKey(display, keycode, config_modkey|LockMask, root, True, GrabModeAsync, GrabModeAsync);
+	XGrabKey(display, keycode, config_modkey|ShiftMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
 	if (NumlockMask)
 	{
 		XGrabKey(display, keycode, config_modkey|NumlockMask, root, True, GrabModeAsync, GrabModeAsync);
+		XGrabKey(display, keycode, config_modkey|ShiftMask|NumlockMask, root, True, GrabModeAsync, GrabModeAsync);
 		XGrabKey(display, keycode, config_modkey|NumlockMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
+		XGrabKey(display, keycode, config_modkey|ShiftMask|NumlockMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
 	}
 }
 

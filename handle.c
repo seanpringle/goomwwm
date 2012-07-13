@@ -29,6 +29,7 @@ void handle_keypress(XEvent *ev)
 {
 	event_log("KeyPress", ev->xany.window);
 	KeySym key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
+	unsigned int state = ev->xkey.state;
 
 	int i, quit = quit_pressed_once, prefix = prefix_mode_active;
 
@@ -184,58 +185,69 @@ void handle_keypress(XEvent *ev)
 		}
 		else
 		// window movement with arrow keys
+		if (key == keymap[KEY_UP] || key == keymap[KEY_DOWN] || key == keymap[KEY_LEFT] || key == keymap[KEY_RIGHT])
 		{
 			workarea mon;
-			int wx = x + w/2; int wy = y + h/2;
+			int wx = x + w/2, wy = y + h/2;
 			int cx = (screen_width  - w) / 2;
 			int cy = (screen_height - h) / 2;
+			int done = 0;
 			// expire the toggle cache
 			c->cache->have_old = 0;
 
-			// monitor switching if window is on an edge
-			if (key == keymap[KEY_LEFT] && c->is_left)
+			if (state & ShiftMask)
 			{
-				monitor_dimensions_struts(c->xattr.screen, c->monitor.x-c->monitor.l-vague, c->y, &mon);
-				if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
-			}
-			else
-			if (key == keymap[KEY_RIGHT] && c->is_right)
+				     if (key == keymap[KEY_LEFT]  && !c->is_maxh) client_snapto(c, SNAPLEFT, SNAPMOVE);
+				else if (key == keymap[KEY_RIGHT] && !c->is_maxh) client_snapto(c, SNAPRIGHT, SNAPMOVE);
+				else if (key == keymap[KEY_UP]    && !c->is_maxv) client_snapto(c, SNAPUP, SNAPMOVE);
+				else if (key == keymap[KEY_DOWN]  && !c->is_maxv) client_snapto(c, SNAPDOWN, SNAPMOVE);
+			} else
 			{
-				monitor_dimensions_struts(c->xattr.screen, c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
-				if (mon.x > c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ fx = mon.x; fy = y; fw = w; fh = h; }
-			}
-			else
-			if (key == keymap[KEY_UP] && c->is_top)
-			{
-				monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y-c->monitor.t-vague, &mon);
-				if (mon.y < c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
-			}
-			else
-			if (key == keymap[KEY_DOWN] && c->is_bottom)
-			{
-				monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
-				if (mon.y > c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ fx = x; fy = mon.y; fw = w; fh = h; }
-			}
-			else
-			// MODKEY+Arrow movement occurs on a 3x3 grid for non-fullscreen, managed windows
-			if (!c->is_full)
-			{
+				// monitor switching if window is on an edge
+				if (key == keymap[KEY_LEFT] && c->is_left)
+				{
+					monitor_dimensions_struts(c->xattr.screen, c->monitor.x-c->monitor.l-vague, c->y, &mon);
+					if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+						{ done = 1; fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
+				}
+				else
+				if (key == keymap[KEY_RIGHT] && c->is_right)
+				{
+					monitor_dimensions_struts(c->xattr.screen, c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
+					if (mon.x > c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+						{ done = 1; fx = mon.x; fy = y; fw = w; fh = h; }
+				}
+				else
+				if (key == keymap[KEY_UP] && c->is_top)
+				{
+					monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y-c->monitor.t-vague, &mon);
+					if (mon.y < c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+						{ done = 1; fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
+				}
+				else
+				if (key == keymap[KEY_DOWN] && c->is_bottom)
+				{
+					monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
+					if (mon.y > c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+						{ done = 1; fx = x; fy = mon.y; fw = w; fh = h; }
+				}
+
 				// move within current monitor
-				if (key == keymap[KEY_LEFT] && !c->is_maxh)
-					{ fx = screen_x + (wx > (screen_width/2)+vague ? cx: 0); fy = screen_y+y; fw = w; fh = h; }
-				else
-				if (key == keymap[KEY_RIGHT] && !c->is_maxh)
-					{ fx = screen_x + (wx < (screen_width/2)-vague ? cx: screen_width - w); fy = screen_y+y; fw = w; fh = h; }
-				else
-				if (key == keymap[KEY_UP] && !c->is_maxv)
-					{ fx = screen_x+x; fy = screen_y + (wy > (screen_height/2)+vague ? cy: 0); fw = w; fh = h; }
-				else
-				if (key == keymap[KEY_DOWN] && !c->is_maxv)
-					{ fx = screen_x+x; fy = screen_y + (wy < (screen_height/2)-vague ? cy: screen_height - h); fw = w; fh = h; }
+				if (!done && !c->is_full)
+				{
+					// MODKEY+Arrow movement occurs on a 3x3 grid for non-fullscreen, managed windows
+					if (key == keymap[KEY_LEFT] && !c->is_maxh)
+						{ fx = screen_x + (wx > (screen_width/2)+vague ? cx: 0); fy = screen_y+y; fw = w; fh = h; }
+					else
+					if (key == keymap[KEY_RIGHT] && !c->is_maxh)
+						{ fx = screen_x + (wx < (screen_width/2)-vague ? cx: screen_width - w); fy = screen_y+y; fw = w; fh = h; }
+					else
+					if (key == keymap[KEY_UP] && !c->is_maxv)
+						{ fx = screen_x+x; fy = screen_y + (wy > (screen_height/2)+vague ? cy: 0); fw = w; fh = h; }
+					else
+					if (key == keymap[KEY_DOWN] && !c->is_maxv)
+						{ fx = screen_x+x; fy = screen_y + (wy < (screen_height/2)-vague ? cy: screen_height - h); fw = w; fh = h; }
+				}
 			}
 		}
 		// final co-ords are fixed. go to it...

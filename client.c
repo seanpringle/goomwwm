@@ -612,8 +612,6 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	{
 		client_extended_data(o);
 		if ((mw || mh) && !INTERSECT(o->x, o->y, o->sw, o->sh, mx, my, mw, mh)) continue;
-
-		event_note("visible: %s %s", o->class, o->title);
 		regions[n].x = o->x; regions[n].y = o->y;
 		regions[n].w = o->sw; regions[n].h = o->sh;
 		n++;
@@ -699,6 +697,92 @@ void client_contract(client *c, int directions)
 	else
 	if (directions & HORIZONTAL)
 		client_expand(c, directions, c->x+(c->sw/2), c->y, 5, c->sh, c->x, c->y, c->sw, c->sh);
+}
+
+// move or resize a client window to snap to someone else's leading or trailing edge
+void client_snapto(client *c, int direction, int mode)
+{
+	client_extended_data(c);
+
+	// hlock/vlock may block this
+	if (c->cache->hlock && (direction == SNAPLEFT || direction == SNAPRIGHT)) return;
+	if (c->cache->vlock && (direction == SNAPUP   || direction == SNAPDOWN )) return;
+
+	// expand only cares about fully visible windows. partially or full obscured windows == free space
+	winlist *visible = clients_partly_visible(c->xattr.root, &c->monitor, 0, c->window);
+
+	// list of coords/sizes for fully visible windows on this desktop
+	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
+
+	int i, n = 0, relevant = visible->len; Window win; client *o;
+	clients_descend(visible, i, win, o)
+	{
+		client_extended_data(o);
+		regions[n].x = o->x; regions[n].y = o->y;
+		regions[n].w = o->sw; regions[n].h = o->sh;
+		n++;
+	}
+
+	int x = c->x, y = c->y, w = c->sw, h = c->sh;
+
+	if (direction == SNAPUP)
+	{
+		y--;
+		for (n = c->monitor.y, i = 0; i < relevant; i++)
+		{
+			if (!OVERLAP(c->x-1, c->sw+2, regions[i].x, regions[i].w)) continue;
+			if (regions[i].y + regions[i].h <= y) n = MAX(n, regions[i].y + regions[i].h);
+			if (regions[i].y <= y) n = MAX(n, regions[i].y);
+			if (regions[i].y + regions[i].h <= y+h) n = MAX(n, regions[i].y + regions[i].h - h);
+			if (regions[i].y <= y+h) n = MAX(n, regions[i].y - h);
+		}
+		if (mode == SNAPRESIZE) h += y-n;
+		y = n;
+	}
+	if (direction == SNAPDOWN)
+	{
+		y++;
+		for (n = c->monitor.y + c->monitor.h, i = 0; i < relevant; i++)
+		{
+			if (!OVERLAP(c->x-1, c->sw+2, regions[i].x, regions[i].w)) continue;
+			if (regions[i].y + regions[i].h >= y+h) n = MIN(n, regions[i].y + regions[i].h);
+			if (regions[i].y >= y+h) n = MIN(n, regions[i].y);
+			if (regions[i].y + regions[i].h >= y) n = MIN(n, regions[i].y + regions[i].h + h);
+			if (regions[i].y >= y) n = MIN(n, regions[i].y + h);
+		}
+		if (mode == SNAPRESIZE) h = n-y; else y = n-h;
+	}
+	if (direction == SNAPLEFT)
+	{
+		x--;
+		for (n = c->monitor.x, i = 0; i < relevant; i++)
+		{
+			if (!OVERLAP(c->y-1, c->sh+2, regions[i].y, regions[i].h)) continue;
+			if (regions[i].x + regions[i].w <= x) n = MAX(n, regions[i].x + regions[i].w);
+			if (regions[i].x <= x) n = MAX(n, regions[i].x);
+			if (regions[i].x + regions[i].w <= x+w) n = MAX(n, regions[i].x + regions[i].w - w);
+			if (regions[i].x <= x+w) n = MAX(n, regions[i].x - w);
+		}
+		if (mode == SNAPRESIZE) w += x-n;
+		x = n;
+	}
+	if (direction == SNAPRIGHT)
+	{
+		x++;
+		for (n = c->monitor.x + c->monitor.w, i = 0; i < relevant; i++)
+		{
+			if (!OVERLAP(c->y-1, c->sh+2, regions[i].y, regions[i].h)) continue;
+			if (regions[i].x + regions[i].w >= x+w) n = MIN(n, regions[i].x + regions[i].w);
+			if (regions[i].x >= x+w) n = MIN(n, regions[i].x);
+			if (regions[i].x + regions[i].w >= x) n = MIN(n, regions[i].x + regions[i].w + w);
+			if (regions[i].x >= x) n = MIN(n, regions[i].x + w);
+		}
+		if (mode == SNAPRESIZE) w = n-x; else x = n-w;
+	}
+	client_commit(c);
+	client_moveresize(c, 0, x, y, w, h);
+	free(regions);
+	winlist_free(visible);
 }
 
 // visually highlight a client to attract attention

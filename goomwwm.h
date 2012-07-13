@@ -82,6 +82,12 @@ typedef struct {
 #define BOTTOMRIGHT 4
 #define HORIZONTAL 1
 #define VERTICAL 2
+#define SNAPLEFT 1
+#define SNAPRIGHT 2
+#define SNAPUP 3
+#define SNAPDOWN 4
+#define SNAPMOVE 5
+#define SNAPRESIZE 6
 #define FOCUSLEFT 1
 #define FOCUSRIGHT 2
 #define FOCUSUP 3
@@ -436,6 +442,7 @@ struct localmenu {
 #define WRITE 1
 
 #define NEAR(a,o,b) ((b) > (a)-(o) && (b) < (a)+(o))
+#define SNAPTO(a,o,b,j) (NEAR((a),(o),(b)) ? (a): (b)+(j))
 #define OVERLAP(a,b,c,d) (((a)==(c) && (b)==(d)) || MIN((a)+(b), (c)+(d)) - MAX((a), (c)) > 0)
 #define INTERSECT(x,y,w,h,x1,y1,w1,h1) (OVERLAP((x),(w),(x1),(w1)) && OVERLAP((y),(h),(y1),(h1)))
 
