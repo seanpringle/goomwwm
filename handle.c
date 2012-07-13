@@ -197,10 +197,10 @@ void handle_keypress(XEvent *ev)
 
 			if (state & ShiftMask)
 			{
-				     if (key == keymap[KEY_LEFT]  && !c->is_maxh) client_snapto(c, SNAPLEFT, SNAPMOVE);
-				else if (key == keymap[KEY_RIGHT] && !c->is_maxh) client_snapto(c, SNAPRIGHT, SNAPMOVE);
-				else if (key == keymap[KEY_UP]    && !c->is_maxv) client_snapto(c, SNAPUP, SNAPMOVE);
-				else if (key == keymap[KEY_DOWN]  && !c->is_maxv) client_snapto(c, SNAPDOWN, SNAPMOVE);
+				     if (key == keymap[KEY_LEFT]  && !c->is_maxh) client_snapto(c, SNAPLEFT);
+				else if (key == keymap[KEY_RIGHT] && !c->is_maxh) client_snapto(c, SNAPRIGHT);
+				else if (key == keymap[KEY_UP]    && !c->is_maxv) client_snapto(c, SNAPUP);
+				else if (key == keymap[KEY_DOWN]  && !c->is_maxv) client_snapto(c, SNAPDOWN);
 			} else
 			{
 				// monitor switching if window is on an edge
@@ -695,8 +695,13 @@ void handle_mapnotify(XEvent *ev)
 			}
 			client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 		}
-		// post-placement rules. yes, can do both contract and expand in one rule. it makes sense...
+		// post-placement rules
 		unsigned int tag = current_tag; current_tag = desktop_to_tag(tag_to_desktop(c->cache->tags));
+		if (client_rule(c, RULE_SNAPRIGHT)) client_snapto(c, SNAPRIGHT);
+		if (client_rule(c, RULE_SNAPLEFT))  client_snapto(c, SNAPLEFT);
+		if (client_rule(c, RULE_SNAPDOWN))  client_snapto(c, SNAPDOWN);
+		if (client_rule(c, RULE_SNAPUP))    client_snapto(c, SNAPUP);
+		// yes, can do both contract and expand in one rule. it makes sense...
 		if (client_rule(c, RULE_CONTRACT)) client_contract(c, HORIZONTAL|VERTICAL);
 		if (client_rule(c, RULE_EXPAND)) client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
 		current_tag = tag;

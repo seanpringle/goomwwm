@@ -700,7 +700,7 @@ void client_contract(client *c, int directions)
 }
 
 // move or resize a client window to snap to someone else's leading or trailing edge
-void client_snapto(client *c, int direction, int mode)
+void client_snapto(client *c, int direction)
 {
 	client_extended_data(c);
 
@@ -736,7 +736,6 @@ void client_snapto(client *c, int direction, int mode)
 			if (regions[i].y + regions[i].h <= y+h) n = MAX(n, regions[i].y + regions[i].h - h);
 			if (regions[i].y <= y+h) n = MAX(n, regions[i].y - h);
 		}
-		if (mode == SNAPRESIZE) h += y-n;
 		y = n;
 	}
 	if (direction == SNAPDOWN)
@@ -750,7 +749,7 @@ void client_snapto(client *c, int direction, int mode)
 			if (regions[i].y + regions[i].h >= y) n = MIN(n, regions[i].y + regions[i].h + h);
 			if (regions[i].y >= y) n = MIN(n, regions[i].y + h);
 		}
-		if (mode == SNAPRESIZE) h = n-y; else y = n-h;
+		y = n-h;
 	}
 	if (direction == SNAPLEFT)
 	{
@@ -763,7 +762,6 @@ void client_snapto(client *c, int direction, int mode)
 			if (regions[i].x + regions[i].w <= x+w) n = MAX(n, regions[i].x + regions[i].w - w);
 			if (regions[i].x <= x+w) n = MAX(n, regions[i].x - w);
 		}
-		if (mode == SNAPRESIZE) w += x-n;
 		x = n;
 	}
 	if (direction == SNAPRIGHT)
@@ -777,7 +775,7 @@ void client_snapto(client *c, int direction, int mode)
 			if (regions[i].x + regions[i].w >= x) n = MIN(n, regions[i].x + regions[i].w + w);
 			if (regions[i].x >= x) n = MIN(n, regions[i].x + w);
 		}
-		if (mode == SNAPRESIZE) w = n-x; else x = n-w;
+		x = n-w;
 	}
 	client_commit(c);
 	client_moveresize(c, 0, x, y, w, h);

@@ -86,8 +86,6 @@ typedef struct {
 #define SNAPRIGHT 2
 #define SNAPUP 3
 #define SNAPDOWN 4
-#define SNAPMOVE 5
-#define SNAPRESIZE 6
 #define FOCUSLEFT 1
 #define FOCUSRIGHT 2
 #define FOCUSUP 3
@@ -157,6 +155,10 @@ typedef struct {
 #define RULE_SKIPPAGE 1<<31
 #define RULE_RAISE 1L<<32
 #define RULE_LOWER 1L<<33
+#define RULE_SNAPLEFT 1L<<34
+#define RULE_SNAPRIGHT 1L<<35
+#define RULE_SNAPUP 1L<<36
+#define RULE_SNAPDOWN 1L<<37
 
 #define RULEPATTERN CLIENTCLASS
 

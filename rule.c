@@ -59,6 +59,10 @@ winrulemap rulemap[] = {
 	{ "skip_pager", RULE_SKIPPAGE },
 	{ "raise", RULE_RAISE },
 	{ "lower", RULE_LOWER },
+	{ "snap_left", RULE_SNAPLEFT },
+	{ "snap_right", RULE_SNAPRIGHT },
+	{ "snap_up", RULE_SNAPUP },
+	{ "snap_down", RULE_SNAPDOWN },
 };
 
 // load a rule specified on cmd line or .goomwwmrc
