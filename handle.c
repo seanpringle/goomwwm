@@ -742,7 +742,6 @@ void handle_clientmessage(XEvent *ev)
 				}
 			}
 		}
-		else
 		// goomwwm cli
 		if (c && (
 			m->message_type == gatoms[GOOMWWM_RESTART] ||
@@ -751,6 +750,7 @@ void handle_clientmessage(XEvent *ev)
 		{
 			event_client_dump(c);
 			char *msg = window_get_text_prop(m->window, gatoms[GOOMWWM_MESSAGE]);
+			event_note("msg: %s", msg);
 			if (msg && m->message_type == gatoms[GOOMWWM_RESTART])
 			{
 				event_note("restart: %s", msg);
