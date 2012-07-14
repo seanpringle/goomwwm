@@ -1343,6 +1343,43 @@ void client_htile(client *c)
 	winlist_free(tiles);
 }
 
+// find windows tiled horizontally and restack them
+void client_huntile(client *c)
+{
+	client_extended_data(c);
+	winlist *tiles = winlist_new();
+	winlist_append(tiles, c->window, NULL);
+	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
+	int min_x = c->x, max_x = c->x + c->sw, tlen = 0;
+	// locate adjacent windows with the same tag, size, and vertical position
+	while (tlen != tiles->len)
+	{
+		tlen = tiles->len;
+		tag_descend(c->xattr.root, i, w, o, current_tag)
+			// window is not already found, and is on the same horizontal alignment
+			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->y, vague, o->y)
+				// window has roughly the same width and height, and aligned with a known left/right edge
+				&& NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h) && (NEAR(min_x, vague, o->x+o->w) || NEAR(max_x, vague, o->x)))
+					{ winlist_append(tiles, w, NULL); min_x = MIN(o->x, min_x); max_x = MAX(o->x+o->w, max_x); }
+	}
+	if (tiles->len > 1)
+	{
+		clients_ascend(tiles, i, w, o)
+		{
+			client_commit(o);
+			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+			client_moveresize(o, 0, c->x, c->y, max_x-min_x, c->sh);
+		}
+	} else
+	// nothing to untile with. still grow
+	{
+		client_commit(c);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+		client_moveresize(c, 0, c->x, c->y, c->sw*2, c->sh);
+	}
+	winlist_free(tiles);
+}
+
 // vertically tile two windows in the same screen position and tag
 void client_vtile(client *c)
 {
@@ -1369,6 +1406,43 @@ void client_vtile(client *c)
 		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
+	}
+	winlist_free(tiles);
+}
+
+// find windows tiled vertically and restack them
+void client_vuntile(client *c)
+{
+	client_extended_data(c);
+	winlist *tiles = winlist_new();
+	winlist_append(tiles, c->window, NULL);
+	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
+	int min_y = c->y, max_y = c->y + c->sh, tlen = 0;
+	// locate adjacent windows with the same tag, size, and vertical position
+	while (tlen != tiles->len)
+	{
+		tlen = tiles->len;
+		tag_descend(c->xattr.root, i, w, o, current_tag)
+			// window is not already found, and is on the same vertical alignment
+			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->x, vague, o->x)
+				// window has roughly the same width and height, and aligned with a known top/bottom edge
+				&& NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h) && (NEAR(min_y, vague, o->y+o->h) || NEAR(max_y, vague, o->y)))
+					{ winlist_append(tiles, w, NULL); min_y = MIN(o->y, min_y); max_y = MAX(o->y+o->h, max_y); }
+	}
+	if (tiles->len > 1)
+	{
+		clients_ascend(tiles, i, w, o)
+		{
+			client_commit(o);
+			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+			client_moveresize(o, 0, c->x, c->y, c->sw, max_y-min_y);
+		}
+	} else
+	// nothing to untile with. still grow
+	{
+		client_commit(c);
+		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh*2);
 	}
 	winlist_free(tiles);
 }

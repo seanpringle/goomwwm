@@ -62,6 +62,12 @@ Mod-h
 Mod-v
 :	Vertically tile the active window and others with the same tag, position, and size.
 
+Mod-Shift-h
+:	Opposite of Mod-h. Horizontally un-tile.
+
+Mod-Shift-v
+:	Opposite of Mod-v. Vertically un-tile.
+
 Mod-x
 :	Run the launcher (by default: dmenu_run).
 

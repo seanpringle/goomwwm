@@ -118,8 +118,8 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_CONTRACT])   client_contract(c, HORIZONTAL|VERTICAL);
 		else if (key == keymap[KEY_VLOCK])      client_toggle_vlock(c);
 		else if (key == keymap[KEY_HLOCK])      client_toggle_hlock(c);
-		else if (key == keymap[KEY_HTILE])      client_htile(c);
-		else if (key == keymap[KEY_VTILE])      client_vtile(c);
+		else if (key == keymap[KEY_HTILE])      { if (state & ShiftMask) client_huntile(c); else client_htile(c); }
+		else if (key == keymap[KEY_VTILE])      { if (state & ShiftMask) client_vuntile(c); else client_vtile(c); }
 		else if (key == keymap[KEY_UNDO])       client_rollback(c);
 		else if (key == keymap[KEY_DUPLICATE])  client_duplicate(c);
 		else if (key == keymap[KEY_MINIMIZE])   client_minimize(c);
