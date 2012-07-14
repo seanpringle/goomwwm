@@ -887,11 +887,12 @@ void client_stack_family(client *c, winlist *stack)
 void client_raise(client *c, int priority)
 {
 	int i; Window w; client *o;
-	winlist *stack = winlist_new();
-	winlist *inplay = windows_in_play(c->xattr.root);
 
 	if (!priority && client_has_state(c, netatoms[_NET_WM_STATE_BELOW]))
 		return;
+
+	winlist *stack = winlist_new();
+	winlist *inplay = windows_in_play(c->xattr.root);
 
 	// priority gets us raised without anyone above us, regardless. eg _NET_WM_STATE_FULLSCREEN+focus
 	if (!priority)
@@ -935,11 +936,10 @@ void client_raise(client *c, int priority)
 // raise a window and its transients, under someone else
 void client_raise_under(client *c, client *under)
 {
-	winlist *stack = winlist_new();
-
 	if (client_has_state(c, netatoms[_NET_WM_STATE_BELOW]))
 		return;
 
+	winlist *stack = winlist_new();
 	client_stack_family(under, stack);
 	client_stack_family(c, stack);
 
