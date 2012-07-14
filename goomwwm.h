@@ -116,6 +116,7 @@ typedef struct {
 	int undo_levels;
 	winundo undo[UNDO];
 	int hlock, vlock;
+	int has_mapped;
 } wincache;
 
 #define TAG1 1
@@ -184,7 +185,7 @@ typedef struct {
 	XWindowAttributes xattr;
 	XSizeHints xsize;
 	int manage, visible, input, focus, active, initial_state,
-		x, y, w, h, sx, sy, sw, sh,
+		x, y, w, h, sx, sy, sw, sh, minimized,
 		is_full, is_left, is_top, is_right, is_bottom,
 		is_xcenter, is_ycenter, is_maxh, is_maxv, states,
 		is_described, is_extended;
@@ -302,6 +303,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_INFO, XK_w, -info),\
 	X(KEY_QUIT, XK_Pause, -quit),\
 	X(KEY_PREFIX, XK_VoidSymbol, -prefix),\
+	X(KEY_MINIMIZE, XK_slash, -minimize),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
 enum { KEYLIST(KEY_ENUM) };
@@ -321,7 +323,7 @@ int prefix_mode_active = 0;
 Cursor prefix_cursor;
 
 // tracking windows
-winlist *windows, *windows_activated;
+winlist *windows, *windows_activated, *windows_minimized;
 unsigned int current_tag = TAG1;
 
 // caches used to reduce X server round trips

@@ -176,6 +176,24 @@ winlist* windows_in_play(Window root)
 	return l;
 }
 
+// top-level windows, visible or not. DOES include non-managable docks/panels
+winlist* window_children(Window root)
+{
+	winlist *l = winlist_new();
+	unsigned int nwins; int i; Window w1, w2, *wins;
+	if (XQueryTree(display, root, &w1, &w2, &wins, &nwins) && wins)
+	{
+		for (i = 0; i < nwins; i++)
+		{
+			XWindowAttributes *attr = window_get_attributes(wins[i]);
+			if (attr && attr->override_redirect == False && (attr->map_state == IsUnmapped || attr->map_state == IsViewable))
+				winlist_append(l, wins[i], NULL);
+		}
+	}
+	if (wins) XFree(wins);
+	return l;
+}
+
 // the window on top of windows_activated list was the last one we activated
 // assume this is still the active one... seems to work most of the time!
 // if this is wrong, worst case scenario is focus manages to revert to root

@@ -108,7 +108,6 @@ void handle_keypress(XEvent *ev)
 
 		     if (key == keymap[KEY_CLOSE])      client_close(c);
 		else if (key == keymap[KEY_CYCLE])      client_cycle(c);
-		else if (key == keymap[KEY_TAG])        client_toggle_tag(c, current_tag, FLASH);
 		else if (key == keymap[KEY_ABOVE])      client_nws_above(c, TOGGLE);
 		else if (key == keymap[KEY_BELOW])      client_nws_below(c, TOGGLE);
 		else if (key == keymap[KEY_STICKY])     client_nws_sticky(c, TOGGLE);
@@ -123,6 +122,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_VTILE])      client_vtile(c);
 		else if (key == keymap[KEY_UNDO])       client_rollback(c);
 		else if (key == keymap[KEY_DUPLICATE])  client_duplicate(c);
+		else if (key == keymap[KEY_MINIMIZE])   client_minimize(c);
 		else if (key == keymap[KEY_INFO])       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
 
 		// directional focus change
@@ -130,6 +130,12 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_FOCUSRIGHT]) client_focusto(c, FOCUSRIGHT);
 		else if (key == keymap[KEY_FOCUSUP])    client_focusto(c, FOCUSUP);
 		else if (key == keymap[KEY_FOCUSDOWN])  client_focusto(c, FOCUSDOWN);
+
+		else if (key == keymap[KEY_TAG])
+		{
+			client_toggle_tag(c, current_tag, FLASH);
+			ewmh_client_list(c->xattr.root);
+		}
 
 		else
 		// cycle through windows with same tag
@@ -532,7 +538,7 @@ void handle_configurenotify(XEvent *ev)
 void handle_maprequest(XEvent *ev)
 {
 	client *c = client_create(ev->xmaprequest.window);
-	if (c && c->manage && c->initial_state != IconicState)
+	if (c && c->manage)
 	{
 		window_select(c->window);
 		event_log("MapRequest", c->window);
@@ -634,10 +640,13 @@ void handle_maprequest(XEvent *ev)
 
 		// apply tags
 		if (client_rule(c, (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9)))
-			c->cache->tags = c->rule->flags & (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9);
+		{
+			c->cache->tags = 0;
+			client_toggle_tag(c, c->rule->flags & (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9), NOFLASH);
+		}
 
 		// default to current tag
-		if (!c->cache->tags) c->cache->tags = current_tag;
+		if (!c->cache->tags) client_toggle_tag(c, current_tag, NOFLASH);
 
 		if (c->trans == None) client_lower(c, 0);
 		XSync(display, False);
@@ -653,54 +662,58 @@ void handle_mapnotify(XEvent *ev)
 	if (c && c->manage && c->visible)
 	{
 		event_log("MapNotify", c->window);
-		client_state(c, NormalState);
-		client_review_border(c);
-		// autoactivate only on:
-		if ((c->cache->tags & current_tag && config_map_mode == MAPSTEAL && !client_rule(c, RULE_BLOCK)) || client_rule(c, RULE_STEAL))
-		{
-			// initial raise does not check -raisemode
+		client_set_wm_state(c, NormalState);
+		client_full_review(c);
+		// dont reapply rules to windows that volantarily unmapped for
+		// some reason, or were explicitly minimized
+		if (c->cache->has_mapped || c->minimized)
 			client_activate(c, RAISE, WARPDEF);
-		} else
-		{
-			// if on current tag, place new window under active window and next in activate order by default
-			// if specifically raised, raise window and leave second in activate order
-			// if specifically lowered, lower window and place last in activate order
-			if (c->cache->tags & current_tag && (a = client_active(c->xattr.root, current_tag)) && a->window != c->window)
-			{
-				winlist_forget(windows_activated, c->window);
-				if (client_rule(c, RULE_LOWER))
-					// client was already pre-lowered in configurerequest
-					winlist_prepend(windows_activated, c->window, NULL);
-				else {
-					if (client_rule(c, RULE_RAISE)) client_raise(c, 0); else client_raise_under(c, a);
-					winlist_forget(windows_activated, a->window);
+		else
+		// apply rules to new windows
+		{	// initial raise does not check -raisemode
+			if ((c->cache->tags & current_tag && config_map_mode == MAPSTEAL && !client_rule(c, RULE_BLOCK)) || client_rule(c, RULE_STEAL))
+				client_activate(c, RAISE, WARPDEF);
+			else {
+				// if on current tag, place new window under active window and next in activate order by default
+				// if specifically raised, raise window and leave second in activate order
+				// if specifically lowered, lower window and place last in activate order
+				if (c->cache->tags & current_tag && (a = client_active(c->xattr.root, current_tag)) && a->window != c->window)
+				{
+					winlist_forget(windows_activated, c->window);
+					if (client_rule(c, RULE_LOWER))
+						// client was already pre-lowered in configurerequest
+						winlist_prepend(windows_activated, c->window, NULL);
+					else {
+						if (client_rule(c, RULE_RAISE)) client_raise(c, 0); else client_raise_under(c, a);
+						winlist_forget(windows_activated, a->window);
+						winlist_append(windows_activated, c->window, NULL);
+						winlist_append(windows_activated, a->window, NULL);
+					}
+				} else {
+					// TODO: make this smart enough to place window on top on another tag
+					winlist_forget(windows_activated, c->window);
 					winlist_append(windows_activated, c->window, NULL);
-					winlist_append(windows_activated, a->window, NULL);
 				}
-			} else
-			{
-				// TODO: make this smart enough to place window on top on another tag
-				winlist_forget(windows_activated, c->window);
-				winlist_append(windows_activated, c->window, NULL);
+				client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 			}
-			client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
+			// post-placement rules
+			unsigned int tag = current_tag; current_tag = desktop_to_tag(tag_to_desktop(c->cache->tags));
+			if (client_rule(c, RULE_SNAPRIGHT)) client_snapto(c, SNAPRIGHT);
+			if (client_rule(c, RULE_SNAPLEFT))  client_snapto(c, SNAPLEFT);
+			if (client_rule(c, RULE_SNAPDOWN))  client_snapto(c, SNAPDOWN);
+			if (client_rule(c, RULE_SNAPUP))    client_snapto(c, SNAPUP);
+			// yes, can do both contract and expand in one rule. it makes sense...
+			if (client_rule(c, RULE_CONTRACT)) client_contract(c, HORIZONTAL|VERTICAL);
+			if (client_rule(c, RULE_EXPAND)) client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+			current_tag = tag;
 		}
-		// post-placement rules
-		unsigned int tag = current_tag; current_tag = desktop_to_tag(tag_to_desktop(c->cache->tags));
-		if (client_rule(c, RULE_SNAPRIGHT)) client_snapto(c, SNAPRIGHT);
-		if (client_rule(c, RULE_SNAPLEFT))  client_snapto(c, SNAPLEFT);
-		if (client_rule(c, RULE_SNAPDOWN))  client_snapto(c, SNAPDOWN);
-		if (client_rule(c, RULE_SNAPUP))    client_snapto(c, SNAPUP);
-		// yes, can do both contract and expand in one rule. it makes sense...
-		if (client_rule(c, RULE_CONTRACT)) client_contract(c, HORIZONTAL|VERTICAL);
-		if (client_rule(c, RULE_EXPAND)) client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
-		current_tag = tag;
-
 		ewmh_client_list(c->xattr.root);
 		// some gtk windows see to need an extra kick to make them respect expose events...
 		// something to do with the configurerequest step? this little nudge makes it all work :-|
 		XSetWindowBorderWidth(display, c->window, 0);
 		XSetWindowBorderWidth(display, c->window, config_border_width);
+		winlist_forget(windows_minimized, c->window);
+		c->cache->has_mapped = 1;
 	}
 }
 
@@ -715,7 +728,18 @@ void handle_unmapnotify(XEvent *ev)
 	{
 		event_log("UnmapNotify", c->window);
 		event_client_dump(c);
-		client_state(c, WithdrawnState);
+		if (c->minimized)
+		{
+			client_set_wm_state(c, IconicState);
+			winlist_forget(windows_activated, c->window);
+		} else
+		{
+			client_set_wm_state(c, WithdrawnState);
+			window_unset_prop(c->window, netatoms[_NET_WM_STATE]);
+			window_unset_prop(c->window, netatoms[_NET_WM_DESKTOP]);
+			winlist_forget(windows_activated, c->window);
+			winlist_forget(windows_minimized, c->window);
+		}
 	}
 	// if window has already been destroyed, above client_create() may have failed
 	// see if this was the active window, and if so, find someone else to take the job
@@ -746,36 +770,41 @@ void handle_clientmessage(XEvent *ev)
 	else
 	{
 		client *c = client_create(m->window);
-		if (c && c->manage && c->visible)
+		if (c && c->manage)
 		{
 			event_client_dump(c);
+			// these may occur for either minimized or normal windows
 			if (m->message_type == netatoms[_NET_ACTIVE_WINDOW])
 				client_activate(c, RAISE, WARPDEF);
 			else
 			if (m->message_type == netatoms[_NET_CLOSE_WINDOW])
 				client_close(c);
-			else
-			if (m->message_type == netatoms[_NET_MOVERESIZE_WINDOW] &&
-				(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
+
+			if (c->visible)
 			{
-				client_commit(c);
-				client_extended_data(c); client_moveresize(c, 0,
-					m->data.l[1] >= 0 ? m->data.l[1]: c->x,  m->data.l[2] >= 0 ? m->data.l[2]: c->y,
-					m->data.l[3] >= 1 ? m->data.l[3]: c->sw, m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
-			}
-			else
-			if (m->message_type == netatoms[_NET_WM_STATE])
-			{
-				int i; for (i = 1; i < 2; i++)
+				// these only get applied to mapped windows
+				if (m->message_type == netatoms[_NET_MOVERESIZE_WINDOW] &&
+					(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
 				{
-					if (m->data.l[i] == netatoms[_NET_WM_STATE_FULLSCREEN])
-						client_nws_fullscreen(c, m->data.l[0]);
-					else
-					if (m->data.l[i] == netatoms[_NET_WM_STATE_ABOVE])
-						client_nws_above(c, m->data.l[0]);
-					else
-					if (m->data.l[i] == netatoms[_NET_WM_STATE_BELOW])
-						client_nws_below(c, m->data.l[0]);
+					client_commit(c);
+					client_extended_data(c); client_moveresize(c, 0,
+						m->data.l[1] >= 0 ? m->data.l[1]: c->x,  m->data.l[2] >= 0 ? m->data.l[2]: c->y,
+						m->data.l[3] >= 1 ? m->data.l[3]: c->sw, m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
+				}
+				else
+				if (m->message_type == netatoms[_NET_WM_STATE])
+				{
+					int i; for (i = 1; i < 2; i++)
+					{
+						if (m->data.l[i] == netatoms[_NET_WM_STATE_FULLSCREEN])
+							client_nws_fullscreen(c, m->data.l[0]);
+						else
+						if (m->data.l[i] == netatoms[_NET_WM_STATE_ABOVE])
+							client_nws_above(c, m->data.l[0]);
+						else
+						if (m->data.l[i] == netatoms[_NET_WM_STATE_BELOW])
+							client_nws_below(c, m->data.l[0]);
+					}
 				}
 			}
 		}

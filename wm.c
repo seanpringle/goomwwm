@@ -101,18 +101,20 @@ void setup_screen(int scr)
 	XSelectInput(display, root, StructureNotifyMask | SubstructureRedirectMask | SubstructureNotifyMask);
 
 	// setup any existing windows
-	winlist_ascend(windows_in_play(root), i, w)
+	winlist *l = window_children(root);
+	winlist_ascend(l, i, w)
 	{
 		wincache *cache = allocate_clear(sizeof(wincache));
 		winlist_append(windows, w, cache);
-		XSelectInput(display, w, EnterWindowMask | LeaveWindowMask | FocusChangeMask | PropertyChangeMask);
 		client *c = client_create(w);
-		if (c && c->manage)
+		if (c && c->manage && (c->visible || client_get_wm_state(c) == IconicState))
 		{
-			winlist_append(windows_activated, c->window, NULL);
+			window_select(c->window);
+			winlist_append(c->visible ? windows_activated: windows_minimized, c->window, NULL);
 			client_full_review(c);
 		}
 	}
+	winlist_free(l);
 	// activate and focus top window
 	client_active(root, 0);
 	ewmh_client_list(root);
@@ -326,6 +328,7 @@ int wm_main(int argc, char *argv[])
 	// window tracking
 	windows = winlist_new();
 	windows_activated = winlist_new();
+	windows_minimized = winlist_new();
 
 	// init on all screens/roots
 	for (scr = 0; scr < ScreenCount(display); scr++) setup_screen(scr);

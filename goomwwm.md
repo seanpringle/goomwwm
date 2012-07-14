@@ -146,6 +146,9 @@ Mod-n
 Mod-w
 :	Display active window title.
 
+Mod-/ (slash)
+:	Minimize a window.
+
 # OPTIONS
 
 All key combinations use the same global modifier key (default: Mod). If the modkey is changed with **-modkey** then all key combinations change to use it.
@@ -433,6 +436,11 @@ All options below that set a custom key implicitly combine it with the modifier 
 
 	goomwwm -menuwidth 60%
 	goomwwm -menuwidth 800
+
+-minimize
+:	Set an X11 key name to minimize a window (default: XK_slash).
+
+	goomwwm -minimize slash
 
 -modkey
 :	Change the modifier key mask to any combination of: control,mod1,mod2,mod3,mod4,mod5 (default: mod4).

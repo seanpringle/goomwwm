@@ -195,6 +195,7 @@ client* client_create(Window win)
 		?1:0;
 
 	c->active = c->manage && c->visible && window_is_active(c->window) ?1:0;
+	c->minimized = winlist_find(windows_minimized, c->window) >= 0 ? 1:0;
 
 	// focus seems a really dodgy way to determine the "active" window, but in some
 	// cases checking both ->active and ->focus is necessary to bahave logically
@@ -1072,6 +1073,8 @@ void client_activate(client *c, int raise, int warp)
 	// deactivate everyone else
 	clients_ascend(windows_in_play(c->xattr.root), i, w, o) if (w != c->window) client_deactivate(o);
 
+	if (c->minimized) client_restore(c);
+
 	// setup ourself
 	if (config_raise_mode == RAISEFOCUS || raise)
 		client_raise(c, client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]));
@@ -1099,19 +1102,16 @@ void client_activate(client *c, int raise, int warp)
 }
 
 // set WM_STATE
-void client_state(client *c, long state)
+void client_set_wm_state(client *c, unsigned long state)
 {
-	long payload[] = { state, None };
+	unsigned long payload[] = { state, None };
 	XChangeProperty(display, c->window, atoms[WM_STATE], atoms[WM_STATE], 32, PropModeReplace, (unsigned char*)payload, 2);
-	if (state == NormalState)
-		client_full_review(c);
-	else
-	if (state == WithdrawnState)
-	{
-		window_unset_prop(c->window, netatoms[_NET_WM_STATE]);
-		window_unset_prop(c->window, netatoms[_NET_WM_DESKTOP]);
-		winlist_forget(windows_activated, c->window);
-	}
+}
+
+unsigned long client_get_wm_state(client *c)
+{
+	unsigned long payload[2]; int items; Atom type;
+	return window_get_prop(c->window, atoms[WM_STATE], &type, &items, payload, 2*sizeof(unsigned long)) && type == atoms[WM_STATE] && items > 0 ? payload[0]: 0;
 }
 
 // locate the currently focused window and build a client for it
@@ -1466,30 +1466,49 @@ void client_duplicate(client *c)
 			{ client_moveresize(c, 0, o->x, o->y, o->sw, o->sh); return; }
 }
 
+void client_minimize(client *c)
+{
+	XUnmapWindow(display, c->window);
+	// no update fo windows_activated yet. see handle_unmapnotify()
+	winlist_append(windows_minimized, c->window, NULL);
+}
+
+void client_restore(client *c)
+{
+	XMapWindow(display, c->window);
+	// no update fo windows_minimized yet. see handle_mapnotify()
+	winlist_prepend(windows_activated, c->window, NULL);
+}
+
 // built-in window switcher
 void client_switcher(Window root, unsigned int tag)
 {
 	// TODO: this whole function is messy. build a nicer solution
 	char pattern[50], **list = NULL;
-	int i, classfield = 0, maxtags = 0, lines = 0, above = 0, sticky = 0, plen = 0;
+	int i, type, classfield = 0, maxtags = 0, lines = 0, above = 0, sticky = 0, plen = 0;
 	Window w; client *c; winlist *ids = winlist_new();
 
-	// calc widths of wm_class and tag csv fields
-	clients_descend(windows_activated, i, w, c)
+	// type=0 normal windows
+	// type=1 minimized windows
+	for (type = 0; type < 2; type++)
 	{
-		if (c->manage && c->visible && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
+		// calc widths of wm_class and tag csv fields
+		clients_descend(type ? windows_minimized: windows_activated, i, w, c)
 		{
-			client_descriptive_data(c);
-			if (!tag || (c->cache && c->cache->tags & tag))
+			if (c->manage && (c->visible || c->minimized) && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
 			{
-				if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) above = 1;
-				if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) sticky = 1;
-				int j, t; for (j = 0, t = 0; j < TAGS; j++)
-					if (c->cache->tags & (1<<j)) t++;
-				maxtags = MAX(maxtags, t);
-				classfield = MAX(classfield, strlen(c->class));
-				winlist_append(ids, c->window, NULL);
-				lines++;
+				client_descriptive_data(c);
+				if (!tag || (c->cache && c->cache->tags & tag))
+				{
+					if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) above = 1;
+					if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) sticky = 1;
+					int j, t; for (j = 0, t = 0; j < TAGS; j++)
+						if (c->cache->tags & (1<<j)) t++;
+					maxtags = MAX(maxtags, t);
+					classfield = MAX(classfield, strlen(c->class));
+					winlist_append(ids, c->window, NULL);
+					lines++;
+				}
 			}
 		}
 	}
@@ -1556,7 +1575,6 @@ void client_toggle_tag(client *c, unsigned int tag, int flash)
 	// tags/desktops, without being specifically sticky... oh well.
 	unsigned long d = tag_to_desktop(c->cache->tags);
 	window_set_cardinal_prop(c->window, netatoms[_NET_WM_DESKTOP], &d, 1);
-	ewmh_client_list(c->xattr.root);
 }
 
 // search for first open window matching class/name/title

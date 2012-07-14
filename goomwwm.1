@@ -263,6 +263,11 @@ Cycle tag backward.
 Display active window title.
 .RS
 .RE
+.TP
+.B Mod-/ (slash)
+Minimize a window.
+.RS
+.RE
 .SH OPTIONS
 .PP
 All key combinations use the same global modifier key (default: Mod).
@@ -719,6 +724,13 @@ width if <= 100 (% symbol optional), or in pixels if >100 (default:
 .RS
 .PP
 goomwwm -menuwidth 60% goomwwm -menuwidth 800
+.RE
+.TP
+.B -minimize
+Set an X11 key name to minimize a window (default: XK_slash).
+.RS
+.PP
+goomwwm -minimize slash
 .RE
 .TP
 .B -modkey
