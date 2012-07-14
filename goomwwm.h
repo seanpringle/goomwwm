@@ -304,6 +304,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_QUIT, XK_Pause, -quit),\
 	X(KEY_PREFIX, XK_VoidSymbol, -prefix),\
 	X(KEY_MINIMIZE, XK_slash, -minimize),\
+	X(KEY_RULE, XK_r, -runrule),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
 enum { KEYLIST(KEY_ENUM) };

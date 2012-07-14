@@ -152,6 +152,9 @@ Mod-n
 Mod-w
 :	Display active window title.
 
+Mod-r
+:	Reapply active window rule.
+
 Mod-/ (slash)
 :	Minimize a window.
 
@@ -558,6 +561,11 @@ All options below that set a custom key implicitly combine it with the modifier 
 
 
 	Rules are not currently applied to transient windows (dialogs).
+
+-runrule
+:	Set an X11 key name to reapply any rule relevant to the active window (default: XK_r).
+
+	goomwwm -runrule r
 
 -shrink
 :	Set an X11 key name to decrease the active window size (default: XK_Page_Down) through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.

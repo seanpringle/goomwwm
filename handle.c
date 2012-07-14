@@ -123,6 +123,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_UNDO])       client_rollback(c);
 		else if (key == keymap[KEY_DUPLICATE])  client_duplicate(c);
 		else if (key == keymap[KEY_MINIMIZE])   client_minimize(c);
+		else if (key == keymap[KEY_RULE])       client_rules_apply(c);
 		else if (key == keymap[KEY_INFO])       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
 
 		// directional focus change
@@ -544,62 +545,17 @@ void handle_maprequest(XEvent *ev)
 		event_log("MapRequest", c->window);
 		event_client_dump(c);
 		client_extended_data(c);
+		monitor_active(c->xattr.screen, &c->monitor);
 		// if this MapRequest was already dispatched before a previous ConfigureRequest was
 		// received, some clients seem to be able to map before applying the border change,
 		// resulting in a little jump on screen. ensure border is done first
 		client_review_border(c);
 		client_deactivate(c);
-
-		// process EWMH rules
-		// above below are mutally exclusize
-			if (client_rule(c, RULE_ABOVE)) client_add_state(c, netatoms[_NET_WM_STATE_ABOVE]);
-		else if (client_rule(c, RULE_BELOW)) client_add_state(c, netatoms[_NET_WM_STATE_BELOW]);
-
-		// sticky,skip_taskbar,skip_pager can be on anything
-		if (client_rule(c, RULE_STICKY)) client_add_state(c, netatoms[_NET_WM_STATE_STICKY]);
-		if (client_rule(c, RULE_SKIPTBAR)) client_add_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]);
-		if (client_rule(c, RULE_SKIPPAGE)) client_add_state(c, netatoms[_NET_WM_STATE_SKIP_PAGER]);
-
-		// fullscreen overrides max h/v
-		if (client_rule(c, RULE_FULLSCREEN))
-			client_add_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
-		else
-		// max h/v overrides lock h/v
-		if (client_rule(c, RULE_MAXHORZ|RULE_MAXVERT))
-		{
-			if (client_rule(c, RULE_MAXHORZ)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-			if (client_rule(c, RULE_MAXVERT)) client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
-		}
-
-		workarea active; memset(&active, 0, sizeof(workarea));
-
-		// if a size rule exists, apply it
-		if (client_rule(c, RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER|RULE_SIZE))
-		{
-			if (!active.w) monitor_active(c->xattr.screen, &active);
-			if (client_rule(c, RULE_SMALL))  { c->sw = active.w/3; c->sh = active.h/3; }
-			if (client_rule(c, RULE_MEDIUM)) { c->sw = active.w/2; c->sh = active.h/2; }
-			if (client_rule(c, RULE_LARGE))  { c->sw = (active.w/3)*2; c->sh = (active.h/3)*2; }
-			if (client_rule(c, RULE_COVER))  { c->sw = active.w; c->sh = active.h; }
-			if (client_rule(c, RULE_SIZE))
-			{
-				c->sw = c->rule->w_is_pct ? active.w/100*c->rule->w: c->rule->w;
-				c->sh = c->rule->h_is_pct ? active.h/100*c->rule->h: c->rule->h;
-			}
-		}
+		client_rules_ewmh(c);
 
 		//  if a placement rule exists, it trumps everything
-		if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM))
-		{
-			if (!active.w) monitor_active(c->xattr.screen, &active);
-			c->x = MAX(active.x, active.x + ((active.w - c->sw) / 2));
-			c->y = MAX(active.y, active.y + ((active.h - c->sh) / 2));
-			if (client_rule(c, RULE_BOTTOM)) c->y = active.y + active.h - c->sh;
-			if (client_rule(c, RULE_RIGHT))  c->x = active.x + active.w - c->sw;
-			if (client_rule(c, RULE_TOP))    c->y = active.y;
-			if (client_rule(c, RULE_LEFT))   c->x = active.x;
-			client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
-		}
+		if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM|RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER|RULE_SIZE))
+			client_rules_moveresize(c);
 		else
 		// PLACEPOINTER: center window on pointer
 		if (config_window_placement == PLACEPOINTER && !(c->xsize.flags & (PPosition|USPosition)))
@@ -621,31 +577,17 @@ void handle_maprequest(XEvent *ev)
 			{
 				client_extended_data(p);
 				m = &p->monitor;
-			} else
-			// center everything else on current monitor
-			{
-				if (!active.w) monitor_active(c->xattr.screen, &active);
-				m = &active;
 			}
+			// center everything else on current monitor
 			client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->sw) / 2)),
 				MAX(m->y, m->y + ((m->h - c->sh) / 2)), c->sw, c->sh);
 		}
 
 		// h/v lock must occur after the first client_moveresize
-		if (client_rule(c, RULE_HLOCK|RULE_VLOCK))
-		{
-			if (!client_rule(c, RULE_MAXHORZ) && client_rule(c, RULE_HLOCK)) c->cache->hlock = 1;
-			if (!client_rule(c, RULE_MAXVERT) && client_rule(c, RULE_VLOCK)) c->cache->vlock = 1;
-		}
-
-		// apply tags
-		if (client_rule(c, (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9)))
-		{
-			c->cache->tags = 0;
-			client_toggle_tag(c, c->rule->flags & (TAG1|TAG2|TAG3|TAG4|TAG5|TAG6|TAG7|TAG8|TAG9), NOFLASH);
-		}
+		client_rules_locks(c);
 
 		// default to current tag
+		client_rules_tags(c);
 		if (!c->cache->tags) client_toggle_tag(c, current_tag, NOFLASH);
 
 		if (c->trans == None) client_lower(c, 0);
@@ -697,15 +639,7 @@ void handle_mapnotify(XEvent *ev)
 				client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 			}
 			// post-placement rules
-			unsigned int tag = current_tag; current_tag = desktop_to_tag(tag_to_desktop(c->cache->tags));
-			if (client_rule(c, RULE_SNAPRIGHT)) client_snapto(c, SNAPRIGHT);
-			if (client_rule(c, RULE_SNAPLEFT))  client_snapto(c, SNAPLEFT);
-			if (client_rule(c, RULE_SNAPDOWN))  client_snapto(c, SNAPDOWN);
-			if (client_rule(c, RULE_SNAPUP))    client_snapto(c, SNAPUP);
-			// yes, can do both contract and expand in one rule. it makes sense...
-			if (client_rule(c, RULE_CONTRACT)) client_contract(c, HORIZONTAL|VERTICAL);
-			if (client_rule(c, RULE_EXPAND)) client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
-			current_tag = tag;
+			client_rules_moveresize_post(c);
 		}
 		ewmh_client_list(c->xattr.root);
 		// some gtk windows see to need an extra kick to make them respect expose events...

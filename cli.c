@@ -49,7 +49,6 @@ int cli_main(int argc, char *argv[])
 	if (find_arg(argc, argv, "-quit") >= 0)
 		cli_message(gatoms[GOOMWWM_QUIT], NULL);
 
-
 	//TODO: make this a two-way event exchange
 	usleep(300000); // 0.3s
 	return EXIT_SUCCESS;

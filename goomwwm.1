@@ -276,6 +276,11 @@ Display active window title.
 .RS
 .RE
 .TP
+.B Mod-r
+Reapply active window rule.
+.RS
+.RE
+.TP
 .B Mod-/ (slash)
 Minimize a window.
 .RS
@@ -938,6 +943,14 @@ Apply a specific size in pixels or percent of monitor size.
 .RE
 .PP
 Rules are not currently applied to transient windows (dialogs).
+.RE
+.TP
+.B -runrule
+Set an X11 key name to reapply any rule relevant to the active window
+(default: XK_r).
+.RS
+.PP
+goomwwm -runrule r
 .RE
 .TP
 .B -shrink
