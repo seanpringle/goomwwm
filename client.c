@@ -953,14 +953,14 @@ void client_raise_under(client *c, client *under)
 void client_lower(client *c, int priority)
 {
 	int i; Window w; client *o;
-	winlist *stack = winlist_new();
-	winlist *inplay = windows_in_play(c->xattr.root);
 
 	if (!priority && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
 		return;
 
-	if (priority)
-		client_stack_family(c, stack);
+	winlist *stack = winlist_new();
+	winlist *inplay = windows_in_play(c->xattr.root);
+
+	if (priority) client_stack_family(c, stack);
 
 	// locate windows in the current_tag with _NET_WM_STATE_BELOW
 	// untagged windows with _NET_WM_STATE_BELOW are effectively sticky
