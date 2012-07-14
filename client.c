@@ -1485,7 +1485,7 @@ void client_switcher(Window root, unsigned int tag)
 {
 	// TODO: this whole function is messy. build a nicer solution
 	char pattern[50], **list = NULL;
-	int i, type, classfield = 0, maxtags = 0, lines = 0, above = 0, sticky = 0, plen = 0;
+	int i, type, classfield = 0, maxtags = 0, lines = 0, above = 0, sticky = 0, minimized = 0, plen = 0;
 	Window w; client *c; winlist *ids = winlist_new();
 
 	// type=0 normal windows
@@ -1500,6 +1500,7 @@ void client_switcher(Window root, unsigned int tag)
 				client_descriptive_data(c);
 				if (!tag || (c->cache && c->cache->tags & tag))
 				{
+					if (c->minimized) minimized = 1;
 					if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) above = 1;
 					if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) sticky = 1;
 					int j, t; for (j = 0, t = 0; j < TAGS; j++)
@@ -1515,7 +1516,7 @@ void client_switcher(Window root, unsigned int tag)
 	// truncate silly java WM_CLASS strings
 	classfield = MAX(5, MIN(classfield, 14));
 	maxtags = MAX(0, (maxtags*2)-1);
-	if (above || sticky) plen = sprintf(pattern, "%%-%ds  ", above+sticky);
+	if (above || sticky || minimized) plen = sprintf(pattern, "%%-%ds  ", above+sticky+minimized);
 	if (maxtags) plen += sprintf(pattern+plen, "%%-%ds  ", maxtags);
 	plen += sprintf(pattern+plen, "%%-%ds   %%s", classfield);
 	list = allocate_clear(sizeof(char*) * (lines+1)); lines = 0;
@@ -1530,15 +1531,16 @@ void client_switcher(Window root, unsigned int tag)
 				if (c->cache->tags & (1<<j)) l += sprintf(tags+l, "%d,", j+1);
 			if (l > 0) tags[l-1] = '\0';
 
-			char aos[5]; memset(aos, 0, 5);
+			char aos[6]; memset(aos, 0, 6);
 			if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) strcat(aos, "a");
 			if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) strcat(aos, "s");
+			if (c->minimized) strcat(aos, "m");
 
 			char class[15]; memset(class, 0, 15); int clen = strlen(c->class);
 			strncpy(class, c->class, MIN(14, clen)); if (clen > 14) strcpy(class+11, "...");
 
 			char *line = allocate(strlen(c->title) + strlen(tags) + strlen(c->class) + classfield + 50);
-			if ((above || sticky) && maxtags) sprintf(line, pattern, aos, tags, class, c->title);
+			if ((above || sticky || minimized) && maxtags) sprintf(line, pattern, aos, tags, class, c->title);
 			else if (maxtags) sprintf(line, pattern, tags, class, c->title);
 			else sprintf(line, pattern, class, c->title);
 			list[lines++] = line;
