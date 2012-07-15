@@ -88,8 +88,7 @@ void tag_raise(unsigned int tag)
 		{ client_activate(c, RAISE, WARPDEF); break; }
 
 	// in case no windows are in the tag, show some activity
-	char msg[32]; sprintf(msg, "Tag %d", tag_to_desktop(tag)+1);
-	say(msg);
+	notice("Tag %d", tag_to_desktop(tag)+1);
 }
 
 // check active client. if

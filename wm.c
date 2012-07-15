@@ -38,12 +38,15 @@ int oops(Display *d, XErrorEvent *ee)
 }
 
 // say something informative
-void say(char *txt)
+void notice(const char *fmt, ...)
 {
 	workarea mon; monitor_active(&mon);
 	if (fork()) return;
 
 	display = XOpenDisplay(0x0);
+
+	char txt[100]; va_list ap;
+	va_start(ap,fmt); vsnprintf(txt, 100, fmt, ap); va_end(ap);
 
 	GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
 
@@ -126,63 +129,9 @@ void setup_screen()
 	ewmh_desktop_list();
 }
 
-// window manager
-int wm_main(int argc, char *argv[])
+void setup_keyboard_options(int ac, char *av[])
 {
-	int i, j; XEvent ev;
-
-	// prepare to fall back on ~/.goomwwmrc
-	char *conf_home = NULL, *home = getenv("HOME");
-	if (home)
-	{
-		conf_home = allocate_clear(1024);
-		sprintf(conf_home, "%s/%s", home, CONFIGFILE);
-	}
-
-	// prepare args and merge conf file args
-	int ac = argc; char **av = argv, *conf;
-	if ((conf = find_arg_str(argc, argv, "-config", conf_home)))
-	{
-		// new list for both sets of args
-		av = allocate(sizeof(char*) * ac);
-		for (i = 0; i < ac; i++) av[i] = argv[i];
-		// parse config line by line
-		FILE *f = fopen(conf, "r");
-		if (!f)
-			fprintf(stderr, "could not open %s\n", conf);
-		else
-		{
-			char *line = allocate_clear(1024);
-			// yes, +1. see hyphen prepend below
-			while (fgets(line+1, 1023, f))
-			{
-				strtrim(line+1);
-				// comment or empty line
-				if (!line[1] || line[1] == '#') continue;
-				// nope, got a config var!
-				av = reallocate(av, sizeof(char*)*(ac+2));
-				char *p = line; *p++ = '-';
-				// find end of arg name
-				while (*p && !isspace(*p)) p++;
-				*p++ = 0; av[ac++] = strdup(line);
-				// find arg value, if it exists
-				strtrim(p); if (*p) av[ac++] = strdup(p);
-			}
-			fclose(f);
-			free(line);
-		}
-	}
-	free(conf_home);
-
-	// caches to reduce X server round trips during a single event
-	cache_client = winlist_new();
-	cache_xattr  = winlist_new();
-	cache_inplay = winlist_new();
-	memset(cache_monitor, 0, sizeof(cache_monitor));
-
-	// do this before setting error handler, so it fails if other wm in place
-	XSelectInput(display, DefaultRootWindow(display), SubstructureRedirectMask);
-	XSync(display, False); xerror = XSetErrorHandler(oops); XSync(display, False);
+	int i, j;
 
 	// determine modkey
 	config_modkey = MODKEY;
@@ -244,6 +193,11 @@ int wm_main(int argc, char *argv[])
 	// check for prefix key mode
 	config_prefix_mode = keymap[KEY_PREFIX] == XK_VoidSymbol ? NOPREFIX: PREFIX;
 	prefix_cursor = XCreateFontCursor(display, XC_icon);
+}
+
+void setup_general_options(int ac, char *av[])
+{
+	int i;
 
 	// border colors
 	config_border_focus     = color_get(find_arg_str(ac, av, "-focus", FOCUS));
@@ -326,7 +280,11 @@ int wm_main(int argc, char *argv[])
 		char tmp[3]; sprintf(tmp, "-%d", i);
 		config_apps_patterns[i] = find_arg_str(ac, av, tmp, NULL);
 	}
+}
 
+void setup_rule_options(int ac, char *av[])
+{
+	int i;
 	// load window rules
 	// put rules in a default ruleset
 	config_rulesets = allocate_clear(sizeof(winruleset));
@@ -353,12 +311,74 @@ int wm_main(int argc, char *argv[])
 	winruleset *set = config_rulesets;
 	while (set->next) set = set->next;
 	config_rules = set->rules;
+}
+
+// window manager
+int wm_main(int argc, char *argv[])
+{
+	int i; XEvent ev;
+
+	// prepare to fall back on ~/.goomwwmrc
+	char *conf_home = NULL, *home = getenv("HOME");
+	if (home)
+	{
+		conf_home = allocate_clear(1024);
+		sprintf(conf_home, "%s/%s", home, CONFIGFILE);
+	}
+
+	// prepare args and merge conf file args
+	int ac = argc; char **av = argv, *conf;
+	if ((conf = find_arg_str(argc, argv, "-config", conf_home)))
+	{
+		// new list for both sets of args
+		av = allocate(sizeof(char*) * ac);
+		for (i = 0; i < ac; i++) av[i] = argv[i];
+		// parse config line by line
+		FILE *f = fopen(conf, "r");
+		if (!f)
+			fprintf(stderr, "could not open %s\n", conf);
+		else
+		{
+			char *line = allocate_clear(1024);
+			// yes, +1. see hyphen prepend below
+			while (fgets(line+1, 1023, f))
+			{
+				strtrim(line+1);
+				// comment or empty line
+				if (!line[1] || line[1] == '#') continue;
+				// nope, got a config var!
+				av = reallocate(av, sizeof(char*)*(ac+2));
+				char *p = line; *p++ = '-';
+				// find end of arg name
+				while (*p && !isspace(*p)) p++;
+				*p++ = 0; av[ac++] = strdup(line);
+				// find arg value, if it exists
+				strtrim(p); if (*p) av[ac++] = strdup(p);
+			}
+			fclose(f);
+			free(line);
+		}
+	}
+	free(conf_home);
+
+	// caches to reduce X server round trips during a single event
+	cache_client = winlist_new();
+	cache_xattr  = winlist_new();
+	cache_inplay = winlist_new();
+	memset(cache_monitor, 0, sizeof(cache_monitor));
 
 	// window tracking
 	windows = winlist_new();
 	windows_activated = winlist_new();
 	windows_minimized = winlist_new();
 
+	// do this before setting error handler, so it fails if other wm in place
+	XSelectInput(display, DefaultRootWindow(display), SubstructureRedirectMask);
+	XSync(display, False); xerror = XSetErrorHandler(oops); XSync(display, False);
+
+	setup_keyboard_options(ac, av);
+	setup_general_options(ac, av);
+	setup_rule_options(ac, av);
 	setup_screen();
 	grab_keys_and_buttons();
 
@@ -379,7 +399,7 @@ int wm_main(int argc, char *argv[])
 	}
 
 	// be polite
-	say("Get out of my way, Window Manager!");
+	notice("Get out of my way, Window Manager!");
 
 	// main event loop
 	for(;;)
