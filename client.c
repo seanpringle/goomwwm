@@ -1776,8 +1776,9 @@ void client_rules_moveresize_post(client *c)
 	if (client_rule(c, RULE_SNAPDOWN))  client_snapto(c, SNAPDOWN);
 	if (client_rule(c, RULE_SNAPUP))    client_snapto(c, SNAPUP);
 	// yes, can do both contract and expand in one rule. it makes sense...
-	if (client_rule(c, RULE_CONTRACT)) client_contract(c, HORIZONTAL|VERTICAL);
-	if (client_rule(c, RULE_EXPAND))   client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+	if (client_rule(c, RULE_CONTRACT))  client_contract(c, HORIZONTAL|VERTICAL);
+	if (client_rule(c, RULE_EXPAND))    client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+	if (client_rule(c, RULE_DUPLICATE)) client_duplicate(c);
 	current_tag = tag;
 }
 

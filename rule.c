@@ -63,6 +63,7 @@ winrulemap rulemap[] = {
 	{ "snap_right", RULE_SNAPRIGHT },
 	{ "snap_up", RULE_SNAPUP },
 	{ "snap_down", RULE_SNAPDOWN },
+	{ "duplicate", RULE_DUPLICATE },
 };
 
 // load a rule specified on cmd line or .goomwwmrc
