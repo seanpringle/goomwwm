@@ -45,6 +45,7 @@ void handle_keypress(XEvent *ev)
 	}
 
 	client *c = NULL;
+	reset_lazy_caches();
 
 	// by checking !prefix, we allow a second press to cancel prefix mode
 	if (key == keymap[KEY_PREFIX] && !prefix)
@@ -276,6 +277,7 @@ void handle_buttonpress(XEvent *ev)
 	// turn off caps and num locks bits. dont care about their states
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
 	int is_mod = prefix_mode_active || (state & config_modkey && !(state & config_ignore_modkeys));
+	reset_lazy_caches();
 
 	if (ev->xbutton.subwindow != None && (c = client_create(ev->xbutton.subwindow)) && c && c->manage
 		&& !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
@@ -503,7 +505,7 @@ void handle_configurenotify(XEvent *ev)
 		Window root = ev->xconfigure.window;
 		event_log("ConfigureNotify", root);
 		event_note("root window change!");
-		memset(cache_monitor, 0, sizeof(cache_monitor));
+		reset_lazy_caches();
 		ewmh_desktop_list(root);
 		XWindowAttributes *attr = window_get_attributes(root);
 		int i; Window w;

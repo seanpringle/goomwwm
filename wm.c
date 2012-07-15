@@ -81,6 +81,14 @@ void say(Screen *screen, char *txt)
 	exit(EXIT_SUCCESS);
 }
 
+// slow human interation resets some caches. theory is: if for some reason a stale
+// cache is affecting goomwwm behavior, any interaction should fix it. since
+// human-generated are so rare, this doesn't really affect the cache usefulness...
+void reset_lazy_caches()
+{
+	memset(cache_monitor, 0, sizeof(cache_monitor));
+}
+
 // an X screen. may have multiple monitors, xinerama, etc
 void setup_screen(int scr)
 {
