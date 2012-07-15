@@ -1125,7 +1125,7 @@ client* client_active(Window root, unsigned int tag)
 	if (!c) clients_descend(windows_activated, i, w, o)
 		if (o->manage && o->visible && o->xattr.root == root) { c = o; break; }
 	// otherwise look for any visible, manageable window
-	if (!c) managed_descend(root, i, w, c) break;
+	if (!c) managed_descend(root, i, w, o) { c = o; break; }
 	// if we found one, activate it
 	if (c && (!c->focus || !c->active))
 		client_activate(c, RAISEDEF, WARPDEF);
