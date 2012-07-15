@@ -1660,18 +1660,19 @@ client* client_find(Window root, char *pattern)
 	int i; Window w; client *c = NULL, *found = NULL;
 
 	// use a tempoarary rule for searching
-	winrule rule; memset(&rule, 0, sizeof(winrule));
-	snprintf(rule.pattern, RULEPATTERN, "%s", pattern);
-	regcomp(&rule.re, rule.pattern, REG_EXTENDED|REG_ICASE|REG_NOSUB);
+	rule_parse(pattern);
+	winrule *rule = config_rules;
+	config_rules = rule->next;
 
 	// first, try in current_tag only
 	tag_descend(root, i, w, c, current_tag)
-		if (client_rule_match(c, &rule)) { found = c; break; }
+		if (client_rule_match(c, rule)) { found = c; break; }
 	// failing that, search regardless of tag
 	if (!found) managed_descend(root, i, w, c)
-		if (client_rule_match(c, &rule)) { found = c; break; }
+		if (client_rule_match(c, rule)) { found = c; break; }
 
-	regfree(&rule.re);
+	regfree(&rule->re);
+	free(rule);
 	return found;
 }
 
@@ -1681,7 +1682,11 @@ void client_find_or_start(Window root, char *pattern)
 	if (!pattern) return;
 	client *c = client_find(root, pattern);
 	if (c) client_activate(c, RAISE, WARPDEF);
-	else exec_cmd(pattern);
+	else {
+		if (regquick("^(class|name|title):", pattern))
+			pattern = strchr(pattern, ':')+1;
+		exec_cmd(pattern);
+	}
 }
 
 void client_rules_ewmh(client *c)

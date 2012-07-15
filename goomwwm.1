@@ -301,7 +301,7 @@ modifier key.
 .TP
 .B -1 -2 -3 -4 -5 -6 -7 -8 -9
 Set a number key to a keyword to search for a window by WM_CLASS,
-applicaiton name, or title, and then raise and focus it.
+application name, or title, and then raise and focus it.
 If a window is not found, the string supplied will be executed as a
 shell command to start the application.
 .RS
@@ -318,6 +318,13 @@ This allows us to use the one string to both search and start.
 .PP
 Applications that are not so friendly can sometimes be wrapped in a
 shell script of the appropriate name in your $PATH somewhere.
+.PP
+Sometimes it can be useful to limit the match to WM_CLASS or name (eg,
+when a browser window title includes another app\[aq]s name causing a
+false positive).
+Simply use \f[B]class:\f[] or \f[B]name:\f[] prefixes:
+.PP
+goomwwm -1 class:chromium
 .RE
 .TP
 .B -above

@@ -168,7 +168,7 @@ All key combinations use the same global modifier key (default: Mod). If the mod
 All options below that set a custom key implicitly combine it with the modifier key.
 
 -1 -2 -3 -4 -5 -6 -7 -8 -9
-:	Set a number key to a keyword to search for a window by WM_CLASS, applicaiton name, or title, and then raise and focus it. If a window is not found, the string supplied will be executed as a shell command to start the application.
+:	Set a number key to a keyword to search for a window by WM_CLASS, application name, or title, and then raise and focus it. If a window is not found, the string supplied will be executed as a shell command to start the application.
 
 	goomwwm -1 chromium -2 firefox -3 xterm
 
@@ -177,6 +177,10 @@ All options below that set a custom key implicitly combine it with the modifier 
 	Many applications politely set their WM_CLASS to a sane value (eg, Chromium uses Chromium, xterm uses XTerm) or append their name to their window titles, which nicely matches their binary names if we use case-insensitive string comparison. This allows us to use the one string to both search and start.
 
 	Applications that are not so friendly can sometimes be wrapped in a shell script of the appropriate name in your $PATH somewhere.
+
+	Sometimes it can be useful to limit the match to WM_CLASS or name (eg, when a browser window title includes another app's name causing a false positive). Simply use **class:** or **name:** prefixes:
+
+	goomwwm -1 class:chromium
 
 -above
 :	Set an X11 key name to toggle _NET_WM_STATE_ABOVE for the active window (default: XK_a).
