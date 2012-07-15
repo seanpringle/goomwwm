@@ -695,6 +695,11 @@ When run with **-cli** (command line interface) goomwwm may be used to dispatch 
 
 	goomwwm -cli -exec dwm
 
+-ruleset
+:	Switch to rule set by name.
+
+	goomwwm -cli -ruleset alpha
+
 -quit
 :	Exit goomwwm.
 
