@@ -174,6 +174,15 @@ typedef struct _rule {
 
 winrule *config_rules = NULL;
 
+#define RULESETNAME 50
+typedef struct _ruleset {
+	char name[RULESETNAME]; // file path
+	winrule *rules;
+	struct _ruleset *next;
+} winruleset;
+
+winruleset *config_rulesets = NULL;
+
 typedef struct {
 	const char *name;
 	unsigned long long flag;
@@ -304,7 +313,8 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_QUIT, XK_Pause, -quit),\
 	X(KEY_PREFIX, XK_VoidSymbol, -prefix),\
 	X(KEY_MINIMIZE, XK_slash, -minimize),\
-	X(KEY_RULE, XK_r, -runrule),\
+	X(KEY_RULE, XK_comma, -runrule),\
+	X(KEY_RULESET, XK_period, -runruleset),\
 	X(KEY_LAUNCH, XK_x, -launch)
 
 enum { KEYLIST(KEY_ENUM) };
@@ -419,6 +429,7 @@ Atom netatoms[NETATOMS];
 	X(GOOMWWM_LOG),\
 	X(GOOMWWM_MESSAGE),\
 	X(GOOMWWM_QUIT),\
+	X(GOOMWWM_RULESET),\
 	X(GOOMWWM_RESTART)
 
 enum { GOOMWWM_ATOMS(ATOM_ENUM), GATOMS };

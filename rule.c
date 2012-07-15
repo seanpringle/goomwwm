@@ -73,6 +73,11 @@ void rule_parse(char *rulestr)
 	char *left = str, *right = str;
 	// locate end of pattern
 	while (*right && !isspace(*right)) right++;
+	if (right-left > RULEPATTERN-1)
+	{
+		fprintf(stderr, "rule exceeded pattern space: %s\n", str);
+		free(new); free(str); return;
+	}
 	strncpy(new->pattern, str, right-left);
 	while (*right && isspace(*right)) right++;
 	// walk over rule flags, space or command delimited
@@ -121,4 +126,45 @@ void rule_parse(char *rulestr)
 		free(new);
 	}
 	free(str);
+}
+
+// pick a ruleset to execute
+void ruleset_switcher(Window root)
+{
+	int i, count = 0, current = 0; char **list; winruleset *set;
+
+	// count rulesets
+	for (count = 0, set = config_rulesets; set; count++, set = set->next);
+	list = allocate_clear(sizeof(char*) * (count+1)); // +1 NULL sell terminates
+	// find current selection
+	for (current = 0, set = config_rulesets; set && set->rules != config_rules; current++, set = set->next);
+	if (current == count) current = 0;
+	// build a simple list of rule file names
+	for (i = count-1, set = config_rulesets; set; i--, set = set->next) list[i] = basename(set->name);
+
+	if (!fork())
+	{
+		display = XOpenDisplay(0);
+		XSync(display, True);
+		int n = menu(root, list, NULL, count-current-1);
+		if (n >= 0 && list[n])
+			window_send_message(root, root, gatoms[GOOMWWM_RULESET], count-n-1, SubstructureNotifyMask | SubstructureRedirectMask);
+		exit(EXIT_SUCCESS);
+	}
+	free(list);
+}
+
+// execute a ruleset on open windows
+void ruleset_execute(Window root, int index)
+{
+	int i; winruleset *set = NULL; Window w; client *c;
+
+	// find ruleset by index
+	for (i = 0, set = config_rulesets; set->next && i < index; i++, set = set->next);
+
+	if (set)
+	{
+		config_rules = set->rules;
+		tag_ascend(root, i, w, c, current_tag) client_rules_apply(c);
+	}
 }

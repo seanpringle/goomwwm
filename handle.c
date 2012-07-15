@@ -124,6 +124,7 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_DUPLICATE])  client_duplicate(c);
 		else if (key == keymap[KEY_MINIMIZE])   client_minimize(c);
 		else if (key == keymap[KEY_RULE])       client_rules_apply(c);
+		else if (key == keymap[KEY_RULESET])    ruleset_switcher(ev->xany.window);
 		else if (key == keymap[KEY_INFO])       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
 
 		// directional focus change
@@ -746,6 +747,7 @@ void handle_clientmessage(XEvent *ev)
 		if (c && (
 			m->message_type == gatoms[GOOMWWM_RESTART] ||
 			m->message_type == gatoms[GOOMWWM_LOG] ||
+			m->message_type == gatoms[GOOMWWM_RULESET] ||
 			m->message_type == gatoms[GOOMWWM_QUIT]))
 		{
 			event_client_dump(c);
@@ -759,6 +761,8 @@ void handle_clientmessage(XEvent *ev)
 			}
 			if (msg && m->message_type == gatoms[GOOMWWM_LOG])
 				fprintf(stderr, "%s\n", msg);
+			if (m->message_type == gatoms[GOOMWWM_RULESET])
+				ruleset_execute(m->window, m->data.l[0]);
 			if (m->message_type == gatoms[GOOMWWM_QUIT])
 				exit(EXIT_SUCCESS);
 			free(msg);

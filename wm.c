@@ -323,7 +323,31 @@ int wm_main(int argc, char *argv[])
 	}
 
 	// load window rules
-	for (i = 0; i < ac; i++) if (!strcasecmp(av[i], "-rule") && i < ac-1) rule_parse(av[i+1]);
+	// put rules in a default ruleset
+	config_rulesets = allocate_clear(sizeof(winruleset));
+	strcpy(config_rulesets->name, "[default rules]");
+	for (i = 0; i < ac; i++)
+	{
+		// load any other rule sets
+		if (!strcasecmp(av[i], "-ruleset") && i < ac-1)
+		{
+			config_rulesets->rules = config_rules;
+			config_rules = NULL;
+			winruleset *set = allocate_clear(sizeof(winruleset));
+			snprintf(set->name, RULESETNAME, "%s", av[++i]);
+			set->next = config_rulesets;
+			config_rulesets = set;
+		}
+		else
+		if (!strcasecmp(av[i], "-rule") && i < ac-1)
+			rule_parse(av[++i]);
+	}
+	config_rulesets->rules = config_rules;
+
+	// default to first rule set
+	winruleset *set = config_rulesets;
+	while (set->next) set = set->next;
+	config_rules = set->rules;
 
 	// window tracking
 	windows = winlist_new();

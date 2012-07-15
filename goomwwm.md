@@ -152,8 +152,11 @@ Mod-n
 Mod-w
 :	Display active window title.
 
-Mod-r
+Mod-, (comma)
 :	Reapply active window rule.
+
+Mod-. (period)
+:	Switch between defined rule sets.
 
 Mod-/ (slash)
 :	Minimize a window.
@@ -562,10 +565,32 @@ All options below that set a custom key implicitly combine it with the modifier 
 
 	Rules are not currently applied to transient windows (dialogs).
 
--runrule
-:	Set an X11 key name to reapply any rule relevant to the active window (default: XK_r).
+-ruleset
+:	Begin loading a named set of rules (default: none).
 
-	goomwwm -runrule r
+	goomwwm -ruleset Name -rule ... -rule ... -ruleset Name2 -rule ...
+
+	Or, in .goomwwmrc:
+
+		ruleset Development Layout
+		rule class:xterm right,bottom,small
+		rule class:gvim left,maximize_vert,large
+
+		ruleset Email/Chat Distractions
+		rule class:pidgin left,bottom,small,snap_right
+		rule class:chromium top,maximize_horz,large
+
+	Rule sets can be switched on the fly via menu (see -runruleset).
+
+-runrule
+:	Set an X11 key name to reapply any rule relevant to the active window (default: XK_comma).
+
+	goomwwm -runrule comma
+
+-runruleset
+:	Set an X11 key name to switch between defined rule sets using a menu (default: XK_period).
+
+	goomwwm -runrule period
 
 -shrink
 :	Set an X11 key name to decrease the active window size (default: XK_Page_Down) through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.

@@ -276,8 +276,13 @@ Display active window title.
 .RS
 .RE
 .TP
-.B Mod-r
+.B Mod-, (comma)
 Reapply active window rule.
+.RS
+.RE
+.TP
+.B Mod-. (period)
+Switch between defined rule sets.
 .RS
 .RE
 .TP
@@ -945,12 +950,45 @@ Apply a specific size in pixels or percent of monitor size.
 Rules are not currently applied to transient windows (dialogs).
 .RE
 .TP
-.B -runrule
-Set an X11 key name to reapply any rule relevant to the active window
-(default: XK_r).
+.B -ruleset
+Begin loading a named set of rules (default: none).
 .RS
 .PP
-goomwwm -runrule r
+goomwwm -ruleset Name -rule ...
+-rule ...
+-ruleset Name2 -rule ...
+.PP
+Or, in .goomwwmrc:
+.IP
+.nf
+\f[C]
+ruleset\ Development\ Layout
+rule\ class:xterm\ right,bottom,small
+rule\ class:gvim\ left,maximize_vert,large
+
+ruleset\ Email/Chat\ Distractions
+rule\ class:pidgin\ left,bottom,small,snap_right
+rule\ class:chromium\ top,maximize_horz,large
+\f[]
+.fi
+.PP
+Rule sets can be switched on the fly via menu (see -runruleset).
+.RE
+.TP
+.B -runrule
+Set an X11 key name to reapply any rule relevant to the active window
+(default: XK_comma).
+.RS
+.PP
+goomwwm -runrule comma
+.RE
+.TP
+.B -runruleset
+Set an X11 key name to switch between defined rule sets using a menu
+(default: XK_period).
+.RS
+.PP
+goomwwm -runrule period
 .RE
 .TP
 .B -shrink

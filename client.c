@@ -1624,7 +1624,7 @@ void client_switcher(Window root, unsigned int tag)
 	{
 		display = XOpenDisplay(0);
 		XSync(display, True);
-		int n = menu(root, list, NULL);
+		int n = menu(root, list, NULL, 1);
 		if (n >= 0 && list[n])
 			window_send_message(root, ids->array[n], netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
 				SubstructureNotifyMask | SubstructureRedirectMask);
