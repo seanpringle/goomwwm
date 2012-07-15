@@ -24,9 +24,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-void cli_message(Atom atom, char *cmd)
+void cli_message(Window root, Atom atom, char *cmd)
 {
-	Window root = DefaultRootWindow(display);
 	Window cli = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, None, None);
 	if (cmd) window_set_text_prop(cli, gatoms[GOOMWWM_MESSAGE], cmd);
 	window_send_message(root, cli, atom, 0, SubstructureNotifyMask | SubstructureRedirectMask);
@@ -36,21 +35,22 @@ void cli_message(Atom atom, char *cmd)
 int cli_main(int argc, char *argv[])
 {
 	char *arg;
+	Window root = DefaultRootWindow(display);
 
 	if ((arg = find_arg_str(argc, argv, "-log", NULL)))
-		cli_message(gatoms[GOOMWWM_LOG], arg);
+		cli_message(root, gatoms[GOOMWWM_LOG], arg);
 
 	if (find_arg(argc, argv, "-restart") >= 0)
-		cli_message(gatoms[GOOMWWM_RESTART], argv[0]);
+		cli_message(root, gatoms[GOOMWWM_RESTART], argv[0]);
 
 	if ((arg = find_arg_str(argc, argv, "-exec", NULL)))
-		cli_message(gatoms[GOOMWWM_RESTART], arg);
+		cli_message(root, gatoms[GOOMWWM_RESTART], arg);
 
 	if ((arg = find_arg_str(argc, argv, "-ruleset", NULL)))
-		cli_message(gatoms[GOOMWWM_RULESET], arg);
+		cli_message(root, gatoms[GOOMWWM_RULESET], arg);
 
 	if (find_arg(argc, argv, "-quit") >= 0)
-		cli_message(gatoms[GOOMWWM_QUIT], NULL);
+		cli_message(root, gatoms[GOOMWWM_QUIT], NULL);
 
 	//TODO: make this a two-way event exchange
 	usleep(300000); // 0.3s

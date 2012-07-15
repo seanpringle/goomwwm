@@ -1,4 +1,4 @@
-void cli_message(Atom atom, char *cmd);
+void cli_message(Window root, Atom atom, char *cmd);
 int cli_main(int argc, char *argv[]);
 void client_flush_state(client *c);
 int client_has_state(client *c, Atom state);

@@ -150,7 +150,7 @@ void ruleset_switcher(Window root)
 		int n = menu(root, list, NULL, count-current-1);
 		if (n >= 0 && list[n])
 		{
-			cli_message(gatoms[GOOMWWM_RULESET], list[n]);
+			cli_message(root, gatoms[GOOMWWM_RULESET], list[n]);
 			usleep(300000);
 		}
 		exit(EXIT_SUCCESS);
