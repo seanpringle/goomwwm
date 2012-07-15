@@ -46,6 +46,9 @@ int cli_main(int argc, char *argv[])
 	if ((arg = find_arg_str(argc, argv, "-exec", NULL)))
 		cli_message(gatoms[GOOMWWM_RESTART], arg);
 
+	if ((arg = find_arg_str(argc, argv, "-ruleset", NULL)))
+		cli_message(gatoms[GOOMWWM_RULESET], arg);
+
 	if (find_arg(argc, argv, "-quit") >= 0)
 		cli_message(gatoms[GOOMWWM_QUIT], NULL);
 

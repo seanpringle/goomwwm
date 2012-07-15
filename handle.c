@@ -761,8 +761,8 @@ void handle_clientmessage(XEvent *ev)
 			}
 			if (msg && m->message_type == gatoms[GOOMWWM_LOG])
 				fprintf(stderr, "%s\n", msg);
-			if (m->message_type == gatoms[GOOMWWM_RULESET])
-				ruleset_execute(m->window, m->data.l[0]);
+			if (msg && m->message_type == gatoms[GOOMWWM_RULESET])
+				ruleset_execute(c->xattr.root, msg);
 			if (m->message_type == gatoms[GOOMWWM_QUIT])
 				exit(EXIT_SUCCESS);
 			free(msg);

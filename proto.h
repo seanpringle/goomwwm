@@ -104,7 +104,7 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon);
 void monitor_active(Screen *screen, workarea *mon);
 void rule_parse(char *rulestr);
 void ruleset_switcher(Window root);
-void ruleset_execute(Window root, int index);
+void ruleset_execute(Window root, char *name);
 unsigned int tag_to_desktop(unsigned int tag);
 unsigned int desktop_to_tag(unsigned int desktop);
 void tag_set_current(unsigned int tag);

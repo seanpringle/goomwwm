@@ -149,19 +149,22 @@ void ruleset_switcher(Window root)
 		XSync(display, True);
 		int n = menu(root, list, NULL, count-current-1);
 		if (n >= 0 && list[n])
-			window_send_message(root, root, gatoms[GOOMWWM_RULESET], count-n-1, SubstructureNotifyMask | SubstructureRedirectMask);
+		{
+			cli_message(gatoms[GOOMWWM_RULESET], list[n]);
+			usleep(300000);
+		}
 		exit(EXIT_SUCCESS);
 	}
 	free(list);
 }
 
 // execute a ruleset on open windows
-void ruleset_execute(Window root, int index)
+void ruleset_execute(Window root, char *name)
 {
 	int i; winruleset *set = NULL; Window w; client *c;
 
 	// find ruleset by index
-	for (i = 0, set = config_rulesets; set->next && i < index; i++, set = set->next);
+	for (set = config_rulesets; set && strcasecmp(name, set->name); set = set->next);
 
 	if (set)
 	{

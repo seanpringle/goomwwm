@@ -196,6 +196,7 @@ int menu(Window root, char **lines, char *manual, int firstsel)
 	XftDrawDestroy(my->draw);
 	XFreeGC(display, my->gc);
 	XftFontClose(display, my->font);
+	XDestroyWindow(display, my->window);
 	release_keyboard();
 	free(my->input);
 
