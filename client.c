@@ -100,7 +100,7 @@ void client_extended_data(client *c)
 	if (!c || c->is_extended) return;
 
 	long sr; XGetWMNormalHints(display, c->window, &c->xsize, &sr);
-	monitor_dimensions_struts(c->xattr.screen, c->x+c->w/2, c->y+c->h/2, &c->monitor);
+	monitor_dimensions_struts(c->x+c->w/2, c->y+c->h/2, &c->monitor);
 
 	int screen_x = c->monitor.x, screen_y = c->monitor.y;
 	int screen_width = c->monitor.w, screen_height = c->monitor.h;
@@ -267,7 +267,7 @@ void client_close(client *c)
 int client_warp_check(client *c, int x, int y)
 {
 	int i, ok = 1; Window w; client *o;
-	managed_descend(c->xattr.root, i, w, o)
+	managed_descend(i, w, o)
 	{
 		if (!ok || w == c->window) break;
 		if (INTERSECT(o->x, o->y, o->w, o->h, x, y, 1, 1)) ok = 0;
@@ -280,11 +280,11 @@ void client_warp_pointer(client *c)
 {
 	// needs the updated stacking mode, so clear cache
 	XSync(display, False);
-	winlist_empty_2d(cache_inplay);
+	winlist_empty(cache_inplay);
 
 	client_extended_data(c);
 	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
-	int x, y; if (!pointer_get(c->xattr.root, &x, &y)) return;
+	int x, y; if (!pointer_get(&x, &y)) return;
 	int mx = x, my = y;
 	// if pointer is not already over the client...
 	if (!INTERSECT(c->x, c->y, c->w, c->h, x, y, 1, 1) || !client_warp_check(c, x, y))
@@ -313,7 +313,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	fx = MAX(0, fx); fy = MAX(0, fy);
 
 	// this many be different to the client's current c->monitor...
-	workarea monitor; monitor_dimensions_struts(c->xattr.screen, fx, fy, &monitor);
+	workarea monitor; monitor_dimensions_struts(fx, fy, &monitor);
 
 	fx = MIN(monitor.x+monitor.w+monitor.l+monitor.r-1, fx);
 	fy = MIN(monitor.y+monitor.h+monitor.t+monitor.b-1, fy);
@@ -518,15 +518,15 @@ void client_restore_position_vert(client *c, int smart, int y, int h)
 }
 
 // build list of unobscured windows within a workarea
-winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag, Window ignore)
+winlist* clients_fully_visible(workarea *zone, unsigned int tag, Window ignore)
 {
 	winlist *hits = winlist_new();
-	winlist *inplay = windows_in_play(root);
+	winlist *inplay = windows_in_play();
 	// list of coords/sizes for all windows on this desktop
 	workarea *allregions = allocate_clear(sizeof(workarea) * inplay->len);
 
 	int i; Window win; client *o;
-	tag_descend(root, i, win, o, tag)
+	tag_descend(i, win, o, tag)
 	{
 		client_extended_data(o);
 		// only concerned about windows in the zone
@@ -554,15 +554,15 @@ winlist* clients_fully_visible(Window root, workarea *zone, unsigned int tag, Wi
 }
 
 // build list of unobscured windows within a workarea
-winlist* clients_partly_visible(Window root, workarea *zone, unsigned int tag, Window ignore)
+winlist* clients_partly_visible(workarea *zone, unsigned int tag, Window ignore)
 {
 	winlist *hits = winlist_new();
-	winlist *inplay = windows_in_play(root);
+	winlist *inplay = windows_in_play();
 	// list of coords/sizes for all windows on this desktop
 	workarea *allregions = allocate_clear(sizeof(workarea) * inplay->len);
 
 	int i; Window win; client *o;
-	tag_descend(root, i, win, o, tag)
+	tag_descend(i, win, o, tag)
 	{
 		client_extended_data(o);
 		// only concerned about windows in the zone
@@ -603,7 +603,7 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	if (c->cache->vlock) { my = c->y; mh = c->sh; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
-	winlist *visible = clients_fully_visible(c->xattr.root, &c->monitor, 0, c->window);
+	winlist *visible = clients_fully_visible(&c->monitor, 0, c->window);
 
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
@@ -710,7 +710,7 @@ void client_snapto(client *c, int direction)
 	if (c->cache->vlock && (direction == SNAPUP   || direction == SNAPDOWN )) return;
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
-	winlist *visible = clients_partly_visible(c->xattr.root, &c->monitor, 0, c->window);
+	winlist *visible = clients_partly_visible(&c->monitor, 0, c->window);
 
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
@@ -804,29 +804,28 @@ void client_flash(client *c, unsigned int color, int delay, int title)
 			y1 = c->cache->mr_y; y2 = y1 + c->cache->mr_h - config_flash_width + config_border_width;
 		}
 		// four coloured squares in the window's corners
-		Window tl = XCreateSimpleWindow(display, c->xattr.root, x1, y1, config_flash_width, config_flash_width, 0, None, color);
-		Window tr = XCreateSimpleWindow(display, c->xattr.root, x2, y1, config_flash_width, config_flash_width, 0, None, color);
-		Window bl = XCreateSimpleWindow(display, c->xattr.root, x1, y2, config_flash_width, config_flash_width, 0, None, color);
-		Window br = XCreateSimpleWindow(display, c->xattr.root, x2, y2, config_flash_width, config_flash_width, 0, None, color);
+		Window tl = XCreateSimpleWindow(display, root, x1, y1, config_flash_width, config_flash_width, 0, None, color);
+		Window tr = XCreateSimpleWindow(display, root, x2, y1, config_flash_width, config_flash_width, 0, None, color);
+		Window bl = XCreateSimpleWindow(display, root, x1, y2, config_flash_width, config_flash_width, 0, None, color);
+		Window br = XCreateSimpleWindow(display, root, x2, y2, config_flash_width, config_flash_width, 0, None, color);
 
 		GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
-		int scr = XScreenNumberOfScreen(c->xattr.screen);
 
-		XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_title_fg, &fg);
-		XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_title_bg, &bg);
+		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_title_fg, &fg);
+		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_title_bg, &bg);
 
-		font = XftFontOpenName(display, scr, config_title_font);
+		font = XftFontOpenName(display, screen_id, config_title_font);
 		XftTextExtentsUtf8(display, font, (unsigned char*)c->title, strlen(c->title), &extents);
 
 		int line_height = font->ascent + font->descent, line_width = extents.width;
 		int bar_width = MIN(line_width+20, (c->sw/10)*9), bar_height = line_height+10;
 
-		Window bar = XCreateSimpleWindow(display, c->xattr.root,
+		Window bar = XCreateSimpleWindow(display, root,
 			x1 + c->sw/2 - bar_width/2, y1 + c->sh/2 - bar_height/2,
 			bar_width, bar_height, 1, color, None);
 
 		gc   = XCreateGC(display, bar, 0, 0);
-		draw = XftDrawCreate(display, bar, DefaultVisual(display, scr), DefaultColormap(display, scr));
+		draw = XftDrawCreate(display, bar, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
 
 		XSetWindowAttributes attr; attr.override_redirect = True;
 		XChangeWindowAttributes(display, tl, CWOverrideRedirect, &attr);
@@ -873,7 +872,7 @@ void client_stack_family(client *c, winlist *stack)
 	if (app != orig) winlist_append(stack, orig, NULL);
 
 	// locate all visible transient windows for this app
-	winlist *inplay = windows_in_play(c->xattr.root);
+	winlist *inplay = windows_in_play();
 	for (i = inplay->len-1; i > -1; i--)
 	{
 		if (inplay->array[i] == app) continue;
@@ -892,7 +891,7 @@ void client_raise(client *c, int priority)
 		return;
 
 	winlist *stack = winlist_new();
-	winlist *inplay = windows_in_play(c->xattr.root);
+	winlist *inplay = windows_in_play();
 
 	// priority gets us raised without anyone above us, regardless. eg _NET_WM_STATE_FULLSCREEN+focus
 	if (!priority)
@@ -958,7 +957,7 @@ void client_lower(client *c, int priority)
 		return;
 
 	winlist *stack = winlist_new();
-	winlist *inplay = windows_in_play(c->xattr.root);
+	winlist *inplay = windows_in_play();
 
 	if (priority) client_stack_family(c, stack);
 
@@ -1071,7 +1070,7 @@ void client_activate(client *c, int raise, int warp)
 	int i; Window w; client *o;
 
 	// deactivate everyone else
-	clients_ascend(windows_in_play(c->xattr.root), i, w, o) if (w != c->window) client_deactivate(o);
+	clients_ascend(windows_in_play(), i, w, o) if (w != c->window) client_deactivate(o);
 
 	if (c->minimized) client_restore(c);
 
@@ -1091,7 +1090,7 @@ void client_activate(client *c, int raise, int warp)
 	// update focus history order
 	winlist_forget(windows_activated, c->window);
 	winlist_append(windows_activated, c->window, NULL);
-	ewmh_active_window(c->xattr.root, c->window);
+	ewmh_active_window(c->window);
 
 	// tell the user something happened
 	if (!c->active) client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
@@ -1115,17 +1114,17 @@ unsigned long client_get_wm_state(client *c)
 }
 
 // locate the currently focused window and build a client for it
-client* client_active(Window root, unsigned int tag)
+client* client_active(unsigned int tag)
 {
 	int i; Window w; client *c = NULL, *o;
 	// look for a visible, previously activated window in the current tag
 	if (tag) clients_descend(windows_activated, i, w, o)
-		if (o->manage && o->visible && o->cache->tags & tag && o->xattr.root == root) { c = o; break; }
+		if (o->manage && o->visible && o->cache->tags & tag) { c = o; break; }
 	// look for a visible, previously activated window anywhere
 	if (!c) clients_descend(windows_activated, i, w, o)
-		if (o->manage && o->visible && o->xattr.root == root) { c = o; break; }
+		if (o->manage && o->visible) { c = o; break; }
 	// otherwise look for any visible, manageable window
-	if (!c) managed_descend(root, i, w, o) { c = o; break; }
+	if (!c) managed_descend(i, w, o) { c = o; break; }
 	// if we found one, activate it
 	if (c && (!c->focus || !c->active))
 		client_activate(c, RAISEDEF, WARPDEF);
@@ -1303,10 +1302,10 @@ void client_nws_review(client *c)
 void client_cycle(client *c)
 {
 	int i; Window w; client *o;
-	tag_ascend(c->xattr.root, i, w, o, current_tag)
+	tag_ascend(i, w, o, current_tag)
 		if (w != c->window && clients_intersect(c, o))
 			{ client_activate(o, RAISE, WARPDEF); return; }
-	tag_ascend(c->xattr.root, i, w, o, (c->cache->tags|current_tag))
+	tag_ascend(i, w, o, (c->cache->tags|current_tag))
 		if (w != c->window && clients_intersect(c, o))
 			{ client_activate(o, RAISE, WARPDEF); return; }
 	// nothing to cycle. do something visual to acknowledge key press
@@ -1321,7 +1320,7 @@ void client_htile(client *c)
 	winlist_append(tiles, c->window, NULL);
 	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
 	// locate windows with same tag, size, and position
-	tag_descend(c->xattr.root, i, w, o, current_tag) if (c->window != w)
+	tag_descend(i, w, o, current_tag) if (c->window != w)
 		if (NEAR(c->x, vague, o->x) && NEAR(c->y, vague, o->y) && NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h))
 			winlist_append(tiles, w, NULL);
 	if (tiles->len > 1)
@@ -1355,7 +1354,7 @@ void client_huntile(client *c)
 	while (tlen != tiles->len)
 	{
 		tlen = tiles->len;
-		tag_descend(c->xattr.root, i, w, o, current_tag)
+		tag_descend(i, w, o, current_tag)
 			// window is not already found, and is on the same horizontal alignment
 			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->y, vague, o->y)
 				// window has roughly the same width and height, and aligned with a known left/right edge
@@ -1388,7 +1387,7 @@ void client_vtile(client *c)
 	winlist_append(tiles, c->window, NULL);
 	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
 	// locate windows with same tag, size, and position
-	tag_descend(c->xattr.root, i, w, o, current_tag) if (c->window != w)
+	tag_descend(i, w, o, current_tag) if (c->window != w)
 		if (NEAR(c->x, vague, o->x) && NEAR(c->y, vague, o->y) && NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h))
 			winlist_append(tiles, w, NULL);
 	if (tiles->len > 1)
@@ -1422,7 +1421,7 @@ void client_vuntile(client *c)
 	while (tlen != tiles->len)
 	{
 		tlen = tiles->len;
-		tag_descend(c->xattr.root, i, w, o, current_tag)
+		tag_descend(i, w, o, current_tag)
 			// window is not already found, and is on the same vertical alignment
 			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->x, vague, o->x)
 				// window has roughly the same width and height, and aligned with a known top/bottom edge
@@ -1472,7 +1471,7 @@ void client_focusto(client *c, int direction)
 		if (tries == 2 || tries == 3)
 		{
 			// third attempt: all monitors
-			monitor_dimensions(c->xattr.screen, -1, -1, &zone);
+			monitor_dimensions(-1, -1, &zone);
 		}
 		// reduce the monitor size to a workarea in the appropriate direction
 		if (direction == FOCUSLEFT)  { zone.w = self.x - zone.x; }
@@ -1481,7 +1480,7 @@ void client_focusto(client *c, int direction)
 		if (direction == FOCUSDOWN)  { zone.h -= self.y + self.h - zone.y; zone.y = self.y + self.h; }
 
 		// look for a fully visible immediately adjacent in the chosen 'zone'
-		visible = clients_fully_visible(c->xattr.root, &zone, 0, None);
+		visible = clients_fully_visible(&zone, 0, None);
 
 		// prefer window that overlaps vertically
 		if (!match && (direction == FOCUSLEFT || direction == FOCUSRIGHT))
@@ -1506,14 +1505,14 @@ void client_focusto(client *c, int direction)
 	// if we failed to find something fully visible, look for anything partly visible
 	if (!match)
 	{
-		monitor_dimensions(c->xattr.screen, -1, -1, &zone);
+		monitor_dimensions(-1, -1, &zone);
 		// reduce the monitor size to a workarea in the appropriate direction
 		if (direction == FOCUSLEFT)  { zone.w = c->x - zone.x + vague; }
 		if (direction == FOCUSRIGHT) { zone.w -= (c->x - zone.x) + c->sw + vague; zone.x = c->x + c->sw - vague; }
 		if (direction == FOCUSUP)    { zone.h = c->y - zone.y + vague; }
 		if (direction == FOCUSDOWN)  { zone.h -= (c->y - zone.y) + c->sh + vague; zone.y = c->y + c->sh - vague; }
 
-		visible = clients_partly_visible(c->xattr.root, &zone, 0, None);
+		visible = clients_partly_visible(&zone, 0, None);
 
 		// again, prefer windows overlapping
 		clients_descend(visible, i, w, o)
@@ -1535,7 +1534,7 @@ void client_focusto(client *c, int direction)
 void client_duplicate(client *c)
 {
 	int i; Window w; client *o; client_commit(c);
-	tag_descend(c->xattr.root, i, w, o, 0)
+	tag_descend(i, w, o, 0)
 		if (c->window != w && clients_intersect(c, o))
 			{ client_moveresize(c, 0, o->x, o->y, o->sw, o->sh); return; }
 }
@@ -1555,7 +1554,7 @@ void client_restore(client *c)
 }
 
 // built-in window switcher
-void client_switcher(Window root, unsigned int tag)
+void client_switcher(unsigned int tag)
 {
 	// TODO: this whole function is messy. build a nicer solution
 	char pattern[50], **list = NULL;
@@ -1624,7 +1623,7 @@ void client_switcher(Window root, unsigned int tag)
 	{
 		display = XOpenDisplay(0);
 		XSync(display, True);
-		int n = menu(root, list, NULL, 1);
+		int n = menu(list, NULL, 1);
 		if (n >= 0 && list[n])
 			window_send_message(root, ids->array[n], netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
 				SubstructureNotifyMask | SubstructureRedirectMask);
@@ -1654,7 +1653,7 @@ void client_toggle_tag(client *c, unsigned int tag, int flash)
 }
 
 // search for first open window matching class/name/title
-client* client_find(Window root, char *pattern)
+client* client_find(char *pattern)
 {
 	if (!pattern) return None;
 	int i; Window w; client *c = NULL, *found = NULL;
@@ -1665,10 +1664,10 @@ client* client_find(Window root, char *pattern)
 	config_rules = rule->next;
 
 	// first, try in current_tag only
-	tag_descend(root, i, w, c, current_tag)
+	tag_descend(i, w, c, current_tag)
 		if (client_rule_match(c, rule)) { found = c; break; }
 	// failing that, search regardless of tag
-	if (!found) managed_descend(root, i, w, c)
+	if (!found) managed_descend(i, w, c)
 		if (client_rule_match(c, rule)) { found = c; break; }
 
 	regfree(&rule->re);
@@ -1677,10 +1676,10 @@ client* client_find(Window root, char *pattern)
 }
 
 // search for and activate first open window matching class/name/title
-void client_find_or_start(Window root, char *pattern)
+void client_find_or_start(char *pattern)
 {
 	if (!pattern) return;
-	client *c = client_find(root, pattern);
+	client *c = client_find(pattern);
 	if (c) client_activate(c, RAISE, WARPDEF);
 	else {
 		if (regquick("^(class|name|title):", pattern))

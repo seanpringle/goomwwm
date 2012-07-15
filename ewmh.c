@@ -25,18 +25,18 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // update _NET_CLIENT_LIST
-void ewmh_client_list(Window root)
+void ewmh_client_list()
 {
 	XSync(display, False);
 	// this often happens after we've made changes. refresh
-	winlist_empty_2d(cache_inplay);
+	winlist_empty(cache_inplay);
 
 	winlist *relevant = winlist_new();
 	winlist *mapped   = winlist_new();
 	int i; Window w; client *c;
 
 	// windows_in_play() returns the stacking order. windows_activated *MAY NOT* have the same order
-	managed_ascend(root, i, w, c) if (!client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR])) winlist_append(relevant, w, NULL);
+	managed_ascend(i, w, c) if (!client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR])) winlist_append(relevant, w, NULL);
 	XChangeProperty(display, root, netatoms[_NET_CLIENT_LIST_STACKING], XA_WINDOW, 32, PropModeReplace, (unsigned char*)relevant->array, relevant->len);
 
 	// 'windows' list has mapping order of everything. build 'mapped' from 'relevant', ordered by 'windows'
@@ -48,20 +48,20 @@ void ewmh_client_list(Window root)
 }
 
 // update _NET_ACTIVE_WINDOW
-void ewmh_active_window(Window root, Window w)
+void ewmh_active_window(Window w)
 {
 	XChangeProperty(display, root, netatoms[_NET_ACTIVE_WINDOW], XA_WINDOW, 32, PropModeReplace, (unsigned char*)&w, 1);
 }
 
 // _NET_DESKTOP stuff, taking _NET_WM_STRUT* into account
-void ewmh_desktop_list(Window root)
+void ewmh_desktop_list()
 {
 	int i; XWindowAttributes *attr = window_get_attributes(root);
 	// nine desktops. want more space? buy more monitors and use xinerama :)
 	unsigned long desktops = TAGS, area[4*TAGS], geo[2], view[2], desktop;
 
 	// this will return the full X screen, not Xinerama screen
-	workarea mon; monitor_dimensions_struts(attr->screen, -1, -1, &mon);
+	workarea mon; monitor_dimensions_struts(-1, -1, &mon);
 
 	// figure out the workarea, less struts
 	for (i = 0; i < TAGS; i++)

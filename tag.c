@@ -41,8 +41,7 @@ unsigned int desktop_to_tag(unsigned int desktop)
 void tag_set_current(unsigned int tag)
 {
 	current_tag = tag; unsigned long d = tag_to_desktop(current_tag);
-	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
-		window_set_cardinal_prop(RootWindow(display, scr), netatoms[_NET_CURRENT_DESKTOP], &d, 1);
+	window_set_cardinal_prop(root, netatoms[_NET_CURRENT_DESKTOP], &d, 1);
 }
 
 // raise all windows in a tag
@@ -51,42 +50,37 @@ void tag_raise(unsigned int tag)
 	int i; Window w; client *c;
 	winlist *stack;
 
-	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
-	{
-		Window root = RootWindow(display, scr);
-		winlist *inplay = windows_in_play(root);
-		stack = winlist_new();
+	winlist *inplay = windows_in_play();
+	stack = winlist_new();
 
-		// locate windows with _NET_WM_STATE_ABOVE and _NET_WM_STATE_STICKY
-		clients_descend(inplay, i, w, c)
-			if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
-				&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])
-				&& client_has_state(c, netatoms[_NET_WM_STATE_STICKY]))
-					client_stack_family(c, stack);
-		// locate windows with _NET_WM_STATE_ABOVE in this tag
-		clients_descend(inplay, i, w, c)
-			if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
-				&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]) && c->cache->tags & tag)
-					client_stack_family(c, stack);
-		// locate _NET_WM_WINDOW_TYPE_DOCK windows
-		clients_descend(inplay, i, w, c)
-			if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
-				&& c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
-					client_stack_family(c, stack);
-		// locate all other windows in the tag
-		managed_descend(root, i, w, c)
-			if (winlist_find(stack, w) < 0 && c->trans == None && c->cache->tags & tag)
+	// locate windows with _NET_WM_STATE_ABOVE and _NET_WM_STATE_STICKY
+	clients_descend(inplay, i, w, c)
+		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
+			&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])
+			&& client_has_state(c, netatoms[_NET_WM_STATE_STICKY]))
 				client_stack_family(c, stack);
-		if (stack->len)
-		{
-			// raise the top window in the stack
-			XRaiseWindow(display, stack->array[0]);
-			// stack everything else, in order, underneath top window
-			if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
-		}
-		winlist_free(stack);
+	// locate windows with _NET_WM_STATE_ABOVE in this tag
+	clients_descend(inplay, i, w, c)
+		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
+			&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]) && c->cache->tags & tag)
+				client_stack_family(c, stack);
+	// locate _NET_WM_WINDOW_TYPE_DOCK windows
+	clients_descend(inplay, i, w, c)
+		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
+			&& c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
+				client_stack_family(c, stack);
+	// locate all other windows in the tag
+	managed_descend(i, w, c)
+		if (winlist_find(stack, w) < 0 && c->trans == None && c->cache->tags & tag)
+			client_stack_family(c, stack);
+	if (stack->len)
+	{
+		// raise the top window in the stack
+		XRaiseWindow(display, stack->array[0]);
+		// stack everything else, in order, underneath top window
+		if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
 	}
-	// runs on all screens/roots
+	winlist_free(stack);
 	tag_set_current(tag);
 
 	// focus the last-focused client in the tag
@@ -95,16 +89,16 @@ void tag_raise(unsigned int tag)
 
 	// in case no windows are in the tag, show some activity
 	char msg[32]; sprintf(msg, "Tag %d", tag_to_desktop(tag)+1);
-	say(DefaultScreenOfDisplay(display), msg);
+	say(msg);
 }
 
 // check active client. if
-void tag_auto_switch(Window root)
+void tag_auto_switch()
 {
-	client *c = client_active(root, 0);
+	client *c = client_active(0);
 	if (c && c->cache->tags && !(c->cache->tags & current_tag))
 	{
-		int i, n = 0; Window w; client *o; tag_descend(root, i, w, o, current_tag) n++;
+		int i, n = 0; Window w; client *o; tag_descend(i, w, o, current_tag) n++;
 		if (!n) tag_raise(desktop_to_tag(tag_to_desktop(c->cache->tags)));
 	}
 }

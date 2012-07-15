@@ -60,6 +60,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 	signal(SIGCHLD, catch_exit);
+	screen = DefaultScreenOfDisplay(display);
+	screen_id = DefaultScreen(display);
+	root = DefaultRootWindow(display);
 
 	// X atom values
 	for (i = 0; i < ATOMS; i++) atoms[i] = XInternAtom(display, atom_names[i], False);

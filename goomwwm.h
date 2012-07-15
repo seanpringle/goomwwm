@@ -63,11 +63,11 @@ typedef struct {
 #define clients_ascend(l,i,w,c) winlist_ascend(l,i,w) if (((c) = client_create(w)))
 #define clients_descend(l,i,w,c) winlist_descend(l,i,w) if (((c) = client_create(w)))
 
-#define managed_ascend(r,i,w,c) clients_ascend(windows_in_play(r),i,w,c) if ((c)->manage && (c)->visible)
-#define managed_descend(r,i,w,c) clients_descend(windows_in_play(r),i,w,c) if ((c)->manage && (c)->visible)
+#define managed_ascend(i,w,c) clients_ascend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
+#define managed_descend(i,w,c) clients_descend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
 
-#define tag_ascend(r,i,w,c,t) managed_ascend(r, i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
-#define tag_descend(r,i,w,c,t) managed_descend(r, i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
+#define tag_ascend(i,w,c,t) managed_ascend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
+#define tag_descend(i,w,c,t) managed_descend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
 
 // usable space on a monitor
 typedef struct {
@@ -323,7 +323,7 @@ KeySym keymap[] = { KEYLIST(KEY_KSYM), 0 };
 char *keyargs[] = { KEYLIST(KEY_CARG), NULL };
 
 unsigned int NumlockMask = 0;
-Display *display;
+Display *display; Screen *screen; Window root; int screen_id;
 
 // mouse move/resize controls
 // see ButtonPress,MotionNotify

@@ -114,22 +114,19 @@ void menu_key(struct localmenu *my, XEvent *ev)
 }
 
 // menu
-int menu(Window root, char **lines, char *manual, int firstsel)
+int menu(char **lines, char *manual, int firstsel)
 {
-	int i, l, scr;
+	int i, l;
 	struct localmenu _my, *my = &_my;
-
-	XWindowAttributes *attr = window_get_attributes(root);
-	workarea mon; monitor_active(attr->screen, &mon);
-	scr = XScreenNumberOfScreen(attr->screen);
+	workarea mon; monitor_active(&mon);
 
 	// this never fails, afaics. we get some sort of font, no matter what
-	my->font = XftFontOpenName(display, scr, config_menu_font);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_fg,    &my->fg);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bg,    &my->bg);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_bgalt, &my->bgalt);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlfg,  &my->hlfg);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_menu_hlbg,  &my->hlbg);
+	my->font = XftFontOpenName(display, screen_id, config_menu_font);
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_menu_fg,    &my->fg);
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_menu_bg,    &my->bg);
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_menu_bgalt, &my->bgalt);
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_menu_hlfg,  &my->hlfg);
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_menu_hlbg,  &my->hlbg);
 	my->line_height = my->font->ascent + my->font->descent +4; // +2 pixel extra line spacing
 
 	for (l = 0, i = 0; lines[i]; i++) l = MAX(l, strlen(lines[i]));
@@ -147,7 +144,7 @@ int menu(Window root, char **lines, char *manual, int firstsel)
 	my->vert_pad    = 5; // vertical padding
 	my->width       = config_menu_width < 101 ? (mon.w/100)*config_menu_width: config_menu_width;
 	my->height      = ((my->line_height) * (my->max_lines+1)) + (my->vert_pad*2);
-	my->xbg         = color_get(display, config_menu_bg);
+	my->xbg         = color_get(config_menu_bg);
 	my->selected    = NULL;
 	my->manual      = manual;
 
@@ -163,8 +160,8 @@ int menu(Window root, char **lines, char *manual, int firstsel)
 
 	// drawing environment
 	my->gc     = XCreateGC(display, my->window, 0, 0);
-	my->canvas = XCreatePixmap(display, root, my->width, my->height, DefaultDepth(display, scr));
-	my->draw   = XftDrawCreate(display, my->canvas, DefaultVisual(display, scr), DefaultColormap(display, scr));
+	my->canvas = XCreatePixmap(display, root, my->width, my->height, DefaultDepth(display, screen_id));
+	my->draw   = XftDrawCreate(display, my->canvas, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
 
 	// input keymap->charmap handling
 	my->xim = XOpenIM(display, NULL, NULL, NULL);

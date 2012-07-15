@@ -63,11 +63,6 @@ void winlist_free(winlist *l)
 	winlist_empty(l); free(l->array); free(l->data); free(l);
 }
 
-void winlist_empty_2d(winlist *l)
-{
-	while (l->len > 0) winlist_free(l->data[--(l->len)]);
-}
-
 int winlist_find(winlist *l, Window w)
 {
 	// iterate backwards. theory is: windows most often accessed will be

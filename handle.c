@@ -59,7 +59,7 @@ void handle_keypress(XEvent *ev)
 	if (key == keymap[KEY_SWITCH])
 	{
 		if (config_switcher) exec_cmd(config_switcher);
-		else client_switcher(ev->xany.window, 0);
+		else client_switcher(0);
 	}
 	else
 	if (key == keymap[KEY_LAUNCH]) exec_cmd(config_launcher);
@@ -75,7 +75,7 @@ void handle_keypress(XEvent *ev)
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
 	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0)
-		client_find_or_start(ev->xany.window, config_apps_patterns[i]);
+		client_find_or_start(config_apps_patterns[i]);
 
 	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0)
 		tag_raise(1<<i);
@@ -86,7 +86,7 @@ void handle_keypress(XEvent *ev)
 
 	else
 	// following only relevant with a focused window
-	if ((c = client_active(ev->xany.window, 0)) && c)
+	if ((c = client_active(0)) && c)
 	{
 		client_descriptive_data(c);
 		client_extended_data(c);
@@ -137,13 +137,13 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_TAG])
 		{
 			client_toggle_tag(c, current_tag, FLASH);
-			ewmh_client_list(c->xattr.root);
+			ewmh_client_list();
 		}
 
 		else
 		// cycle through windows with same tag
 		if (key == keymap[KEY_TSWITCH])
-			client_switcher(c->xattr.root, current_tag);
+			client_switcher(current_tag);
 		else
 		// Page Up/Down makes the focused window larger and smaller respectively
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN])
@@ -215,28 +215,28 @@ void handle_keypress(XEvent *ev)
 				// monitor switching if window is on an edge
 				if (key == keymap[KEY_LEFT] && c->is_left)
 				{
-					monitor_dimensions_struts(c->xattr.screen, c->monitor.x-c->monitor.l-vague, c->y, &mon);
+					monitor_dimensions_struts(c->monitor.x-c->monitor.l-vague, c->y, &mon);
 					if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
 						{ done = 1; fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
 				}
 				else
 				if (key == keymap[KEY_RIGHT] && c->is_right)
 				{
-					monitor_dimensions_struts(c->xattr.screen, c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
+					monitor_dimensions_struts(c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
 					if (mon.x > c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
 						{ done = 1; fx = mon.x; fy = y; fw = w; fh = h; }
 				}
 				else
 				if (key == keymap[KEY_UP] && c->is_top)
 				{
-					monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y-c->monitor.t-vague, &mon);
+					monitor_dimensions_struts(c->x, c->monitor.y-c->monitor.t-vague, &mon);
 					if (mon.y < c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
 						{ done = 1; fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
 				}
 				else
 				if (key == keymap[KEY_DOWN] && c->is_bottom)
 				{
-					monitor_dimensions_struts(c->xattr.screen, c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
+					monitor_dimensions_struts(c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
 					if (mon.y > c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
 						{ done = 1; fx = x; fy = mon.y; fw = w; fh = h; }
 				}
@@ -365,8 +365,8 @@ void handle_motionnotify(XEvent *ev)
 		// monitor_dimensions_struts() can be heavy work with mouse events. only do it if necessary
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]) || client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 		{
-			int px, py; pointer_get(c->xattr.root, &px, &py);
-			workarea mon; monitor_dimensions_struts(c->xattr.screen, px, py, &mon);
+			int px, py; pointer_get(&px, &py);
+			workarea mon; monitor_dimensions_struts(px, py, &mon);
 			// ensure we match maxv/maxh mode. these override above locks!
 			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 				{ x = mon.x; w = mon.w-bw; }
@@ -382,7 +382,7 @@ void handle_motionnotify(XEvent *ev)
 			if (!xsnap && NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { x = c->monitor.x+c->monitor.w-w-bw; xsnap = 1; }
 			if (!ysnap && NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { y = c->monitor.y+c->monitor.h-h-bw; ysnap = 1; }
 			// snap to window edges
-			if (!xsnap || !ysnap) managed_descend(c->xattr.root, i, win, o) if (win != c->window)
+			if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
 			{
 				client_extended_data(o);
 				if (!xsnap && NEAR(o->x, vague, x)) { x = o->x; xsnap = 1; }
@@ -404,7 +404,7 @@ void handle_motionnotify(XEvent *ev)
 			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { w = c->monitor.x+c->monitor.w-x-bw; xsnap = 1; }
 			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { h = c->monitor.y+c->monitor.h-y-bw; ysnap = 1; }
 			// snap to window edges
-			if (!xsnap || !ysnap) managed_descend(c->xattr.root, i, win, o) if (win != c->window)
+			if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
 			{
 				client_extended_data(o);
 				if (!xsnap && NEAR(o->x, vague, x+w)) { w = o->x-x-bw; xsnap = 1; }
@@ -500,17 +500,16 @@ void handle_configurenotify(XEvent *ev)
 	// we use StructureNotifyMask on root windows. this seems to be a way of detecting XRandR
 	// shenanigans without actually needing to include xrandr or check for it, etc...
 	// TODO: is this a legit assumption?
-	if (window_is_root(ev->xconfigure.window))
+	if (ev->xconfigure.window == root)
 	{
-		Window root = ev->xconfigure.window;
 		event_log("ConfigureNotify", root);
 		event_note("root window change!");
 		reset_lazy_caches();
-		ewmh_desktop_list(root);
+		ewmh_desktop_list();
 		XWindowAttributes *attr = window_get_attributes(root);
 		int i; Window w;
 		// find all windows and ensure they're visible in the new screen layout
-		managed_ascend(ev->xconfigure.window, i, w, c)
+		managed_ascend(i, w, c)
 		{
 			client_extended_data(c);
 			// client_moveresize() will handle fine tuning bumping the window on-screen
@@ -548,7 +547,7 @@ void handle_maprequest(XEvent *ev)
 		event_log("MapRequest", c->window);
 		event_client_dump(c);
 		client_extended_data(c);
-		monitor_active(c->xattr.screen, &c->monitor);
+		monitor_active(&c->monitor);
 		// if this MapRequest was already dispatched before a previous ConfigureRequest was
 		// received, some clients seem to be able to map before applying the border change,
 		// resulting in a little jump on screen. ensure border is done first
@@ -564,8 +563,8 @@ void handle_maprequest(XEvent *ev)
 		if (config_window_placement == PLACEPOINTER && !(c->xsize.flags & (PPosition|USPosition)))
 		{
 			// figure out which monitor holds the pointer, so we can nicely keep the window on-screen
-			int x, y; pointer_get(c->xattr.root, &x, &y);
-			workarea a; monitor_dimensions_struts(c->xattr.screen, x, y, &a);
+			int x, y; pointer_get(&x, &y);
+			workarea a; monitor_dimensions_struts(x, y, &a);
 			client_moveresize(c, 0, MAX(a.x, x-(c->sw/2)), MAX(a.y, y-(c->sh/2)), c->sw, c->sh);
 		}
 		else
@@ -622,7 +621,7 @@ void handle_mapnotify(XEvent *ev)
 				// if on current tag, place new window under active window and next in activate order by default
 				// if specifically raised, raise window and leave second in activate order
 				// if specifically lowered, lower window and place last in activate order
-				if (c->cache->tags & current_tag && (a = client_active(c->xattr.root, current_tag)) && a->window != c->window)
+				if (c->cache->tags & current_tag && (a = client_active(current_tag)) && a->window != c->window)
 				{
 					winlist_forget(windows_activated, c->window);
 					if (client_rule(c, RULE_LOWER))
@@ -644,7 +643,7 @@ void handle_mapnotify(XEvent *ev)
 			// post-placement rules
 			client_rules_moveresize_post(c);
 		}
-		ewmh_client_list(c->xattr.root);
+		ewmh_client_list();
 		// some gtk windows see to need an extra kick to make them respect expose events...
 		// something to do with the configurerequest step? this little nudge makes it all work :-|
 		XSetWindowBorderWidth(display, c->window, 0);
@@ -682,16 +681,16 @@ void handle_unmapnotify(XEvent *ev)
 	// see if this was the active window, and if so, find someone else to take the job
 	if (was_active)
 	{
-		if (window_is_root(ev->xunmap.event))
+		if (ev->xunmap.event == root)
 		{
-			client_active(ev->xunmap.event, current_tag);
-			ewmh_client_list(ev->xunmap.event);
+			client_active(current_tag);
+			ewmh_client_list();
 		}
 		else
 		if ((c = client_create(ev->xunmap.event)) && c && c->manage)
 		{
 			client_activate(c, RAISEDEF, WARPDEF);
-			ewmh_client_list(c->xattr.root);
+			ewmh_client_list();
 		}
 	}
 }
@@ -764,7 +763,7 @@ void handle_clientmessage(XEvent *ev)
 			if (msg && m->message_type == gatoms[GOOMWWM_LOG])
 				fprintf(stderr, "%s\n", msg);
 			if (msg && m->message_type == gatoms[GOOMWWM_RULESET])
-				ruleset_execute(c->xattr.root, msg);
+				ruleset_execute(msg);
 			if (m->message_type == gatoms[GOOMWWM_QUIT])
 				exit(EXIT_SUCCESS);
 			free(msg);

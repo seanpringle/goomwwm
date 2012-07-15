@@ -30,14 +30,6 @@ void window_select(Window w)
 	XSelectInput(display, w, EnterWindowMask | LeaveWindowMask | FocusChangeMask | PropertyChangeMask);
 }
 
-// check if a window id matches a known root window
-int window_is_root(Window w)
-{
-	int scr; for (scr = 0; scr < ScreenCount(display); scr++)
-		if (RootWindow(display, scr) == w) return 1;
-	return 0;
-}
-
 // XGetWindowAttributes with caching
 XWindowAttributes* window_get_attributes(Window w)
 {
@@ -155,12 +147,10 @@ int window_send_message(Window target, Window subject, Atom atom, unsigned long 
 }
 
 // top-level, visible windows. DOES include non-managable docks/panels
-winlist* windows_in_play(Window root)
+winlist* windows_in_play()
 {
-	int idx = winlist_find(cache_inplay, root);
-	if (idx >= 0) return cache_inplay->data[idx];
+	if (cache_inplay->len) return cache_inplay;
 
-	winlist *l = winlist_new();
 	unsigned int nwins; int i; Window w1, w2, *wins;
 	if (XQueryTree(display, root, &w1, &w2, &wins, &nwins) && wins)
 	{
@@ -168,16 +158,15 @@ winlist* windows_in_play(Window root)
 		{
 			XWindowAttributes *attr = window_get_attributes(wins[i]);
 			if (attr && attr->override_redirect == False && attr->map_state == IsViewable)
-				winlist_append(l, wins[i], NULL);
+				winlist_append(cache_inplay, wins[i], NULL);
 		}
 	}
 	if (wins) XFree(wins);
-	winlist_append(cache_inplay, root, l);
-	return l;
+	return cache_inplay;
 }
 
 // top-level windows, visible or not. DOES include non-managable docks/panels
-winlist* window_children(Window root)
+winlist* window_children()
 {
 	winlist *l = winlist_new();
 	unsigned int nwins; int i; Window w1, w2, *wins;

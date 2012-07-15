@@ -25,7 +25,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // find the dimensions of the monitor displaying point x,y
-void monitor_dimensions(Screen *screen, int x, int y, workarea *mon)
+void monitor_dimensions(int x, int y, workarea *mon)
 {
 	int monitors, i;
 	memset(mon, 0, sizeof(workarea));
@@ -54,7 +54,7 @@ void monitor_dimensions(Screen *screen, int x, int y, workarea *mon)
 }
 
 // find the dimensions, EXCLUDING STRUTS, of the monitor displaying point x,y
-void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
+void monitor_dimensions_struts(int x, int y, workarea *mon)
 {
 	int i;
 	// check cache. we may be able to avoid walking all windows
@@ -68,8 +68,7 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 		}
 	}
 
-	monitor_dimensions(screen, x, y, mon);
-	Window root = RootWindow(display, XScreenNumberOfScreen(screen));
+	monitor_dimensions(x, y, mon);
 
 	// strut cardinals are relative to the root window size, which is not necessarily the monitor size
 	XWindowAttributes *rattr = window_get_attributes(root);
@@ -78,10 +77,10 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 	Window win;
 	// walk the open apps and check for struts
 	// this is fairly lightweight thanks to some caches
-	winlist_ascend(windows_in_play(root), i, win)
+	winlist_ascend(windows_in_play(), i, win)
 	{
 		XWindowAttributes *attr = window_get_attributes(win);
-		if (attr && !attr->override_redirect && attr->root == root
+		if (attr && !attr->override_redirect
 			&& INTERSECT(attr->x, attr->y, attr->width, attr->height, mon->x, mon->y, mon->w, mon->h))
 		{
 			unsigned long strut[12]; memset(strut, 0, sizeof(strut));
@@ -117,10 +116,9 @@ void monitor_dimensions_struts(Screen *screen, int x, int y, workarea *mon)
 }
 
 // determine which monitor holds the active window, or failing that the mouse pointer
-void monitor_active(Screen *screen, workarea *mon)
+void monitor_active(workarea *mon)
 {
-	Window root = RootWindow(display, XScreenNumberOfScreen(screen));
-	client *c = client_active(root, 0);
+	client *c = client_active(0);
 	if (c)
 	{
 		client_extended_data(c);
@@ -128,10 +126,10 @@ void monitor_active(Screen *screen, workarea *mon)
 		return;
 	}
 	int x, y;
-	if (pointer_get(root, &x, &y))
+	if (pointer_get(&x, &y))
 	{
-		monitor_dimensions_struts(screen, x, y, mon);
+		monitor_dimensions_struts(x, y, mon);
 		return;
 	}
-	monitor_dimensions_struts(screen, 0, 0, mon);
+	monitor_dimensions_struts(0, 0, mon);
 }

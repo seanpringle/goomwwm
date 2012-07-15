@@ -130,7 +130,7 @@ void rule_parse(char *rulestr)
 }
 
 // pick a ruleset to execute
-void ruleset_switcher(Window root)
+void ruleset_switcher()
 {
 	int i, count = 0, current = 0; char **list; winruleset *set;
 
@@ -147,10 +147,10 @@ void ruleset_switcher(Window root)
 	{
 		display = XOpenDisplay(0);
 		XSync(display, True);
-		int n = menu(root, list, NULL, count-current-1);
+		int n = menu(list, NULL, count-current-1);
 		if (n >= 0 && list[n])
 		{
-			cli_message(root, gatoms[GOOMWWM_RULESET], list[n]);
+			cli_message(gatoms[GOOMWWM_RULESET], list[n]);
 			usleep(300000);
 		}
 		exit(EXIT_SUCCESS);
@@ -159,7 +159,7 @@ void ruleset_switcher(Window root)
 }
 
 // execute a ruleset on open windows
-void ruleset_execute(Window root, char *name)
+void ruleset_execute(char *name)
 {
 	int i; winruleset *set = NULL; Window w; client *c;
 
@@ -169,6 +169,6 @@ void ruleset_execute(Window root, char *name)
 	if (set)
 	{
 		config_rules = set->rules;
-		tag_ascend(root, i, w, c, current_tag) client_rules_apply(c);
+		tag_ascend(i, w, c, current_tag) client_rules_apply(c);
 	}
 }

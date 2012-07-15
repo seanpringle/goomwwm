@@ -138,15 +138,15 @@ int in_array_keysym(KeySym *array, KeySym code)
 }
 
 // allocate a pixel value for an X named color
-unsigned int color_get(Display *d, const char *name)
+unsigned int color_get(const char *name)
 {
 	XColor color;
-	Colormap map = DefaultColormap(d, DefaultScreen(d));
-	return XAllocNamedColor(d, map, name, &color, &color) ? color.pixel: None;
+	Colormap map = DefaultColormap(display, DefaultScreen(display));
+	return XAllocNamedColor(display, map, name, &color, &color) ? color.pixel: None;
 }
 
 // find mouse pointer location
-int pointer_get(Window root, int *x, int *y)
+int pointer_get(int *x, int *y)
 {
 	*x = 0; *y = 0;
 	Window rr, cr; int rxr, ryr, wxr, wyr; unsigned int mr;

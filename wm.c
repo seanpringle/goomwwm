@@ -38,22 +38,19 @@ int oops(Display *d, XErrorEvent *ee)
 }
 
 // say something informative
-void say(Screen *screen, char *txt)
+void say(char *txt)
 {
-	workarea mon; monitor_active(screen, &mon);
-	int scr = XScreenNumberOfScreen(screen);
-	Window root = RootWindow(display, scr);
-
+	workarea mon; monitor_active(&mon);
 	if (fork()) return;
 
 	display = XOpenDisplay(0x0);
 
 	GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
 
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_title_fg, &fg);
-	XftColorAllocName(display, DefaultVisual(display, scr), DefaultColormap(display, scr), config_title_bg, &bg);
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_title_fg, &fg);
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_title_bg, &bg);
 
-	font = XftFontOpenName(display, scr, config_title_font);
+	font = XftFontOpenName(display, screen_id, config_title_font);
 	XftTextExtentsUtf8(display, font, (unsigned char*)txt, strlen(txt), &extents);
 
 	int line_height = font->ascent + font->descent, line_width = extents.width;
@@ -63,7 +60,7 @@ void say(Screen *screen, char *txt)
 		bar_width, bar_height, 1, config_flash_on, None);
 
 	gc   = XCreateGC(display, bar, 0, 0);
-	draw = XftDrawCreate(display, bar, DefaultVisual(display, scr), DefaultColormap(display, scr));
+	draw = XftDrawCreate(display, bar, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
 
 	XSetWindowAttributes attr; attr.override_redirect = True;
 	XChangeWindowAttributes(display, bar, CWOverrideRedirect, &attr);
@@ -90,9 +87,9 @@ void reset_lazy_caches()
 }
 
 // an X screen. may have multiple monitors, xinerama, etc
-void setup_screen(int scr)
+void setup_screen()
 {
-	int i; Window w, root = RootWindow(display, scr);
+	int i; Window w;
 	Window supporting = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
 	unsigned long pid = getpid();
 
@@ -109,7 +106,7 @@ void setup_screen(int scr)
 	XSelectInput(display, root, StructureNotifyMask | SubstructureRedirectMask | SubstructureNotifyMask);
 
 	// setup any existing windows
-	winlist *l = window_children(root);
+	winlist *l = window_children();
 	winlist_ascend(l, i, w)
 	{
 		wincache *cache = allocate_clear(sizeof(wincache));
@@ -124,15 +121,15 @@ void setup_screen(int scr)
 	}
 	winlist_free(l);
 	// activate and focus top window
-	client_active(root, 0);
-	ewmh_client_list(root);
-	ewmh_desktop_list(root);
+	client_active(0);
+	ewmh_client_list();
+	ewmh_desktop_list();
 }
 
 // window manager
 int wm_main(int argc, char *argv[])
 {
-	int i, j, scr; XEvent ev;
+	int i, j; XEvent ev;
 
 	// prepare to fall back on ~/.goomwwmrc
 	char *conf_home = NULL, *home = getenv("HOME");
@@ -249,16 +246,16 @@ int wm_main(int argc, char *argv[])
 	prefix_cursor = XCreateFontCursor(display, XC_icon);
 
 	// border colors
-	config_border_focus     = color_get(display, find_arg_str(ac, av, "-focus", FOCUS));
-	config_border_blur      = color_get(display, find_arg_str(ac, av, "-blur",  BLUR));
-	config_border_attention = color_get(display, find_arg_str(ac, av, "-attention", ATTENTION));
+	config_border_focus     = color_get(find_arg_str(ac, av, "-focus", FOCUS));
+	config_border_blur      = color_get(find_arg_str(ac, av, "-blur",  BLUR));
+	config_border_attention = color_get(find_arg_str(ac, av, "-attention", ATTENTION));
 
 	// border width in pixels
 	config_border_width = MAX(0, find_arg_int(ac, av, "-border", BORDER));
 
 	// window flashing
-	config_flash_on  = color_get(display, find_arg_str(ac, av, "-flashon",  FLASHON));
-	config_flash_off = color_get(display, find_arg_str(ac, av, "-flashoff", FLASHOFF));
+	config_flash_on  = color_get(find_arg_str(ac, av, "-flashon",  FLASHON));
+	config_flash_off = color_get(find_arg_str(ac, av, "-flashoff", FLASHOFF));
 	config_flash_width = MAX(config_border_width, find_arg_int(ac, av, "-flashpx", FLASHPX));
 	config_flash_ms    = MAX(FLASHMS, find_arg_int(ac, av, "-flashms", FLASHMS));
 
@@ -362,21 +359,19 @@ int wm_main(int argc, char *argv[])
 	windows_activated = winlist_new();
 	windows_minimized = winlist_new();
 
-	// init on all screens/roots
-	for (scr = 0; scr < ScreenCount(display); scr++) setup_screen(scr);
+	setup_screen();
 	grab_keys_and_buttons();
 
 	// auto start stuff
 	if (!fork())
 	{
 		display = XOpenDisplay(0);
-		Window root = RootWindow(display, DefaultScreen(display));
 		for (i = 0; i < ac-1; i++)
 		{
 			if (!strcasecmp(av[i], "-exec")) exec_cmd(av[i+1]);
 			else if (!strcasecmp(av[i], "-auto"))
 			{
-				client *a = client_find(root, av[i+1]);
+				client *a = client_find(av[i+1]);
 				if (!a) exec_cmd(av[i+1]);
 			}
 		}
@@ -384,7 +379,7 @@ int wm_main(int argc, char *argv[])
 	}
 
 	// be polite
-	say(DefaultScreenOfDisplay(display), "Get out of my way, Window Manager!");
+	say("Get out of my way, Window Manager!");
 
 	// main event loop
 	for(;;)
@@ -392,7 +387,7 @@ int wm_main(int argc, char *argv[])
 		// caches only live for a single event
 		winlist_empty(cache_xattr);
 		winlist_empty(cache_client);
-		winlist_empty_2d(cache_inplay);
+		winlist_empty(cache_inplay);
 
 		// block and wait for something
 		XNextEvent(display, &ev);

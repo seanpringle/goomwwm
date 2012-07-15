@@ -25,7 +25,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // bind to a keycode in all lock states
-void grab_keycode(Window root, KeyCode keycode)
+void grab_keycode(KeyCode keycode)
 {
 	XUngrabKey(display, keycode, AnyModifier, root);
 	XGrabKey(display, keycode, config_modkey, root, True, GrabModeAsync, GrabModeAsync);
@@ -42,9 +42,9 @@ void grab_keycode(Window root, KeyCode keycode)
 }
 
 // grab a MODKEY+key combo
-void grab_key(Window root, KeySym key)
+void grab_key(KeySym key)
 {
-	grab_keycode(root, XKeysymToKeycode(display, key));
+	grab_keycode(XKeysymToKeycode(display, key));
 	int i, j, min_code, max_code, syms_per_code;
 	// if xmodmap is in use to remap keycodes to keysyms, a simple XKeysymToKeycode
 	// may not suffice here. so we also walk the entire map of keycodes and bind to
@@ -54,34 +54,28 @@ void grab_key(Window root, KeySym key)
 	for (i = 0; map && i < (max_code-min_code); i++)
 		for (j = 0; j < syms_per_code; j++)
 			if (key == map[i*syms_per_code+j])
-				grab_keycode(root, i+min_code);
+				grab_keycode(i+min_code);
 	if (map) XFree(map);
 }
 
 // run at startup and on MappingNotify
 void grab_keys_and_buttons()
 {
-	int scr, i;
-	for (scr = 0; scr < ScreenCount(display); scr++)
+	int i;
+	XUngrabKey(display, AnyKey, AnyModifier, root);
+	// only grab keys if prefix mode is disabled (default)
+	if (!config_prefix_mode)
 	{
-		Window root = RootWindow(display, scr);
-
-		XUngrabKey(display, AnyKey, AnyModifier, root);
-		// only grab keys if prefix mode is disabled (default)
-		if (!config_prefix_mode)
-		{
-			for (i = 0; keymap[i]; i++) if (keymap[i] != XK_VoidSymbol) grab_key(root, keymap[i]);
-			for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(root, config_apps_keysyms[i]);
-			for (i = 0; config_tags_keysyms[i]; i++) grab_key(root, config_tags_keysyms[i]);
-		}
-		// prefix mode key switches to XGrabKeyboard
-		else grab_key(root, keymap[KEY_PREFIX]);
-
-		// grab mouse buttons for click-to-focus. these get passed through to the windows
-		// not binding on button4 which is usually wheel scroll
-		XUngrabButton(display, AnyButton, AnyModifier, root);
-		XGrabButton(display, Button1, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
-		XGrabButton(display, Button2, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
-		XGrabButton(display, Button3, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+		for (i = 0; keymap[i]; i++) if (keymap[i] != XK_VoidSymbol) grab_key(keymap[i]);
+		for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(config_apps_keysyms[i]);
+		for (i = 0; config_tags_keysyms[i]; i++) grab_key(config_tags_keysyms[i]);
 	}
+	// prefix mode key switches to XGrabKeyboard
+	else grab_key(keymap[KEY_PREFIX]);
+	// grab mouse buttons for click-to-focus. these get passed through to the windows
+	// not binding on button4 which is usually wheel scroll
+	XUngrabButton(display, AnyButton, AnyModifier, root);
+	XGrabButton(display, Button1, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+	XGrabButton(display, Button2, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+	XGrabButton(display, Button3, AnyModifier, root, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
 }
