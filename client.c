@@ -1569,6 +1569,8 @@ void client_swapto(client *c, int direction)
 			client_moveresize(c, 0, c->y, my+m->sh-c->sh, c->sw, c->sh);
 			client_moveresize(m, 0, m->x, cy, m->sw, m->sh);
 		}
+		client_raise(c, 0);
+		client_raise_under(m, c);
 	}
 }
 
