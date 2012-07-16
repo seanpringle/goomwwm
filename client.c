@@ -1506,29 +1506,16 @@ void client_swapto(client *c, int direction)
 	if (m && c->monitor.x == m->monitor.x && c->monitor.y == m->monitor.y)
 	{
 		client_extended_data(m);
-		int cx = c->x, cy = c->y, mx = m->x, my = m->y;
+		int cx = c->x, cy = c->y, cw = c->sw, ch = c->sh, mx = m->x, my = m->y, mw = m->sw, mh = m->sh;
 		int overlap_x = OVERLAP(c->y, c->h, m->y, m->h);
 		int overlap_y = OVERLAP(c->x, c->w, m->x, m->w);
-		if (overlap_x || overlap_y) client_commit(c); client_commit(m);
-		if (direction == FOCUSLEFT && overlap_x)
+
+		if (((direction == FOCUSLEFT || direction == FOCUSRIGHT) && overlap_x) ||
+			((direction == FOCUSUP  || direction == FOCUSDOWN ) && overlap_y))
 		{
-			client_moveresize(c, 0, mx, c->y, c->sw, c->sh);
-			client_moveresize(m, 0, cx+c->sw-m->sw, m->y, m->sw, m->sh);
-		} else
-		if (direction == FOCUSRIGHT && overlap_x)
-		{
-			client_moveresize(c, 0, mx+m->sw-c->sw, c->y, c->sw, c->sh);
-			client_moveresize(m, 0, cx, m->y, m->sw, m->sh);
-		} else
-		if (direction == FOCUSUP && overlap_y)
-		{
-			client_moveresize(c, 0, c->x, my, c->sw, c->sh);
-			client_moveresize(m, 0, m->x, cy+c->sh-m->sh, m->sw, m->sh);
-		} else
-		if (direction == FOCUSDOWN && overlap_y)
-		{
-			client_moveresize(c, 0, c->y, my+m->sh-c->sh, c->sw, c->sh);
-			client_moveresize(m, 0, m->x, cy, m->sw, m->sh);
+			client_commit(c); client_commit(m);
+			client_moveresize(c, 0, mx, my, mw, mh);
+			client_moveresize(m, 0, cx, cy, cw, ch);
 		}
 		client_raise(c, 0);
 		client_raise_under(m, c);
