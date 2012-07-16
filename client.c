@@ -1450,86 +1450,47 @@ void client_vuntile(client *c)
 client* client_over_there_ish(client *c, int direction)
 {
 	client_extended_data(c);
-	int i, tries, vague = MAX(c->monitor.w/100, c->monitor.h/100);
-	Window w; client *o, *match = NULL;
-	winlist *visible = NULL, *consider = winlist_new();
+	int i, large = 10000; Window w; client *o;
 
-	workarea self, zone;
+	workarea zone; memset(&zone, 0, sizeof(workarea));
+	if (direction == FOCUSLEFT)
+		{ zone.x = 0-large; zone.y = 0-large; zone.w = large + c->x + c->sw/2; zone.h = large*2; }
+	if (direction == FOCUSRIGHT)
+		{ zone.x = c->x+c->sw/2; zone.y = 0-large; zone.w = c->sw/2 + large; zone.h = large*2; }
+	if (direction == FOCUSUP)
+		{ zone.x = 0-large; zone.y = 0-large; zone.w = large*2; zone.h = large + c->y + c->sh/2; }
+	if (direction == FOCUSDOWN)
+		{ zone.x = 0-large; zone.y = c->y+c->sh/2; zone.w = large*2; zone.h = c->sh/2 + large; }
 
-	for (tries = 0; !match && tries < 4; tries++)
+	winlist *consider = clients_partly_visible(&zone, 0, c->window);
+
+	client *m = NULL;
+	// client that overlaps preferred
+	clients_descend(consider, i, w, o) if (o->manage)
 	{
-		memmove(&zone, &c->monitor, sizeof(workarea));
-		self.x = c->x; self.y = c->y; self.w = c->sw; self.h = c->sh;
-		if (tries == 1 || tries == 3)
-		{
-			// second attempt: reduce self box to get partially overlapping windows
-			if (direction == FOCUSLEFT)  { self.x = c->x + c->sw - c->sw/4; self.w = c->sw/4; }
-			if (direction == FOCUSRIGHT) { self.x = c->x + c->sw/4; self.w = c->sw/4; }
-			if (direction == FOCUSUP)    { self.y = c->y + c->sh - c->sh/4; self.h = c->sh/4; }
-			if (direction == FOCUSDOWN)  { self.y = c->y + c->sh/4; self.h = c->sh/4; }
-		}
-		if (tries == 2 || tries == 3)
-		{
-			// third attempt: all monitors
-			monitor_dimensions(-1, -1, &zone);
-		}
-		// reduce the monitor size to a workarea in the appropriate direction
-		if (direction == FOCUSLEFT)  { zone.w = self.x - zone.x; }
-		if (direction == FOCUSRIGHT) { zone.w -= self.x + self.w - zone.x; zone.x = self.x + self.w; }
-		if (direction == FOCUSUP)    { zone.h = self.y - zone.y; }
-		if (direction == FOCUSDOWN)  { zone.h -= self.y + self.h - zone.y; zone.y = self.y + self.h; }
-
-		// look for a fully visible immediately adjacent in the chosen 'zone'
-		visible = clients_fully_visible(&zone, 0, None);
-
-		// prefer window that overlaps vertically
-		if (!match && (direction == FOCUSLEFT || direction == FOCUSRIGHT))
-			clients_ascend(visible, i, w, o) if (OVERLAP(self.y, self.h, o->y, o->sh)) winlist_append(consider, o->window, NULL);
-
-		// prefer window that overlaps horizontally
-		if (!match && (direction == FOCUSUP || direction == FOCUSDOWN))
-			clients_ascend(visible, i, w, o) if (OVERLAP(self.x, self.w, o->x, o->sw)) winlist_append(consider, o->window, NULL);
-
-		// if we found no overlaps, fall back on the entire visible list
-		if (!consider->len) winlist_ascend(visible, i, w) winlist_append(consider, w, NULL);
-
-		// get the closest visible window in the right direction
-		if (direction == FOCUSLEFT)  clients_ascend(consider, i, w, o) if (!match || (o->x + o->sw > match->x + match->sw)) match = o;
-		if (direction == FOCUSRIGHT) clients_ascend(consider, i, w, o) if (!match || (o->x < match->x)) match = o;
-		if (direction == FOCUSUP)    clients_ascend(consider, i, w, o) if (!match || (o->y + o->sh > match->y + match->sh)) match = o;
-		if (direction == FOCUSDOWN)  clients_ascend(consider, i, w, o) if (!match || (o->y < match->y)) match = o;
-
-		winlist_free(visible);
-		winlist_empty(consider);
+		client_extended_data(o);
+		int overlap_x = OVERLAP(c->y, c->sh, o->y, o->sh);
+		int overlap_y = OVERLAP(c->x, c->sw, o->x, o->sw);
+		if (direction == FOCUSLEFT  && overlap_x && (!m || o->x+o->sw/2 > m->x+m->sw/2)) m = o;
+		if (direction == FOCUSRIGHT && overlap_x && (!m || o->x+o->sw/2 < m->x+m->sw/2)) m = o;
+		if (direction == FOCUSUP    && overlap_y && (!m || o->y+o->sh/2 > m->y+m->sh/2)) m = o;
+		if (direction == FOCUSDOWN  && overlap_y && (!m || o->y+o->sh/2 < m->y+m->sh/2)) m = o;
 	}
-	// if we failed to find something fully visible, look for anything partly visible
-	if (!match)
+	// otherwise, the closest one
+	if (!m) clients_descend(consider, i, w, o) if (o->manage)
 	{
-		monitor_dimensions(-1, -1, &zone);
-		// reduce the monitor size to a workarea in the appropriate direction
-		if (direction == FOCUSLEFT)  { zone.w = c->x - zone.x + vague; }
-		if (direction == FOCUSRIGHT) { zone.w -= (c->x - zone.x) + c->sw + vague; zone.x = c->x + c->sw - vague; }
-		if (direction == FOCUSUP)    { zone.h = c->y - zone.y + vague; }
-		if (direction == FOCUSDOWN)  { zone.h -= (c->y - zone.y) + c->sh + vague; zone.y = c->y + c->sh - vague; }
-
-		visible = clients_partly_visible(&zone, 0, None);
-
-		// again, prefer windows overlapping
-		clients_descend(visible, i, w, o)
-			if (((direction == FOCUSLEFT || direction == FOCUSRIGHT) && OVERLAP(c->y, c->sh, o->y, o->sh)) ||
-				((direction == FOCUSUP || direction == FOCUSDOWN ) && OVERLAP(c->x, c->sw, o->x, o->sw)))
-					{ match = o; break; }
-
-		// last ditch: anything!
-		if (!match) clients_descend(visible, i, w, o) { match = o; break; }
-
-		winlist_free(visible);
+		client_extended_data(o);
+		if (!m) m = o;
+		if (direction == FOCUSLEFT  && o->x+o->sw/2 > m->x+m->sw/2) m = o;
+		if (direction == FOCUSRIGHT && o->x+o->sw/2 < m->x+m->sw/2) m = o;
+		if (direction == FOCUSUP    && o->y+o->sh/2 > m->y+m->sh/2) m = o;
+		if (direction == FOCUSDOWN  && o->y+o->sh/2 < m->y+m->sh/2) m = o;
 	}
 	winlist_free(consider);
-	return match;
+	return m;
 }
 
-// switch focus by direciton
+// switch focus by direction
 void client_focusto(client *c, int direction)
 {
 	client *match = client_over_there_ish(c, direction);
