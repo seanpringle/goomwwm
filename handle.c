@@ -77,7 +77,7 @@ void handle_keypress(XEvent *ev)
 	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0)
 		client_find_or_start(config_apps_patterns[i]);
 
-	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0)
+	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && !(state & ShiftMask))
 		tag_raise(1<<i);
 
 	// tag cycling
@@ -134,9 +134,16 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_FOCUSUP])    client_focusto(c, FOCUSUP);
 		else if (key == keymap[KEY_FOCUSDOWN])  client_focusto(c, FOCUSDOWN);
 
+		// place client in current tag
 		else if (key == keymap[KEY_TAG])
 		{
 			client_toggle_tag(c, current_tag, FLASH);
+			ewmh_client_list();
+		}
+		// place client in other tags
+		else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && state & ShiftMask)
+		{
+			client_toggle_tag(c, 1<<i, FLASH);
 			ewmh_client_list();
 		}
 

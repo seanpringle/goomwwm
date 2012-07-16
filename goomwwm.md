@@ -35,6 +35,9 @@ Mod-Button3
 Mod-[F1-F9]
 :	Set the current tag and raise all its windows. A window may be in multiple tags. For EWMH panel and pager integration tags roughly simulate desktops (always 9), but there will be differences in behavior.
 
+Mod-Shift-[F1-F9]
+:	Toggle active window's tags without switching current tag.
+
 Mod-[1-9]
 :	Do a case-insensitive keyword search for window by WM_CLASS and title. If found, raise and focus. If not found, try to execute the keyword and start the app. See **-1** through **-9** args.
 
