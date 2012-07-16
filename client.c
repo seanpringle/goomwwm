@@ -1093,7 +1093,7 @@ void client_activate(client *c, int raise, int warp)
 	ewmh_active_window(c->window);
 
 	// tell the user something happened
-	if (!c->active) client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
+	if (!c->active && !c->trans) client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
 
 	// must happen last, after all move/resize/focus/raise stuff is sent
 	if (config_warp_mode == WARPFOCUS || warp)
