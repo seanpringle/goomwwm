@@ -129,10 +129,10 @@ void handle_keypress(XEvent *ev)
 		else if (key == keymap[KEY_INFO])       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
 
 		// directional focus change
-		else if (key == keymap[KEY_FOCUSLEFT])  client_focusto(c, FOCUSLEFT);
-		else if (key == keymap[KEY_FOCUSRIGHT]) client_focusto(c, FOCUSRIGHT);
-		else if (key == keymap[KEY_FOCUSUP])    client_focusto(c, FOCUSUP);
-		else if (key == keymap[KEY_FOCUSDOWN])  client_focusto(c, FOCUSDOWN);
+		else if (key == keymap[KEY_FOCUSLEFT])  { if (state & ShiftMask) client_swapto(c, FOCUSLEFT);  else client_focusto(c, FOCUSLEFT);  }
+		else if (key == keymap[KEY_FOCUSRIGHT]) { if (state & ShiftMask) client_swapto(c, FOCUSRIGHT); else client_focusto(c, FOCUSRIGHT); }
+		else if (key == keymap[KEY_FOCUSUP])    { if (state & ShiftMask) client_swapto(c, FOCUSUP);    else client_focusto(c, FOCUSUP);    }
+		else if (key == keymap[KEY_FOCUSDOWN])  { if (state & ShiftMask) client_swapto(c, FOCUSDOWN);  else client_focusto(c, FOCUSDOWN);  }
 
 		// place client in current tag
 		else if (key == keymap[KEY_TAG])

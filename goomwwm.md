@@ -131,17 +131,20 @@ Mod-Shift-Down
 Mod-u
 :	Undo the last size/position change for the active window. Undo is 10 levels deep.
 
+Mod-i
+:	Switch focus upward from the active window.
+
 Mod-j
 :	Switch focus to the left of the active window.
+
+Mod-k
+:	Switch focus downward from the active window.
 
 Mod-l
 :	Switch focus to the right of the active window.
 
-Mod-i
-:	Switch focus upward from the active window.
-
-Mod-k
-:	Switch focus downward from the active window.
+Mod-Shift-i (i/j/k/l)
+:	Swap the active window position with another window by direction.
 
 Mod-t
 :	Toggle the active window's membership of the current tag.

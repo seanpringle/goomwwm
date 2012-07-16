@@ -1446,8 +1446,8 @@ void client_vuntile(client *c)
 	winlist_free(tiles);
 }
 
-// move focus by direction. this is a visual thing
-void client_focusto(client *c, int direction)
+// find client by direction. this is a visual thing
+client* client_over_there_ish(client *c, int direction)
 {
 	client_extended_data(c);
 	int i, tries, vague = MAX(c->monitor.w/100, c->monitor.h/100);
@@ -1525,9 +1525,51 @@ void client_focusto(client *c, int direction)
 
 		winlist_free(visible);
 	}
-
-	if (match) client_activate(match, RAISEDEF, WARPDEF);
 	winlist_free(consider);
+	return match;
+}
+
+// switch focus by direciton
+void client_focusto(client *c, int direction)
+{
+	client *match = client_over_there_ish(c, direction);
+	if (match) client_activate(match, RAISEDEF, WARPDEF);
+}
+
+// swap client position with another by direction
+void client_swapto(client *c, int direction)
+{
+	client_extended_data(c);
+	client *m = client_over_there_ish(c, direction);
+	// limit to the same monitor. gets weird otherwise...
+	if (m && c->monitor.x == m->monitor.x && c->monitor.y == m->monitor.y)
+	{
+		client_extended_data(m);
+		int cx = c->x, cy = c->y, mx = m->x, my = m->y;
+		int overlap_x = OVERLAP(c->y, c->h, m->y, m->h);
+		int overlap_y = OVERLAP(c->x, c->w, m->x, m->w);
+		if (overlap_x || overlap_y) client_commit(c); client_commit(m);
+		if (direction == FOCUSLEFT && overlap_x)
+		{
+			client_moveresize(c, 0, mx, c->y, c->sw, c->sh);
+			client_moveresize(m, 0, cx+c->sw-m->sw, m->y, m->sw, m->sh);
+		} else
+		if (direction == FOCUSRIGHT && overlap_x)
+		{
+			client_moveresize(c, 0, mx+m->sw-c->sw, c->y, c->sw, c->sh);
+			client_moveresize(m, 0, cx, m->y, m->sw, m->sh);
+		} else
+		if (direction == FOCUSUP && overlap_y)
+		{
+			client_moveresize(c, 0, c->x, my, c->sw, c->sh);
+			client_moveresize(m, 0, m->x, cy+c->sh-m->sh, m->sw, m->sh);
+		} else
+		if (direction == FOCUSDOWN && overlap_y)
+		{
+			client_moveresize(c, 0, c->y, my+m->sh-c->sh, c->sw, c->sh);
+			client_moveresize(m, 0, m->x, cy, m->sw, m->sh);
+		}
+	}
 }
 
 // resize window to match the one underneath
