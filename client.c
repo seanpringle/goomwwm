@@ -1516,9 +1516,9 @@ void client_swapto(client *c, int direction)
 			client_commit(c); client_commit(m);
 			client_moveresize(c, 0, mx, my, mw, mh);
 			client_moveresize(m, 0, cx, cy, cw, ch);
+			client_raise(c, 0);
+			client_raise_under(m, c);
 		}
-		client_raise(c, 0);
-		client_raise_under(m, c);
 	}
 }
 
