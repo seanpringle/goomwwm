@@ -167,6 +167,9 @@ Mod-. (period)
 Mod-/ (slash)
 :	Minimize a window.
 
+Mod-Pause  (press twice)
+:	Quit goomwwm.
+
 # OPTIONS
 
 All key combinations use the same global modifier key (default: Mod). If the modkey is changed with **-modkey** then all key combinations change to use it.
@@ -548,8 +551,8 @@ All options below that set a custom key implicitly combine it with the modifier 
 	block
 	:	Do not immediately focus the window when it first maps.
 
-	minimize
-	:	Start window pre-minimzed.
+	minimize restore
+	:	Start window pre-minimzed, or restore a window on rule set switch.
 
 	tag1 tag2 tag3 tag4 tag5 tag6 tag7 tag8 tag9
 	:	Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
