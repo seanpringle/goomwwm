@@ -548,6 +548,9 @@ All options below that set a custom key implicitly combine it with the modifier 
 	block
 	:	Do not immediately focus the window when it first maps.
 
+	minimize
+	:	Start window pre-minimzed.
+
 	tag1 tag2 tag3 tag4 tag5 tag6 tag7 tag8 tag9
 	:	Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
 

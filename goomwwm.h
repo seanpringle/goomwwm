@@ -162,6 +162,7 @@ typedef struct {
 #define RULE_SNAPDOWN 1LL<<37
 #define RULE_SIZE 1LL<<38
 #define RULE_DUPLICATE 1LL<<39
+#define RULE_MINIMIZE 1LL<<40
 
 #define RULEPATTERN CLIENTCLASS
 

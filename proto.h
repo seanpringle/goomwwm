@@ -5,7 +5,6 @@ int client_has_state(client *c, Atom state);
 void client_add_state(client *c, Atom state);
 void client_remove_state(client *c, Atom state);
 void client_set_state(client *c, Atom state, int on);
-void client_toggle_state(client *c, Atom state);
 void client_descriptive_data(client *c);
 void client_extended_data(client *c);
 int client_rule_match(client *c, winrule *r);

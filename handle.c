@@ -562,10 +562,6 @@ void handle_maprequest(XEvent *ev)
 		client_deactivate(c);
 		client_rules_ewmh(c);
 
-		//  if a placement rule exists, it trumps everything
-		if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM|RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER|RULE_SIZE))
-			client_rules_moveresize(c);
-		else
 		// PLACEPOINTER: center window on pointer
 		if (config_window_placement == PLACEPOINTER && !(c->xsize.flags & (PPosition|USPosition)))
 		{
@@ -592,12 +588,25 @@ void handle_maprequest(XEvent *ev)
 				MAX(m->y, m->y + ((m->h - c->sh) / 2)), c->sw, c->sh);
 		}
 
-		// h/v lock must occur after the first client_moveresize
-		client_rules_locks(c);
-
 		// default to current tag
 		client_rules_tags(c);
 		if (!c->cache->tags) client_toggle_tag(c, current_tag, NOFLASH);
+
+		// rules may move window again
+		client_rules_moveresize(c);
+
+		// must occur after move/resize!
+		client_rules_locks(c);
+
+		// following designed to work after h/v locks
+		client_rules_moveresize_post(c);
+
+		// auto minimizing
+		if (client_rule(c, RULE_MINIMIZE))
+		{
+			client_minimize(c);
+			return;
+		}
 
 		if (c->trans == None) client_lower(c, 0);
 		XSync(display, False);
@@ -647,8 +656,6 @@ void handle_mapnotify(XEvent *ev)
 				}
 				client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 			}
-			// post-placement rules
-			client_rules_moveresize_post(c);
 		}
 		ewmh_client_list();
 		// some gtk windows see to need an extra kick to make them respect expose events...

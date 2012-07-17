@@ -60,11 +60,6 @@ void client_set_state(client *c, Atom state, int on)
 	if (on) client_add_state(c, state); else client_remove_state(c, state);
 }
 
-void client_toggle_state(client *c, Atom state)
-{
-	client_set_state(c, state, !client_has_state(c, state));
-}
-
 // extend client data
 void client_descriptive_data(client *c)
 {
@@ -1535,6 +1530,7 @@ void client_minimize(client *c)
 {
 	XUnmapWindow(display, c->window);
 	// no update fo windows_activated yet. see handle_unmapnotify()
+	winlist_forget(windows_minimized, c->window);
 	winlist_append(windows_minimized, c->window, NULL);
 }
 
@@ -1542,6 +1538,7 @@ void client_restore(client *c)
 {
 	XMapWindow(display, c->window);
 	// no update fo windows_minimized yet. see handle_mapnotify()
+	winlist_forget(windows_activated, c->window);
 	winlist_prepend(windows_activated, c->window, NULL);
 }
 
@@ -1789,6 +1786,7 @@ void client_rules_apply(client *c)
 
 	if (client_rule(c, RULE_LOWER)) client_lower(c, 0);
 	if (client_rule(c, RULE_RAISE)) client_raise(c, 0);
+	if (client_rule(c, RULE_MINIMIZE)) client_minimize(c);
 }
 
 #ifdef DEBUG
