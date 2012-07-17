@@ -65,6 +65,7 @@ winrulemap rulemap[] = {
 	{ "snap_down", RULE_SNAPDOWN },
 	{ "duplicate", RULE_DUPLICATE },
 	{ "minimize", RULE_MINIMIZE },
+	{ "restore", RULE_RESTORE },
 };
 
 // load a rule specified on cmd line or .goomwwmrc
@@ -133,14 +134,11 @@ void rule_parse(char *rulestr)
 // pick a ruleset to execute
 void ruleset_switcher()
 {
-	int i, count = 0, current = 0; char **list; winruleset *set;
+	int i, count = 0; char **list; winruleset *set;
 
 	// count rulesets
 	for (count = 0, set = config_rulesets; set; count++, set = set->next);
 	list = allocate_clear(sizeof(char*) * (count+1)); // +1 NULL sell terminates
-	// find current selection
-	for (current = 0, set = config_rulesets; set && set->rules != config_rules; current++, set = set->next);
-	if (current == count) current = 0;
 	// build a simple list of rule file names
 	for (i = count-1, set = config_rulesets; set; i--, set = set->next) list[i] = basename(set->name);
 
@@ -148,7 +146,7 @@ void ruleset_switcher()
 	{
 		display = XOpenDisplay(0);
 		XSync(display, True);
-		int n = menu(list, NULL, count-current-1);
+		int n = menu(list, NULL, 0);
 		if (n >= 0 && list[n])
 		{
 			cli_message(gatoms[GOOMWWM_RULESET], list[n]);
@@ -169,7 +167,9 @@ void ruleset_execute(char *name)
 
 	if (set)
 	{
-		config_rules = set->rules;
+		winrule *bak = config_rules; config_rules = set->rules;
 		tag_ascend(i, w, c, current_tag) client_rules_apply(c);
+		clients_ascend(windows_minimized, i, w, c) if (c->manage && c->cache->tags & current_tag) client_rules_apply(c);
+		config_rules = bak;
 	}
 }

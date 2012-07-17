@@ -601,7 +601,7 @@ All options below that set a custom key implicitly combine it with the modifier 
 	goomwwm -runrule comma
 
 -runruleset
-:	Set an X11 key name to switch between defined rule sets using a menu (default: XK_period).
+:	Set an X11 key name to execute defined rule sets using a menu (default: XK_period).
 
 	goomwwm -runrule period
 

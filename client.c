@@ -1786,6 +1786,7 @@ void client_rules_apply(client *c)
 
 	if (client_rule(c, RULE_LOWER)) client_lower(c, 0);
 	if (client_rule(c, RULE_RAISE)) client_raise(c, 0);
+	if (client_rule(c, RULE_RESTORE))  client_restore(c);
 	if (client_rule(c, RULE_MINIMIZE)) client_minimize(c);
 }
 

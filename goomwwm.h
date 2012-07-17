@@ -163,6 +163,7 @@ typedef struct {
 #define RULE_SIZE 1LL<<38
 #define RULE_DUPLICATE 1LL<<39
 #define RULE_MINIMIZE 1LL<<40
+#define RULE_RESTORE 1LL<<41
 
 #define RULEPATTERN CLIENTCLASS
 
