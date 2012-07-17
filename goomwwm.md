@@ -116,17 +116,8 @@ Mod-Up
 Mod-Down
 :	Move the active window down within a 3x3 grid.
 
-Mod-Shift-Left
-:	Snap the active window left.
-
-Mod-Shift-Right
-:	Snap the active window right.
-
-Mod-Shift-Up
-:	Snap the active window up.
-
-Mod-Shift-Down
-:	Snap the active window down.
+Mod-Shift-Left (Left/Right/Up/Down)
+:	Snap the active window to the nearest border, by direction.
 
 Mod-u
 :	Undo the last size/position change for the active window. Undo is 10 levels deep.
@@ -172,9 +163,16 @@ Mod-Pause  (press twice)
 
 # OPTIONS
 
-All key combinations use the same global modifier key (default: Mod). If the modkey is changed with **-modkey** then all key combinations change to use it.
+All key combinations use the same global modifier key by default, which is **Mod4** (usually Win/Meta). If the default modifier is changed with **-modkey** then all key combinations that do not specify their own custom modifiers will change to use the new modifier automatically.
 
-All options below that set a custom key implicitly combine it with the modifier key.
+All options below that set a custom key therefore implicitly combine it with the default modifier key. For example, the following both mean **Mod4-a**:
+
+	goomwwm -above a
+	goomwwm -above mod4-a
+
+Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mod3**, **mod4** (usually Win/Meta), **mod5** (sometimes AltGr) may be supplied for any key combination:
+
+	goomwwm -above control-shift-a
 
 -1 -2 -3 -4 -5 -6 -7 -8 -9
 :	Set a number key to a keyword to search for a window by WM_CLASS, application name, or title, and then raise and focus it. If a window is not found, the string supplied will be executed as a shell command to start the application.
@@ -384,6 +382,11 @@ All options below that set a custom key implicitly combine it with the modifier 
 :	Set an X11 key to horizontally tile the active window and others with the same tag, position, and size (default: XK_h). If no other window is found, a gap is created.
 
 	goomwwm -htile h
+
+-huntile
+:	Set an X11 key to do the opposite of -htile.
+
+	goomwwm -huntile h
 
 -info
 :	Set an X11 key to briefly display the active window's title (default: XK_w).
@@ -613,6 +616,46 @@ All options below that set a custom key implicitly combine it with the modifier 
 
 	goomwwm -shrink Page_Down
 
+-snapdown
+:	Set an X11 key name to snap the active window downward to the nearest border.
+
+	goomwwm -snapdown Shift+Down
+
+-snapleft
+:	Set an X11 key name to snap the active window left to the nearest border.
+
+	goomwwm -snapleft Shift+Left
+
+-snapright
+:	Set an X11 key name to snap the active window right to the nearest border.
+
+	goomwwm -snapright Shift+Right
+
+-snapup
+:	Set an X11 key name to snap the active window upward to the nearest border.
+
+	goomwwm -snapup Shift+Up
+
+-swapdown
+:	Set an X11 key name to swap the active window with one below.
+
+	goomwwm -swapdown Shift+Down
+
+-swapleft
+:	Set an X11 key name to swap the active window with one to the left.
+
+	goomwwm -swapleft Shift+Left
+
+-swapright
+:	Set an X11 key name to swap the active window with one to the right.
+
+	goomwwm -swapright Shift+Right
+
+-swapup
+:	Set an X11 key name to swap the active window with one above.
+
+	goomwwm -swapup Shift+Up
+
 -switch
 :	Set an X11 key to start display window-switcher showing all open windows (default: XK_Tab).
 
@@ -682,6 +725,11 @@ All options below that set a custom key implicitly combine it with the modifier 
 :	Set an X11 key to vertically tile the active window and other windows with the same tag, position, and size (default: XK_v). If no other window is found, a gap is created.
 
 	goomwwm -vtile h
+
+-vuntile
+:	Set an X11 key to do the opposite of vtile.
+
+	goomwwm -vuntile h
 
 -warpmode
 :	Control whether the mouse pointer warps to a focused window (default: never). This setting can make focusmode **sloppy** more cooperative when focus is changed by means other than the mouse.

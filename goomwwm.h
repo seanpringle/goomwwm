@@ -90,6 +90,10 @@ typedef struct {
 #define FOCUSRIGHT 2
 #define FOCUSUP 3
 #define FOCUSDOWN 4
+#define SWAPLEFT 1
+#define SWAPRIGHT 2
+#define SWAPUP 3
+#define SWAPDOWN 4
 #define CLIENTTITLE 100
 #define CLIENTCLASS 50
 #define CLIENTNAME 50
@@ -259,7 +263,7 @@ typedef struct {
 #define PREFIX 1
 #define NOPREFIX 0
 
-unsigned int config_modkey, config_ignore_modkeys, config_prefix_mode,
+unsigned int config_modkey, config_prefix_mode,
 	config_border_focus, config_border_blur, config_border_attention,
 	config_flash_on, config_flash_off, config_warp_mode, config_flash_title,
 	config_border_width, config_flash_width, config_flash_ms, config_map_mode, config_menu_select,
@@ -275,53 +279,65 @@ KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7
 #define MAXMODCODES 16
 unsigned int config_modkeycodes[MAXMODCODES+1];
 
-#define KEY_ENUM(a,b,c) a
-#define KEY_KSYM(a,b,c) [a] = b
-#define KEY_CARG(a,b,c) #c
+#define KEY_ENUM(a,b,c,d) a
+#define KEY_KSYM(a,b,c,d) [a] = c
+#define KEY_KMOD(a,b,c,d) [a] = b
+#define KEY_CARG(a,b,c,d) #d
 
 // default keybindings
 #define KEYLIST(X) \
-	X(KEY_RIGHT, XK_Right, -right),\
-	X(KEY_LEFT, XK_Left, -left),\
-	X(KEY_UP, XK_Up, -up),\
-	X(KEY_DOWN, XK_Down, -down),\
-	X(KEY_FOCUSRIGHT, XK_l, -focusright),\
-	X(KEY_FOCUSLEFT, XK_j, -focusleft),\
-	X(KEY_FOCUSUP, XK_i, -focusup),\
-	X(KEY_FOCUSDOWN, XK_k, -focusdown),\
-	X(KEY_SHRINK, XK_Page_Down, -shrink),\
-	X(KEY_GROW, XK_Page_Up, -grow),\
-	X(KEY_FULLSCREEN, XK_f, -fullscreen),\
-	X(KEY_ABOVE, XK_a, -above),\
-	X(KEY_BELOW, XK_b, -below),\
-	X(KEY_STICKY, XK_s, -sticky),\
-	X(KEY_VMAX, XK_Home, -vmax),\
-	X(KEY_HMAX, XK_End, -hmax),\
-	X(KEY_EXPAND, XK_Return, -expand),\
-	X(KEY_CONTRACT, XK_BackSpace, -contract),\
-	X(KEY_VLOCK, XK_Insert, -vlock),\
-	X(KEY_HLOCK, XK_Delete, -hlock),\
-	X(KEY_TAG, XK_t, -tag),\
-	X(KEY_SWITCH, XK_Tab, -switch),\
-	X(KEY_TSWITCH, XK_grave, -tswitch),\
-	X(KEY_CYCLE, XK_c, -cycle),\
-	X(KEY_CLOSE, XK_Escape, -close),\
-	X(KEY_HTILE, XK_h, -htile),\
-	X(KEY_VTILE, XK_v, -vtile),\
-	X(KEY_UNDO, XK_u, -undo),\
-	X(KEY_TAGNEXT, XK_m, -tagnext),\
-	X(KEY_TAGPREV, XK_n, -tagprev),\
-	X(KEY_DUPLICATE, XK_d, -duplicate),\
-	X(KEY_INFO, XK_w, -info),\
-	X(KEY_QUIT, XK_Pause, -quit),\
-	X(KEY_PREFIX, XK_VoidSymbol, -prefix),\
-	X(KEY_MINIMIZE, XK_slash, -minimize),\
-	X(KEY_RULE, XK_comma, -runrule),\
-	X(KEY_RULESET, XK_period, -runruleset),\
-	X(KEY_LAUNCH, XK_x, -launch)
+	X(KEY_RIGHT,              0, XK_Right,      -right     ),\
+	X(KEY_LEFT,               0, XK_Left,       -left      ),\
+	X(KEY_UP,                 0, XK_Up,         -up        ),\
+	X(KEY_DOWN,               0, XK_Down,       -down      ),\
+	X(KEY_SNAPRIGHT,  ShiftMask, XK_Right,      -snapright ),\
+	X(KEY_SNAPLEFT,   ShiftMask, XK_Left,       -snapleft  ),\
+	X(KEY_SNAPUP,     ShiftMask, XK_Up,         -snapup    ),\
+	X(KEY_SNAPDOWN,   ShiftMask, XK_Down,       -snapdown  ),\
+	X(KEY_FOCUSRIGHT,         0, XK_l,          -focusright),\
+	X(KEY_FOCUSLEFT,          0, XK_j,          -focusleft ),\
+	X(KEY_FOCUSUP,            0, XK_i,          -focusup   ),\
+	X(KEY_FOCUSDOWN,          0, XK_k,          -focusdown ),\
+	X(KEY_SWAPRIGHT,  ShiftMask, XK_l,          -swapright ),\
+	X(KEY_SWAPLEFT,   ShiftMask, XK_j,          -swapleft  ),\
+	X(KEY_SWAPUP,     ShiftMask, XK_i,          -swapup    ),\
+	X(KEY_SWAPDOWN,   ShiftMask, XK_k,          -swapdown  ),\
+	X(KEY_SHRINK,             0, XK_Page_Down,  -shrink    ),\
+	X(KEY_GROW,               0, XK_Page_Up,    -grow      ),\
+	X(KEY_FULLSCREEN,         0, XK_f,          -fullscreen),\
+	X(KEY_ABOVE,              0, XK_a,          -above     ),\
+	X(KEY_BELOW,              0, XK_b,          -below     ),\
+	X(KEY_STICKY,             0, XK_s,          -sticky    ),\
+	X(KEY_VMAX,               0, XK_Home,       -vmax      ),\
+	X(KEY_HMAX,               0, XK_End,        -hmax      ),\
+	X(KEY_EXPAND,             0, XK_Return,     -expand    ),\
+	X(KEY_CONTRACT,           0, XK_BackSpace,  -contract  ),\
+	X(KEY_VLOCK,              0, XK_Insert,     -vlock     ),\
+	X(KEY_HLOCK,              0, XK_Delete,     -hlock     ),\
+	X(KEY_TAG,                0, XK_t,          -tag       ),\
+	X(KEY_SWITCH,             0, XK_Tab,        -switch    ),\
+	X(KEY_TSWITCH,            0, XK_grave,      -tswitch   ),\
+	X(KEY_CYCLE,              0, XK_c,          -cycle     ),\
+	X(KEY_CLOSE,              0, XK_Escape,     -close     ),\
+	X(KEY_HTILE,              0, XK_h,          -htile     ),\
+	X(KEY_VTILE,              0, XK_v,          -vtile     ),\
+	X(KEY_HUNTILE,    ShiftMask, XK_h,          -huntile   ),\
+	X(KEY_VUNTILE,    ShiftMask, XK_v,          -vuntile   ),\
+	X(KEY_UNDO,               0, XK_u,          -undo      ),\
+	X(KEY_TAGNEXT,            0, XK_m,          -tagnext   ),\
+	X(KEY_TAGPREV,            0, XK_n,          -tagprev   ),\
+	X(KEY_DUPLICATE,          0, XK_d,          -duplicate ),\
+	X(KEY_INFO,               0, XK_w,          -info      ),\
+	X(KEY_QUIT,               0, XK_Pause,      -quit      ),\
+	X(KEY_PREFIX,             0, XK_VoidSymbol, -prefix    ),\
+	X(KEY_MINIMIZE,           0, XK_slash,      -minimize  ),\
+	X(KEY_RULE,               0, XK_comma,      -runrule   ),\
+	X(KEY_RULESET,            0, XK_period,     -runruleset),\
+	X(KEY_LAUNCH,             0, XK_x,          -launch    )
 
 enum { KEYLIST(KEY_ENUM) };
 KeySym keymap[] = { KEYLIST(KEY_KSYM), 0 };
+unsigned int keymodmap[] = { KEYLIST(KEY_KMOD), 0 };
 char *keyargs[] = { KEYLIST(KEY_CARG), NULL };
 
 unsigned int NumlockMask = 0;

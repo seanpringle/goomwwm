@@ -54,13 +54,14 @@ void* reallocate(void *ptr, unsigned long bytes)
 }
 
 // trim string in place
-void strtrim(char *str)
+char* strtrim(char *str)
 {
 	int i = 0, j = 0;
 	while (isspace(str[i])) i++;
 	while (str[i]) str[i++] = str[j++];
 	while (isspace(str[--j]));
 	str[++j] = '\0';
+	return str;
 }
 
 double timestamp()

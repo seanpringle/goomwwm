@@ -129,26 +129,32 @@ void setup_screen()
 	ewmh_desktop_list();
 }
 
+// identify modifiers in a key combination string
+unsigned int parse_key_mask(char *keystr, unsigned int def)
+{
+	unsigned int modkey = 0;
+	if (keystr)
+	{
+		if (strcasestr(keystr, "shift"))   modkey |= ShiftMask;
+		if (strcasestr(keystr, "control")) modkey |= ControlMask;
+		if (strcasestr(keystr, "mod1"))    modkey |= Mod1Mask;
+		if (strcasestr(keystr, "mod2"))    modkey |= Mod2Mask;
+		if (strcasestr(keystr, "mod3"))    modkey |= Mod3Mask;
+		if (strcasestr(keystr, "mod4"))    modkey |= Mod4Mask;
+		if (strcasestr(keystr, "mod5"))    modkey |= Mod5Mask;
+	}
+	if (!(modkey & (ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask)))
+		modkey |= def;
+	return modkey;
+}
+
 void setup_keyboard_options(int ac, char *av[])
 {
 	int i, j;
 
 	// determine modkey
-	config_modkey = MODKEY;
 	char *modkeys = find_arg_str(ac, av, "-modkey", NULL);
-	if (modkeys)
-	{
-		config_modkey = 0;
-		if (strcasestr(modkeys, "control")) config_modkey |= ControlMask;
-		if (strcasestr(modkeys, "mod1"))    config_modkey |= Mod1Mask;
-		if (strcasestr(modkeys, "mod2"))    config_modkey |= Mod2Mask;
-		if (strcasestr(modkeys, "mod3"))    config_modkey |= Mod3Mask;
-		if (strcasestr(modkeys, "mod4"))    config_modkey |= Mod4Mask;
-		if (strcasestr(modkeys, "mod5"))    config_modkey |= Mod5Mask;
-		if (!config_modkey) config_modkey = MODKEY;
-	}
-	// use by mouse-handling code
-	config_ignore_modkeys = (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask|LockMask|NumlockMask) & ~config_modkey;
+	config_modkey = parse_key_mask(modkeys, MODKEY);
 
 	// determine numlock mask so we can bind on keys with and without it
 	XModifierKeymap *modmap = XGetModifierMapping(display);
@@ -178,16 +184,27 @@ void setup_keyboard_options(int ac, char *av[])
 			config_modkeycodes[i++] = modmap->modifiermap[7*modmap->max_keypermod+j];
 	XFreeModifiermap(modmap);
 
+	// everything defaults to modkey
+	for (i = 0; keyargs[i]; i++)
+		keymodmap[i] |= config_modkey;
+
 	// custom keys
 	for (i = 0; keyargs[i]; i++)
 	{
-		char *key = find_arg_str(ac, av, keyargs[i], NULL);
+		char tmp[32]; strcpy(tmp, keyargs[i]);
+		char *key = find_arg_str(ac, av, strtrim(tmp), NULL);
 		if (!key) continue;
 
+		unsigned int mask = parse_key_mask(key, config_modkey);
+		if (strrchr(key, '-')) key = strrchr(key, '-')+1;
+		if (strrchr(key, '+')) key = strrchr(key, '+')+1;
 		KeySym sym = XStringToKeysym(key);
 		// remove existing refs to this key, so only one action is bound
-		for (j = 0; keymap[j]; j++) if (keymap[j] == sym) keymap[j] = XK_VoidSymbol;
+		for (j = 0; keymap[j]; j++)
+			if (keymap[j] == sym && keymodmap[j] == mask)
+				keymap[j] = XK_VoidSymbol;
 		keymap[i] = sym;
+		keymodmap[i] = mask;
 	}
 
 	// check for prefix key mode

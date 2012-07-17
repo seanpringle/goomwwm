@@ -24,6 +24,14 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
+// when using the -prefix key, the prefix key modifiers can be held down, or released and
+// automatically implied for the final key combo. this is really designed to work with the
+// common global -modkey. custom key combinations should generally work too, but might show
+// foibles...
+#define ISKEY(id) (keymap[id] == key && (keymodmap[id] == state ||\
+	(prefix_mode_active && (keymodmap[id] & ~keymodmap[KEY_PREFIX]) == (state & ~keymodmap[KEY_PREFIX]))\
+))
+
 // MODKEY+keys
 void handle_keypress(XEvent *ev)
 {
@@ -31,58 +39,49 @@ void handle_keypress(XEvent *ev)
 	KeySym key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
 	unsigned int state = ev->xkey.state;
 
-	int i, quit = quit_pressed_once, prefix = prefix_mode_active;
-
-	// reset quit key if a non-quit keypress arrives
-	quit_pressed_once = 0;
-
-	// deactivate prefix mode if necessary. only one operation at a time
-	if (prefix_mode_active)
-	{
-		release_keyboard();
-		release_pointer();
-		prefix_mode_active = 0;
-	}
+	int i, reset_prefix = 1, reset_quit = 1;
 
 	client *c = NULL;
 	reset_lazy_caches();
 
 	// by checking !prefix, we allow a second press to cancel prefix mode
-	if (key == keymap[KEY_PREFIX] && !prefix)
+	if (ISKEY(KEY_PREFIX) && !prefix_mode_active)
 	{
 		// activate prefix mode
 		take_keyboard(ev->xany.window);
 		take_pointer(ev->xany.window, ButtonPressMask, prefix_cursor);
 		prefix_mode_active = 1;
+		reset_prefix = 0;
 	}
 	else
-	if (key == keymap[KEY_SWITCH])
+	if (ISKEY(KEY_SWITCH))
 	{
 		if (config_switcher) exec_cmd(config_switcher);
 		else client_switcher(0);
 	}
 	else
-	if (key == keymap[KEY_LAUNCH]) exec_cmd(config_launcher);
+	if (ISKEY(KEY_LAUNCH)) exec_cmd(config_launcher);
 
 	else
 	// exec goomwwm. press twice
-	if (key == keymap[KEY_QUIT])
+	if (ISKEY(KEY_QUIT))
 	{
-		if (quit) exit(EXIT_SUCCESS);
+		if (quit_pressed_once) exit(EXIT_SUCCESS);
 		quit_pressed_once = 1;
+		reset_quit = 0;
 	}
 
 	// custom MODKEY launchers
 	// on the command line: goomwwm -1 "firefox"
-	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0)
+	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0 && state == config_modkey)
 		client_find_or_start(config_apps_patterns[i]);
 
-	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && !(state & ShiftMask))
+	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && state == config_modkey)
 		tag_raise(1<<i);
 
 	// tag cycling
-	else if (key == keymap[KEY_TAGNEXT]) tag_raise(current_tag & TAG9 ? TAG1: current_tag<<1);
-	else if (key == keymap[KEY_TAGPREV]) tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
+	else if (ISKEY(KEY_TAGNEXT)) tag_raise(current_tag & TAG9 ? TAG1: current_tag<<1);
+	else if (ISKEY(KEY_TAGPREV)) tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
 
 	else
 	// following only relevant with a focused window
@@ -107,41 +106,49 @@ void handle_keypress(XEvent *ev)
 		// final resize/move params. smart = intelligently bump / center / shrink
 		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
 
-		     if (key == keymap[KEY_CLOSE])      client_close(c);
-		else if (key == keymap[KEY_CYCLE])      client_cycle(c);
-		else if (key == keymap[KEY_ABOVE])      client_nws_above(c, TOGGLE);
-		else if (key == keymap[KEY_BELOW])      client_nws_below(c, TOGGLE);
-		else if (key == keymap[KEY_STICKY])     client_nws_sticky(c, TOGGLE);
-		else if (key == keymap[KEY_FULLSCREEN]) client_nws_fullscreen(c, TOGGLE);
-		else if (key == keymap[KEY_HMAX])       client_nws_maxhorz(c, TOGGLE);
-		else if (key == keymap[KEY_VMAX])       client_nws_maxvert(c, TOGGLE);
-		else if (key == keymap[KEY_EXPAND])     client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
-		else if (key == keymap[KEY_CONTRACT])   client_contract(c, HORIZONTAL|VERTICAL);
-		else if (key == keymap[KEY_VLOCK])      client_toggle_vlock(c);
-		else if (key == keymap[KEY_HLOCK])      client_toggle_hlock(c);
-		else if (key == keymap[KEY_HTILE])      { if (state & ShiftMask) client_huntile(c); else client_htile(c); }
-		else if (key == keymap[KEY_VTILE])      { if (state & ShiftMask) client_vuntile(c); else client_vtile(c); }
-		else if (key == keymap[KEY_UNDO])       client_rollback(c);
-		else if (key == keymap[KEY_DUPLICATE])  client_duplicate(c);
-		else if (key == keymap[KEY_MINIMIZE])   client_minimize(c);
-		else if (key == keymap[KEY_RULE])       client_rules_apply(c);
-		else if (key == keymap[KEY_RULESET])    ruleset_switcher(ev->xany.window);
-		else if (key == keymap[KEY_INFO])       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
+		     if (ISKEY(KEY_CLOSE))      client_close(c);
+		else if (ISKEY(KEY_CYCLE))      client_cycle(c);
+		else if (ISKEY(KEY_ABOVE))      client_nws_above(c, TOGGLE);
+		else if (ISKEY(KEY_BELOW))      client_nws_below(c, TOGGLE);
+		else if (ISKEY(KEY_STICKY))     client_nws_sticky(c, TOGGLE);
+		else if (ISKEY(KEY_FULLSCREEN)) client_nws_fullscreen(c, TOGGLE);
+		else if (ISKEY(KEY_HMAX))       client_nws_maxhorz(c, TOGGLE);
+		else if (ISKEY(KEY_VMAX))       client_nws_maxvert(c, TOGGLE);
+		else if (ISKEY(KEY_EXPAND))     client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+		else if (ISKEY(KEY_CONTRACT))   client_contract(c, HORIZONTAL|VERTICAL);
+		else if (ISKEY(KEY_VLOCK))      client_toggle_vlock(c);
+		else if (ISKEY(KEY_HLOCK))      client_toggle_hlock(c);
+		else if (ISKEY(KEY_HTILE))      client_htile(c);
+		else if (ISKEY(KEY_VTILE))      client_vtile(c);
+		else if (ISKEY(KEY_HUNTILE))    client_huntile(c);
+		else if (ISKEY(KEY_VUNTILE))    client_vuntile(c);
+		else if (ISKEY(KEY_UNDO))       client_rollback(c);
+		else if (ISKEY(KEY_DUPLICATE))  client_duplicate(c);
+		else if (ISKEY(KEY_MINIMIZE))   client_minimize(c);
+		else if (ISKEY(KEY_RULE))       client_rules_apply(c);
+		else if (ISKEY(KEY_RULESET))    ruleset_switcher(ev->xany.window);
+		else if (ISKEY(KEY_INFO))       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
 
 		// directional focus change
-		else if (key == keymap[KEY_FOCUSLEFT])  { if (state & ShiftMask) client_swapto(c, FOCUSLEFT);  else client_focusto(c, FOCUSLEFT);  }
-		else if (key == keymap[KEY_FOCUSRIGHT]) { if (state & ShiftMask) client_swapto(c, FOCUSRIGHT); else client_focusto(c, FOCUSRIGHT); }
-		else if (key == keymap[KEY_FOCUSUP])    { if (state & ShiftMask) client_swapto(c, FOCUSUP);    else client_focusto(c, FOCUSUP);    }
-		else if (key == keymap[KEY_FOCUSDOWN])  { if (state & ShiftMask) client_swapto(c, FOCUSDOWN);  else client_focusto(c, FOCUSDOWN);  }
+		else if (ISKEY(KEY_FOCUSLEFT))  client_focusto(c, FOCUSLEFT);
+		else if (ISKEY(KEY_FOCUSRIGHT)) client_focusto(c, FOCUSRIGHT);
+		else if (ISKEY(KEY_FOCUSUP))    client_focusto(c, FOCUSUP);
+		else if (ISKEY(KEY_FOCUSDOWN))  client_focusto(c, FOCUSDOWN);
+
+		// directional position swap
+		else if (ISKEY(KEY_SWAPLEFT))  client_swapto(c, SWAPLEFT);
+		else if (ISKEY(KEY_SWAPRIGHT)) client_swapto(c, SWAPRIGHT);
+		else if (ISKEY(KEY_SWAPUP))    client_swapto(c, SWAPUP);
+		else if (ISKEY(KEY_SWAPDOWN))  client_swapto(c, SWAPDOWN);
 
 		// place client in current tag
-		else if (key == keymap[KEY_TAG])
+		else if (ISKEY(KEY_TAG))
 		{
 			client_toggle_tag(c, current_tag, FLASH);
 			ewmh_client_list();
 		}
 		// place client in other tags
-		else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && state & ShiftMask)
+		else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && state == (config_modkey|ShiftMask))
 		{
 			client_toggle_tag(c, 1<<i, FLASH);
 			ewmh_client_list();
@@ -149,12 +156,12 @@ void handle_keypress(XEvent *ev)
 
 		else
 		// cycle through windows with same tag
-		if (key == keymap[KEY_TSWITCH])
+		if (ISKEY(KEY_TSWITCH))
 			client_switcher(current_tag);
 		else
 		// Page Up/Down makes the focused window larger and smaller respectively
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN])
-			&& (key == keymap[KEY_GROW] || key == keymap[KEY_SHRINK]))
+			&& (ISKEY(KEY_GROW) || ISKEY(KEY_SHRINK)))
 		{
 			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy;
 
@@ -177,14 +184,14 @@ void handle_keypress(XEvent *ev)
 			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 			{
 				fw = screen_width;
-				if (key == keymap[KEY_GROW]) fh = heights[ish+1];
-				if (key == keymap[KEY_SHRINK]) fh = heights[ish-1];
+				if (ISKEY(KEY_GROW)) fh = heights[ish+1];
+				if (ISKEY(KEY_SHRINK)) fh = heights[ish-1];
 			} else
 			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 			{
 				fh = screen_height;
-				if (key == keymap[KEY_GROW]) fw = widths[isw+1];
-				if (key == keymap[KEY_SHRINK]) fw = widths[isw-1];
+				if (ISKEY(KEY_GROW)) fw = widths[isw+1];
+				if (ISKEY(KEY_SHRINK)) fw = widths[isw-1];
 			} else
 			{
 				int prefer_width = w > h ? 1:0;
@@ -195,13 +202,20 @@ void handle_keypress(XEvent *ev)
 				int is1 = !is4 && !is3 && !is2 && ((isw1 && ish1) || (isw1 && prefer_width) || (ish1 && !prefer_width)) ?1:0;
 				int is = is4 ? 5: (is3 ? 4: (is2 ? 3: (is1 ? 2: 1)));
 
-				if (key == keymap[KEY_GROW])   { fw = widths[is+1]; fh = heights[is+1]; }
-				if (key == keymap[KEY_SHRINK]) { fw = widths[is-1]; fh = heights[is-1]; }
+				if (ISKEY(KEY_GROW))   { fw = widths[is+1]; fh = heights[is+1]; }
+				if (ISKEY(KEY_SHRINK)) { fw = widths[is-1]; fh = heights[is-1]; }
 			}
 		}
+
+		// border snap arrow key movement
+		else if (ISKEY(KEY_SNAPLEFT)  && !c->is_maxh) client_snapto(c, SNAPLEFT);
+		else if (ISKEY(KEY_SNAPRIGHT) && !c->is_maxh) client_snapto(c, SNAPRIGHT);
+		else if (ISKEY(KEY_SNAPUP)    && !c->is_maxv) client_snapto(c, SNAPUP);
+		else if (ISKEY(KEY_SNAPDOWN)  && !c->is_maxv) client_snapto(c, SNAPDOWN);
+
 		else
-		// window movement with arrow keys
-		if (key == keymap[KEY_UP] || key == keymap[KEY_DOWN] || key == keymap[KEY_LEFT] || key == keymap[KEY_RIGHT])
+		// 3x3 arrow key movement
+		if (ISKEY(KEY_UP) || ISKEY(KEY_DOWN) || ISKEY(KEY_LEFT) || ISKEY(KEY_RIGHT))
 		{
 			workarea mon;
 			int wx = x + w/2, wy = y + h/2;
@@ -211,61 +225,56 @@ void handle_keypress(XEvent *ev)
 			// expire the toggle cache
 			c->cache->have_old = 0;
 
-			if (state & ShiftMask)
+			// monitor switching if window is on an edge
+			if (ISKEY(KEY_LEFT) && c->is_left)
 			{
-				     if (key == keymap[KEY_LEFT]  && !c->is_maxh) client_snapto(c, SNAPLEFT);
-				else if (key == keymap[KEY_RIGHT] && !c->is_maxh) client_snapto(c, SNAPRIGHT);
-				else if (key == keymap[KEY_UP]    && !c->is_maxv) client_snapto(c, SNAPUP);
-				else if (key == keymap[KEY_DOWN]  && !c->is_maxv) client_snapto(c, SNAPDOWN);
-			} else
+				monitor_dimensions_struts(c->monitor.x-c->monitor.l-vague, c->y, &mon);
+				if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+					{ done = 1; fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
+			}
+			else
+			if (ISKEY(KEY_RIGHT) && c->is_right)
 			{
-				// monitor switching if window is on an edge
-				if (key == keymap[KEY_LEFT] && c->is_left)
-				{
-					monitor_dimensions_struts(c->monitor.x-c->monitor.l-vague, c->y, &mon);
-					if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-						{ done = 1; fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
-				}
-				else
-				if (key == keymap[KEY_RIGHT] && c->is_right)
-				{
-					monitor_dimensions_struts(c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
-					if (mon.x > c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-						{ done = 1; fx = mon.x; fy = y; fw = w; fh = h; }
-				}
-				else
-				if (key == keymap[KEY_UP] && c->is_top)
-				{
-					monitor_dimensions_struts(c->x, c->monitor.y-c->monitor.t-vague, &mon);
-					if (mon.y < c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-						{ done = 1; fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
-				}
-				else
-				if (key == keymap[KEY_DOWN] && c->is_bottom)
-				{
-					monitor_dimensions_struts(c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
-					if (mon.y > c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-						{ done = 1; fx = x; fy = mon.y; fw = w; fh = h; }
-				}
+				monitor_dimensions_struts(c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
+				if (mon.x > c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+					{ done = 1; fx = mon.x; fy = y; fw = w; fh = h; }
+			}
+			else
+			if (ISKEY(KEY_UP) && c->is_top)
+			{
+				monitor_dimensions_struts(c->x, c->monitor.y-c->monitor.t-vague, &mon);
+				if (mon.y < c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+					{ done = 1; fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
+			}
+			else
+			if (ISKEY(KEY_DOWN) && c->is_bottom)
+			{
+				monitor_dimensions_struts(c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
+				if (mon.y > c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
+					{ done = 1; fx = x; fy = mon.y; fw = w; fh = h; }
+			}
 
-				// move within current monitor
-				if (!done && !c->is_full)
-				{
-					// MODKEY+Arrow movement occurs on a 3x3 grid for non-fullscreen, managed windows
-					if (key == keymap[KEY_LEFT] && !c->is_maxh)
-						{ fx = screen_x + (wx > (screen_width/2)+vague ? cx: 0); fy = screen_y+y; fw = w; fh = h; }
-					else
-					if (key == keymap[KEY_RIGHT] && !c->is_maxh)
-						{ fx = screen_x + (wx < (screen_width/2)-vague ? cx: screen_width - w); fy = screen_y+y; fw = w; fh = h; }
-					else
-					if (key == keymap[KEY_UP] && !c->is_maxv)
-						{ fx = screen_x+x; fy = screen_y + (wy > (screen_height/2)+vague ? cy: 0); fw = w; fh = h; }
-					else
-					if (key == keymap[KEY_DOWN] && !c->is_maxv)
-						{ fx = screen_x+x; fy = screen_y + (wy < (screen_height/2)-vague ? cy: screen_height - h); fw = w; fh = h; }
-				}
+			// move within current monitor
+			if (!done && !c->is_full)
+			{
+				// MODKEY+Arrow movement occurs on a 3x3 grid for non-fullscreen, managed windows
+				if (ISKEY(KEY_LEFT) && !c->is_maxh)
+					{ fx = screen_x + (wx > (screen_width/2)+vague ? cx: 0); fy = screen_y+y; fw = w; fh = h; }
+				else
+				if (ISKEY(KEY_RIGHT) && !c->is_maxh)
+					{ fx = screen_x + (wx < (screen_width/2)-vague ? cx: screen_width - w); fy = screen_y+y; fw = w; fh = h; }
+				else
+				if (ISKEY(KEY_UP) && !c->is_maxv)
+					{ fx = screen_x+x; fy = screen_y + (wy > (screen_height/2)+vague ? cy: 0); fw = w; fh = h; }
+				else
+				if (ISKEY(KEY_DOWN) && !c->is_maxv)
+					{ fx = screen_x+x; fy = screen_y + (wy < (screen_height/2)-vague ? cy: screen_height - h); fw = w; fh = h; }
 			}
 		}
+
+		// no matching key combo found
+		else reset_prefix = 0;
+
 		// final co-ords are fixed. go to it...
 		if (fw > 0 && fh > 0)
 		{
@@ -273,6 +282,17 @@ void handle_keypress(XEvent *ev)
 			client_moveresize(c, smart, fx, fy, fw, fh);
 		}
 	}
+	// deactivate prefix mode if necessary. only one operation at a time
+	if (prefix_mode_active && reset_prefix)
+	{
+		release_keyboard();
+		release_pointer();
+		prefix_mode_active = 0;
+	}
+
+	// reset quit key if a non-quit keypress arrives
+	if (reset_quit)
+		quit_pressed_once = 0;
 }
 
 // we bind on all mouse buttons on the root window to implement click-to-focus
@@ -283,7 +303,7 @@ void handle_buttonpress(XEvent *ev)
 	// all mouse button events except the wheel come here, so we can click-to-focus
 	// turn off caps and num locks bits. dont care about their states
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
-	int is_mod = prefix_mode_active || (state & config_modkey && !(state & config_ignore_modkeys));
+	int is_mod = prefix_mode_active || state & config_modkey ? 1:0;
 	reset_lazy_caches();
 
 	if (ev->xbutton.subwindow != None && (c = client_create(ev->xbutton.subwindow)) && c && c->manage
@@ -324,7 +344,7 @@ void handle_buttonrelease(XEvent *ev)
 {
 	event_log("ButtonRelease", ev->xbutton.window);
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
-	int is_mod = prefix_mode_active || (state & config_modkey && !(state & config_ignore_modkeys));
+	int is_mod = prefix_mode_active || state & config_modkey ? 1:0;
 
 	if (ev->xbutton.window != None && (c = client_create(ev->xbutton.window)) && c && c->manage)
 	{

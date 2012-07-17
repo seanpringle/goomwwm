@@ -25,26 +25,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // bind to a keycode in all lock states
-void grab_keycode(KeyCode keycode)
+void grab_keycode(unsigned int mask, KeyCode keycode)
 {
-	XUngrabKey(display, keycode, AnyModifier, root);
-	XGrabKey(display, keycode, config_modkey, root, True, GrabModeAsync, GrabModeAsync);
-	XGrabKey(display, keycode, config_modkey|ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
-	XGrabKey(display, keycode, config_modkey|LockMask, root, True, GrabModeAsync, GrabModeAsync);
-	XGrabKey(display, keycode, config_modkey|ShiftMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
+	XGrabKey(display, keycode, mask, root, True, GrabModeAsync, GrabModeAsync);
+	XGrabKey(display, keycode, mask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
 	if (NumlockMask)
 	{
-		XGrabKey(display, keycode, config_modkey|NumlockMask, root, True, GrabModeAsync, GrabModeAsync);
-		XGrabKey(display, keycode, config_modkey|ShiftMask|NumlockMask, root, True, GrabModeAsync, GrabModeAsync);
-		XGrabKey(display, keycode, config_modkey|NumlockMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
-		XGrabKey(display, keycode, config_modkey|ShiftMask|NumlockMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
+		XGrabKey(display, keycode, mask|NumlockMask, root, True, GrabModeAsync, GrabModeAsync);
+		XGrabKey(display, keycode, mask|NumlockMask|LockMask, root, True, GrabModeAsync, GrabModeAsync);
 	}
 }
 
 // grab a MODKEY+key combo
-void grab_key(KeySym key)
+void grab_key(unsigned int mask, KeySym key)
 {
-	grab_keycode(XKeysymToKeycode(display, key));
+	grab_keycode(mask, XKeysymToKeycode(display, key));
 	int i, j, min_code, max_code, syms_per_code;
 	// if xmodmap is in use to remap keycodes to keysyms, a simple XKeysymToKeycode
 	// may not suffice here. so we also walk the entire map of keycodes and bind to
@@ -54,7 +49,7 @@ void grab_key(KeySym key)
 	for (i = 0; map && i < (max_code-min_code); i++)
 		for (j = 0; j < syms_per_code; j++)
 			if (key == map[i*syms_per_code+j])
-				grab_keycode(i+min_code);
+				grab_keycode(mask, i+min_code);
 	if (map) XFree(map);
 }
 
@@ -66,12 +61,20 @@ void grab_keys_and_buttons()
 	// only grab keys if prefix mode is disabled (default)
 	if (!config_prefix_mode)
 	{
-		for (i = 0; keymap[i]; i++) if (keymap[i] != XK_VoidSymbol) grab_key(keymap[i]);
-		for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i]) grab_key(config_apps_keysyms[i]);
-		for (i = 0; config_tags_keysyms[i]; i++) grab_key(config_tags_keysyms[i]);
+		// configurable keys
+		for (i = 0; keymap[i]; i++) if (keymap[i] != XK_VoidSymbol)
+			grab_key(keymodmap[i], keymap[i]);
+
+		// 1-9 app keys
+		for (i = 0; config_apps_keysyms[i]; i++) if (config_apps_patterns[i])
+			{ grab_key(config_modkey, config_apps_keysyms[i]); grab_key(config_modkey|ShiftMask, config_apps_keysyms[i]); }
+
+		// F1-F9 tag keys
+		for (i = 0; config_tags_keysyms[i]; i++)
+			{ grab_key(config_modkey, config_tags_keysyms[i]); grab_key(config_modkey|ShiftMask, config_tags_keysyms[i]); }
 	}
 	// prefix mode key switches to XGrabKeyboard
-	else grab_key(keymap[KEY_PREFIX]);
+	else grab_key(config_modkey, keymap[KEY_PREFIX]);
 	// grab mouse buttons for click-to-focus. these get passed through to the windows
 	// not binding on button4 which is usually wheel scroll
 	XUngrabButton(display, AnyButton, AnyModifier, root);
