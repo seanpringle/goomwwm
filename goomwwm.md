@@ -593,7 +593,7 @@ All options below that set a custom key implicitly combine it with the modifier 
 		rule class:pidgin left,bottom,small,snap_right
 		rule class:chromium top,maximize_horz,large
 
-	Rule sets can be switched on the fly via menu (see -runruleset).
+	Rule sets can be applied on the fly via menu (see -runruleset).
 
 -runrule
 :	Set an X11 key name to reapply any rule relevant to the active window (default: XK_comma).
