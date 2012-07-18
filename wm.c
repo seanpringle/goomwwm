@@ -37,50 +37,6 @@ int oops(Display *d, XErrorEvent *ee)
 	return xerror(display, ee);
 }
 
-// say something informative
-void notice(const char *fmt, ...)
-{
-	workarea mon; monitor_active(&mon);
-	if (fork()) return;
-
-	display = XOpenDisplay(0x0);
-
-	char txt[100]; va_list ap;
-	va_start(ap,fmt); vsnprintf(txt, 100, fmt, ap); va_end(ap);
-
-	GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
-
-	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_title_fg, &fg);
-	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_title_bg, &bg);
-
-	font = XftFontOpenName(display, screen_id, config_title_font);
-	XftTextExtentsUtf8(display, font, (unsigned char*)txt, strlen(txt), &extents);
-
-	int line_height = font->ascent + font->descent, line_width = extents.width;
-	int bar_width = MIN(line_width+20, (mon.w/10)*9), bar_height = line_height+10;
-
-	Window bar = XCreateSimpleWindow(display, root, mon.x + mon.w - bar_width - 10, mon.y + mon.h - bar_height - 10,
-		bar_width, bar_height, 1, config_flash_on, None);
-
-	gc   = XCreateGC(display, bar, 0, 0);
-	draw = XftDrawCreate(display, bar, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
-
-	XSetWindowAttributes attr; attr.override_redirect = True;
-	XChangeWindowAttributes(display, bar, CWOverrideRedirect, &attr);
-	XMapRaised(display, bar);
-	XftDrawRect(draw, &bg, 0, 0, mon.w, line_height+10);
-	XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)txt, strlen(txt));
-
-	XSync(display, False); usleep(SAYMS*1000);
-	XDestroyWindow(display, bar);
-
-	XftDrawDestroy(draw);
-	XFreeGC(display, gc);
-	XftFontClose(display, font);
-
-	exit(EXIT_SUCCESS);
-}
-
 // slow human interation resets some caches. theory is: if for some reason a stale
 // cache is affecting goomwwm behavior, any interaction should fix it. since
 // human-generated are so rare, this doesn't really affect the cache usefulness...

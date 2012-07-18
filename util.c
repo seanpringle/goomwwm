@@ -215,6 +215,75 @@ void release_pointer()
 	XUngrabPointer(display, CurrentTime);
 }
 
+// display a text message
+void message_box(int delay, int x, int y, char *fgc, char *bgc, char *bc, char *txt)
+{
+	workarea mon; monitor_dimensions_struts(x, y, &mon);
+	if (fork()) return;
+
+	display = XOpenDisplay(0x0);
+
+	GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
+
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), fgc, &fg);
+	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), bgc, &bg);
+
+	font = XftFontOpenName(display, screen_id, config_title_font);
+	XftTextExtentsUtf8(display, font, (unsigned char*)txt, strlen(txt), &extents);
+
+	int line_height = font->ascent + font->descent, line_width = extents.width;
+	int bar_width = MIN(line_width+20, (mon.w/10)*9), bar_height = line_height+10;
+
+	Window bar = XCreateSimpleWindow(display, root,
+		MIN(mon.x+mon.w-bar_width-10, MAX(mon.x+10, x - bar_width/2)),
+		MIN(mon.y+mon.h-bar_height-10, MAX(mon.y+10, y - bar_height/2)),
+		bar_width, bar_height, 1, color_get(bc), color_get(bgc));
+
+	gc   = XCreateGC(display, bar, 0, 0);
+	draw = XftDrawCreate(display, bar, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
+
+	XSetWindowAttributes attr; attr.override_redirect = True;
+	XChangeWindowAttributes(display, bar, CWOverrideRedirect, &attr);
+	XSelectInput(display, bar, ExposureMask);
+	XMapRaised(display, bar);
+	XftDrawRect(draw, &bg, 0, 0, bar_width, line_height+10);
+	XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)txt, strlen(txt));
+	XSync(display, False);
+
+	double stamp = timestamp();
+	while ((timestamp()-stamp) < (double)delay/1000)
+	{
+		if (XPending(display))
+		{
+			XEvent ev;
+			XNextEvent(display, &ev);
+			if (ev.type == Expose)
+			{
+				XftDrawRect(draw, &bg, 0, 0, bar_width, line_height+10);
+				XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)txt, strlen(txt));
+				XSync(display, False);
+			}
+		}
+		usleep(10000); // 10ms
+	}
+
+	XftDrawDestroy(draw);
+	XFreeGC(display, gc);
+	XftFontClose(display, font);
+	XDestroyWindow(display, bar);
+
+	exit(EXIT_SUCCESS);
+}
+
+// say something informative
+void notice(const char *fmt, ...)
+{
+	char txt[100]; va_list ap;
+	va_start(ap,fmt); vsnprintf(txt, 100, fmt, ap); va_end(ap);
+	workarea mon; monitor_active(&mon);
+	message_box(SAYMS, mon.x+mon.w-1, mon.y+mon.h-1, config_title_fg, config_title_bg, "black", txt);
+}
+
 #ifdef DEBUG
 void event_log(const char *e, Window w)
 {
