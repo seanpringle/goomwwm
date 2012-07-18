@@ -856,28 +856,24 @@ void client_flash(client *c, unsigned int color, int delay, int title)
 // add a window and family to the stacking order
 void client_stack_family(client *c, winlist *stack)
 {
-	int i; client *a = NULL;
-	Window orig = c->window, app = orig;
-
+	int i; Window w; client *a = NULL;
 	// if this is a transient window, find the main app
 	// TODO: this doesn't handle multiple transient levels, like Gimp's save/export sequence
-	if (c->trans)
+	if (c->trans && winlist_find(stack, c->trans) < 0)
 	{
 		a = client_create(c->trans);
-		if (a && a->manage) app = a->window;
+		client_stack_family(a, stack);
+		return;
 	}
-
-	if (app != orig) winlist_append(stack, orig, NULL);
-
+	// make sure this window does not trigger recursion
+	winlist_append(stack, c->window, NULL);
 	// locate all visible transient windows for this app
-	winlist *inplay = windows_in_play();
-	for (i = inplay->len-1; i > -1; i--)
-	{
-		if (inplay->array[i] == app) continue;
-		a = client_create(inplay->array[i]);
-		if (a && a->trans == app) winlist_append(stack, a->window, NULL);
-	}
-	winlist_append(stack, app, NULL);
+	managed_descend(i, w, a)
+		if (winlist_find(stack, w) < 0 && a->trans == c->window)
+			client_stack_family(a, stack);
+	// move this window to end (bottom) of stack
+	winlist_forget(stack, c->window);
+	winlist_append(stack, c->window, NULL);
 }
 
 // raise a window and its transients
