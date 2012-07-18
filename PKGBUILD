@@ -37,7 +37,8 @@ build() {
 
 package() {
   cd "$srcdir/$_gitname-build"
-  install -Dm 755 $_gitname "$pkgdir/usr/bin/goomwwm"
+  install -Dm 755 $_gitname "$pkgdir/usr/bin/$_gitname"
+  install -Dm 644 "$_gitname.desktop" "$pkgdir/usr/share/xsessions/$_gitname.desktop"
   gzip -c "$_gitname.1" > "$_gitname.1.gz"
   install -Dm644 "$_gitname.1.gz" "$pkgdir/usr/share/man/man1/$_gitname.1.gz"
 }
