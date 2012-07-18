@@ -1,0 +1,6 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=goomwwm
+Comment=Get out of my way, Window Manager!
+Exec=goomwwm
+Type=XSession
