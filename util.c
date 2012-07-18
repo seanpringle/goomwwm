@@ -58,7 +58,7 @@ char* strtrim(char *str)
 {
 	int i = 0, j = 0;
 	while (isspace(str[i])) i++;
-	while (str[i]) str[i++] = str[j++];
+	while (str[i]) str[j++] = str[i++];
 	while (isspace(str[--j]));
 	str[++j] = '\0';
 	return str;

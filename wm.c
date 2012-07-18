@@ -333,7 +333,10 @@ int wm_main(int argc, char *argv[])
 		}
 	}
 	free(conf_home);
-
+#ifdef DEBUG
+	for (i = 0; i < ac; i++)
+		printf("arg: [%s]\n", av[i]);
+#endif
 	// caches to reduce X server round trips during a single event
 	cache_client = winlist_new();
 	cache_xattr  = winlist_new();
