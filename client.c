@@ -306,6 +306,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 {
 	client_extended_data(c);
 	fx = MAX(0, fx); fy = MAX(0, fy);
+	int bw = config_border_width*2;
 
 	// this many be different to the client's current c->monitor...
 	workarea monitor; monitor_dimensions_struts(fx, fy, &monitor);
@@ -330,13 +331,15 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		// process size hints
 		if (c->xsize.flags & PMinSize)
 		{
-			fw = MAX(fw, c->xsize.min_width);
-			fh = MAX(fh, c->xsize.min_height);
+			// fw/fh still include borders here
+			fw = MAX(fw, c->xsize.min_width  + bw);
+			fh = MAX(fh, c->xsize.min_height + bw);
 		}
 		if (c->xsize.flags & PMaxSize)
 		{
-			fw = MIN(fw, c->xsize.max_width);
-			fh = MIN(fh, c->xsize.max_height);
+			// fw/fh still include borders here
+			fw = MIN(fw, c->xsize.max_width  + bw);
+			fh = MIN(fh, c->xsize.max_height + bw);
 		}
 		if (c->xsize.flags & PAspect)
 		{
@@ -395,8 +398,8 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	// compensate for border on non-fullscreen windows
 	if (fw < monitor.w || fh < monitor.h)
 	{
-		fw = MAX(1, fw-(config_border_width*2));
-		fh = MAX(1, fh-(config_border_width*2));
+		fw = MAX(1, fw-bw);
+		fh = MAX(1, fh-bw);
 		c->w = fw; c->h = fh;
 	}
 	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
@@ -1709,6 +1712,7 @@ void client_rules_moveresize(client *c)
 	client_extended_data(c);
 	c->cache->vlock = 0;
 	c->cache->hlock = 0;
+	int mr = 0;
 
 	// if a size rule exists, apply it
 	if (client_rule(c, RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER|RULE_SIZE))
@@ -1722,8 +1726,8 @@ void client_rules_moveresize(client *c)
 			c->sw = c->rule->w_is_pct ? c->monitor.w/100*c->rule->w: c->rule->w;
 			c->sh = c->rule->h_is_pct ? c->monitor.h/100*c->rule->h: c->rule->h;
 		}
+		mr = 1;
 	}
-
 	//  if a placement rule exists, it trumps everything
 	if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM))
 	{
@@ -1733,8 +1737,9 @@ void client_rules_moveresize(client *c)
 		if (client_rule(c, RULE_RIGHT))  c->x = c->monitor.x + c->monitor.w - c->sw;
 		if (client_rule(c, RULE_TOP))    c->y = c->monitor.y;
 		if (client_rule(c, RULE_LEFT))   c->x = c->monitor.x;
+		mr = 1;
 	}
-	client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
+	if (mr) client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
 }
 
 // h/v lock must occur after the first client_moveresize
