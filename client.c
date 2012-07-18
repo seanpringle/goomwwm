@@ -820,7 +820,7 @@ void client_flash(client *c, unsigned int color, int delay, int title)
 
 		Window bar = XCreateSimpleWindow(display, root,
 			x1 + c->sw/2 - bar_width/2, y1 + c->sh/2 - bar_height/2,
-			bar_width, bar_height, 1, color, None);
+			bar_width, bar_height, 1, color, color_get(config_title_bg));
 
 		gc   = XCreateGC(display, bar, 0, 0);
 		draw = XftDrawCreate(display, bar, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
@@ -831,15 +831,32 @@ void client_flash(client *c, unsigned int color, int delay, int title)
 		XChangeWindowAttributes(display, bl, CWOverrideRedirect, &attr);
 		XChangeWindowAttributes(display, br, CWOverrideRedirect, &attr);
 		XChangeWindowAttributes(display, bar, CWOverrideRedirect, &attr);
+		XSelectInput(display, bar, ExposureMask);
+
+		XftDrawRect(draw, &bg, 0, 0, c->sw, line_height+10);
+		XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)c->title, strlen(c->title));
+		XSync(display, False);
 
 		XMapRaised(display, tl); XMapRaised(display, tr);
 		XMapRaised(display, bl); XMapRaised(display, br);
-
 		if (title || config_flash_title) XMapRaised(display, bar);
-		XftDrawRect(draw, &bg, 0, 0, c->sw, line_height+10);
-		XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)c->title, strlen(c->title));
 
-		XSync(display, False); usleep(delay*1000);
+		double stamp = timestamp();
+		while ((timestamp()-stamp) < (double)delay/1000)
+		{
+			if (XPending(display))
+			{
+				XEvent ev;
+				XNextEvent(display, &ev);
+				if (ev.type == Expose)
+				{
+					XftDrawRect(draw, &bg, 0, 0, c->sw, line_height+10);
+					XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)c->title, strlen(c->title));
+					XSync(display, False);
+				}
+			}
+			usleep(10000); // 10ms
+		}
 
 		XDestroyWindow(display, tl); XDestroyWindow(display, tr);
 		XDestroyWindow(display, bl); XDestroyWindow(display, br);
