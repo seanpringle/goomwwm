@@ -1268,16 +1268,86 @@ void client_nws_review(client *c)
 	if (commit) client_commit(c);
 }
 
+// look for windows tiled horizontally with *c
+winlist* clients_tiled_horz_with(client *c)
+{
+	client_extended_data(c);
+	int i; Window w; client *o;
+	winlist *tiles = winlist_new();
+	winlist_append(tiles, c->window, NULL);
+	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
+	int min_x = c->x, max_x = c->x + c->sw, tlen = 0;
+	while (tlen != tiles->len)
+	{
+		tlen = tiles->len;
+		tag_descend(i, w, o, current_tag)
+		{
+			// window is not already found, and is on the same horizontal alignment
+			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->y, vague, o->y)
+				// window has roughly the same width and height, and aligned with a known left/right edge
+				&& NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h) && (NEAR(min_x, vague, o->x+o->w) || NEAR(max_x, vague, o->x)))
+					{ winlist_append(tiles, w, NULL); min_x = MIN(o->x, min_x); max_x = MAX(o->x+o->w, max_x); }
+		}
+	}
+	return tiles;
+}
+
+// look for windows tiled vertically with *c
+winlist* clients_tiled_vert_with(client *c)
+{
+	client_extended_data(c);
+	int i; Window w; client *o;
+	winlist *tiles = winlist_new();
+	winlist_append(tiles, c->window, NULL);
+	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
+	int min_y = c->y, max_y = c->y + c->sh, tlen = 0;
+	// locate adjacent windows with the same tag, size, and vertical position
+	while (tlen != tiles->len)
+	{
+		tlen = tiles->len;
+		tag_descend(i, w, o, current_tag)
+			// window is not already found, and is on the same vertical alignment
+			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->x, vague, o->x)
+				// window has roughly the same width and height, and aligned with a known top/bottom edge
+				&& NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h) && (NEAR(min_y, vague, o->y+o->h) || NEAR(max_y, vague, o->y)))
+					{ winlist_append(tiles, w, NULL); min_y = MIN(o->y, min_y); max_y = MAX(o->y+o->h, max_y); }
+	}
+	return tiles;
+}
+
+// look for windows tiled with *c
+winlist* clients_tiled_with(client *c)
+{
+	int i, j; Window w, ww; client *o;
+	winlist *tiles = clients_tiled_horz_with(c);
+	clients_ascend(tiles, i, w, o)
+	{
+		winlist *vtiles = clients_tiled_vert_with(o);
+		winlist_ascend(vtiles, j, ww) if (winlist_find(tiles, ww) < 0)
+			winlist_append(tiles, ww, NULL);
+		winlist_free(vtiles);
+	}
+	return tiles;
+}
+
 // cycle through tag windows in roughly the same screen position and tag
 void client_cycle(client *c)
 {
-	int i; Window w; client *o;
-	tag_ascend(i, w, o, current_tag)
-		if (w != c->window && clients_intersect(c, o))
-			{ client_activate(o, RAISE, WARPDEF); return; }
-	tag_ascend(i, w, o, (c->cache->tags|current_tag))
-		if (w != c->window && clients_intersect(c, o))
-			{ client_activate(o, RAISE, WARPDEF); return; }
+	int i, ii; Window w, ww; client *o, *oo;
+	tag_ascend(i, w, o, current_tag) if (w != c->window && clients_intersect(c, o))
+	{
+		// raise a client and any window tiled with it
+		winlist *tiles = clients_tiled_with(o);
+		clients_ascend(tiles, ii, ww, oo) if (oo->window != c->window)
+		{
+			winlist_forget(windows_activated, oo->window);
+			winlist_append(windows_activated, oo->window, NULL);
+			client_raise(oo, 0);
+		}
+		client_activate(o, RAISE, WARPDEF);
+		winlist_free(tiles);
+		return;
+	}
 	// nothing to cycle. do something visual to acknowledge key press
 	client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
 }
@@ -1315,29 +1385,23 @@ void client_htile(client *c)
 // find windows tiled horizontally and restack them
 void client_huntile(client *c)
 {
+	int i; Window w; client *o;
 	client_extended_data(c);
-	winlist *tiles = winlist_new();
-	winlist_append(tiles, c->window, NULL);
-	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
-	int min_x = c->x, max_x = c->x + c->sw, tlen = 0;
-	// locate adjacent windows with the same tag, size, and vertical position
-	while (tlen != tiles->len)
-	{
-		tlen = tiles->len;
-		tag_descend(i, w, o, current_tag)
-			// window is not already found, and is on the same horizontal alignment
-			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->y, vague, o->y)
-				// window has roughly the same width and height, and aligned with a known left/right edge
-				&& NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h) && (NEAR(min_x, vague, o->x+o->w) || NEAR(max_x, vague, o->x)))
-					{ winlist_append(tiles, w, NULL); min_x = MIN(o->x, min_x); max_x = MAX(o->x+o->w, max_x); }
-	}
+	winlist *tiles = clients_tiled_horz_with(c);
 	if (tiles->len > 1)
 	{
+		int min_x = c->x, max_x = c->x+c->sh;
+		clients_ascend(tiles, i, w, o)
+		{
+			client_extended_data(o);
+			min_x = MIN(min_x, o->x);
+			max_x = MAX(max_x, o->x+o->sw);
+		}
 		clients_ascend(tiles, i, w, o)
 		{
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-			client_moveresize(o, 0, c->x, c->y, max_x-min_x, c->sh);
+			client_moveresize(o, 0, min_x, c->y, max_x-min_x, c->sh);
 		}
 	} else
 	// nothing to untile with. still grow
@@ -1382,29 +1446,23 @@ void client_vtile(client *c)
 // find windows tiled vertically and restack them
 void client_vuntile(client *c)
 {
+	int i; Window w; client *o;
 	client_extended_data(c);
-	winlist *tiles = winlist_new();
-	winlist_append(tiles, c->window, NULL);
-	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
-	int min_y = c->y, max_y = c->y + c->sh, tlen = 0;
-	// locate adjacent windows with the same tag, size, and vertical position
-	while (tlen != tiles->len)
-	{
-		tlen = tiles->len;
-		tag_descend(i, w, o, current_tag)
-			// window is not already found, and is on the same vertical alignment
-			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->x, vague, o->x)
-				// window has roughly the same width and height, and aligned with a known top/bottom edge
-				&& NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h) && (NEAR(min_y, vague, o->y+o->h) || NEAR(max_y, vague, o->y)))
-					{ winlist_append(tiles, w, NULL); min_y = MIN(o->y, min_y); max_y = MAX(o->y+o->h, max_y); }
-	}
+	winlist *tiles = clients_tiled_vert_with(c);
 	if (tiles->len > 1)
 	{
+		int min_y = c->y, max_y = c->y+c->sh;
+		clients_ascend(tiles, i, w, o)
+		{
+			client_extended_data(o);
+			min_y = MIN(min_y, o->y);
+			max_y = MAX(max_y, o->y+o->sh);
+		}
 		clients_ascend(tiles, i, w, o)
 		{
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-			client_moveresize(o, 0, c->x, c->y, c->sw, max_y-min_y);
+			client_moveresize(o, 0, c->x, min_y, c->sw, max_y-min_y);
 		}
 	} else
 	// nothing to untile with. still grow
