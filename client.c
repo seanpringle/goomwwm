@@ -858,7 +858,6 @@ void client_stack_family(client *c, winlist *stack)
 {
 	int i; Window w; client *a = NULL;
 	// if this is a transient window, find the main app
-	// TODO: this doesn't handle multiple transient levels, like Gimp's save/export sequence
 	if (c->trans && winlist_find(stack, c->trans) < 0)
 	{
 		a = client_create(c->trans);
