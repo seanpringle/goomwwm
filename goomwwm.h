@@ -351,6 +351,7 @@ XWindowAttributes mouse_attr;
 int quit_pressed_once = 0;
 int prefix_mode_active = 0;
 Cursor prefix_cursor;
+Window supporting;
 
 // tracking windows
 winlist *windows, *windows_activated, *windows_minimized;

@@ -93,7 +93,7 @@ void reset_lazy_caches()
 void setup_screen()
 {
 	int i; Window w;
-	Window supporting = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
+	supporting = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
 	unsigned long pid = getpid();
 
 	// EWMH

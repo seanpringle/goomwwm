@@ -500,9 +500,9 @@ void handle_configurerequest(XEvent *ev)
 	client *c = client_create(ev->xconfigurerequest.window);
 	if (c)
 	{
-		window_select(c->window);
 		event_log("ConfigureRequest", c->window);
 		event_client_dump(c);
+		window_select(c->window);
 		XConfigureRequestEvent *e = &ev->xconfigurerequest;
 		// only move/resize requests go through. never stacking
 		unsigned long mask = e->value_mask & (CWX|CWY|CWWidth|CWHeight|CWBorderWidth);
@@ -548,18 +548,21 @@ void handle_configurenotify(XEvent *ev)
 		}
 	}
 	else
-	if ((c = client_create(ev->xconfigure.window)) && c->manage)
+	if ((c = client_create(ev->xconfigure.window)))
 	{
 		event_log("ConfigureNotify", c->window);
 		event_client_dump(c);
-		client_review_border(c);
-		client_review_position(c);
-		if (c->active && config_warp_mode == WARPFOCUS && !mouse_dragging)
+		if (c->manage)
 		{
-			client_warp_pointer(c);
-			// dump any enterynotify events that have been generated
-			// since this client was configured, else whe get focus jitter
-			while(XCheckTypedEvent(display, EnterNotify, ev));
+			client_review_border(c);
+			client_review_position(c);
+			if (c->active && config_warp_mode == WARPFOCUS && !mouse_dragging)
+			{
+				client_warp_pointer(c);
+				// dump any enterynotify events that have been generated
+				// since this client was configured, else whe get focus jitter
+				while(XCheckTypedEvent(display, EnterNotify, ev));
+			}
 		}
 	}
 }
@@ -568,11 +571,16 @@ void handle_configurenotify(XEvent *ev)
 void handle_maprequest(XEvent *ev)
 {
 	client *c = client_create(ev->xmaprequest.window);
+#ifdef DEBUG
+	if (c)
+	{
+		event_log("MapRequest", c->window);
+		event_client_dump(c);
+	}
+#endif
 	if (c && c->manage)
 	{
 		window_select(c->window);
-		event_log("MapRequest", c->window);
-		event_client_dump(c);
 		client_extended_data(c);
 		monitor_active(&c->monitor);
 		// if this MapRequest was already dispatched before a previous ConfigureRequest was
@@ -639,9 +647,15 @@ void handle_maprequest(XEvent *ev)
 void handle_mapnotify(XEvent *ev)
 {
 	client *c = client_create(ev->xmap.window), *a;
-	if (c && c->manage && c->visible)
+#ifdef DEBUG
+	if (c)
 	{
 		event_log("MapNotify", c->window);
+		event_client_dump(c);
+	}
+#endif
+	if (c && c->manage && c->visible)
+	{
 		client_set_wm_state(c, NormalState);
 		client_full_review(c);
 		// dont reapply rules to windows that volantarily unmapped for
@@ -685,6 +699,11 @@ void handle_mapnotify(XEvent *ev)
 		winlist_forget(windows_minimized, c->window);
 		c->cache->has_mapped = 1;
 	}
+
+	// special hack for fullscreen override_redirect windows (like SDL apps) that are stupid.
+	// ensure they get raised above the focused window once. after that they're on their own.
+	if (c && c->xattr.override_redirect && c->w >= c->monitor.w && c->h >= c->monitor.h)
+		XRaiseWindow(display, c->window);
 }
 
 // unmapping could indicate the focus window has closed
