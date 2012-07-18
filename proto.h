@@ -122,7 +122,6 @@ void catch_exit(int sig);
 int execsh(char *cmd);
 int find_arg(int argc, char *argv[], char *key);
 char* find_arg_str(int argc, char *argv[], char *key, char* def);
-int find_arg_opts(int argc, char *argv[], char *key, char **list, int count);
 int find_arg_int(int argc, char *argv[], char *key, int def);
 int regquick(char *pat, char *str);
 int in_array_keysym(KeySym *array, KeySym code);

@@ -145,7 +145,7 @@ int client_rule_match(client *c, winrule *r)
 }
 
 // find a client's rule, optionally filtered by flags
-winrule* client_rule(client *c, unsigned long long flags)
+winrule* client_rule(client *c, bitmap flags)
 {
 	if (!c->is_ruled)
 	{

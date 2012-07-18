@@ -48,33 +48,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <regex.h>
 #include <X11/extensions/Xinerama.h>
 
-// window lists
-typedef struct {
-	Window *array;
-	void **data;
-	int len;
-} winlist;
+typedef unsigned char bool;
+typedef unsigned long long bitmap;
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define READ 0
+#define WRITE 1
+
+#define NEAR(a,o,b) ((b) > (a)-(o) && (b) < (a)+(o))
+#define SNAPTO(a,o,b,j) (NEAR((a),(o),(b)) ? (a): (b)+(j))
+#define OVERLAP(a,b,c,d) (((a)==(c) && (b)==(d)) || MIN((a)+(b), (c)+(d)) - MAX((a), (c)) > 0)
+#define INTERSECT(x,y,w,h,x1,y1,w1,h1) (OVERLAP((x),(w),(x1),(w1)) && OVERLAP((y),(h),(y1),(h1)))
 
 #define WINLIST 32
-
-#define winlist_ascend(l,i,w) for ((i) = 0; (i) < (l)->len && (((w) = (l)->array[i]) || 1); (i)++)
-#define winlist_descend(l,i,w) for ((i) = (l)->len-1; (i) >= 0 && (((w) = (l)->array[i]) || 1); (i)--)
-
-#define clients_ascend(l,i,w,c) winlist_ascend(l,i,w) if (((c) = client_create(w)))
-#define clients_descend(l,i,w,c) winlist_descend(l,i,w) if (((c) = client_create(w)))
-
-#define managed_ascend(i,w,c) clients_ascend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
-#define managed_descend(i,w,c) clients_descend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
-
-#define tag_ascend(i,w,c,t) managed_ascend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
-#define tag_descend(i,w,c,t) managed_descend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
-
-// usable space on a monitor
-typedef struct {
-	int x, y, w, h;
-	int l, r, t, b;
-} workarea;
-
+#define MINWINDOW 16
 #define UNDO 10
 #define TOPLEFT 1
 #define TOPRIGHT 2
@@ -94,34 +82,10 @@ typedef struct {
 #define SWAPRIGHT 2
 #define SWAPUP 3
 #define SWAPDOWN 4
-#define CLIENTTITLE 100
-#define CLIENTCLASS 50
-#define CLIENTNAME 50
+#define CLIENTTITLE 60
+#define CLIENTCLASS 30
+#define CLIENTNAME 30
 #define CLIENTSTATE 10
-
-typedef struct {
-	int x, y, w, h;
-	int sx, sy, sw, sh;
-	int states;
-	Atom state[CLIENTSTATE];
-} winundo;
-
-// track window stuff
-typedef struct {
-	int have_old;
-	int x, y, w, h;
-	int sx, sy, sw, sh;
-	int have_mr;
-	int mr_x, mr_y, mr_w, mr_h;
-	double mr_time;
-	int have_closed;
-	int last_corner;
-	unsigned int tags;
-	int undo_levels;
-	winundo undo[UNDO];
-	int hlock, vlock;
-	int has_mapped;
-} wincache;
 
 #define TAG1 1
 #define TAG2 (1<<1)
@@ -170,47 +134,7 @@ typedef struct {
 #define RULE_RESTORE 1LL<<41
 
 #define RULEPATTERN CLIENTCLASS
-
-typedef struct _rule {
-	char pattern[RULEPATTERN];
-	regex_t re;
-	unsigned long long flags;
-	int w, h, w_is_pct, h_is_pct;
-	struct _rule *next;
-} winrule;
-
-winrule *config_rules = NULL;
-
 #define RULESETNAME 50
-typedef struct _ruleset {
-	char name[RULESETNAME]; // file path
-	winrule *rules;
-	struct _ruleset *next;
-} winruleset;
-
-winruleset *config_rulesets = NULL;
-
-typedef struct {
-	const char *name;
-	unsigned long long flag;
-} winrulemap;
-
-// a managable window
-typedef struct {
-	Window window, trans;
-	XWindowAttributes xattr;
-	XSizeHints xsize;
-	int manage, visible, input, focus, active, initial_state,
-		x, y, w, h, sx, sy, sw, sh, minimized,
-		is_full, is_left, is_top, is_right, is_bottom,
-		is_xcenter, is_ycenter, is_maxh, is_maxv, states,
-		is_described, is_extended;
-	char title[CLIENTTITLE], class[CLIENTCLASS], name[CLIENTNAME];
-	Atom state[CLIENTSTATE], type;
-	workarea monitor;
-	wincache *cache;
-	winrule *rule; int is_ruled;
-} client;
 
 // just defaults, mostly configurable from command line
 #define BORDER 2
@@ -263,13 +187,162 @@ typedef struct {
 #define PREFIX 1
 #define NOPREFIX 0
 
-unsigned int config_modkey, config_prefix_mode,
-	config_border_focus, config_border_blur, config_border_attention,
-	config_flash_on, config_flash_off, config_warp_mode, config_flash_title,
-	config_border_width, config_flash_width, config_flash_ms, config_map_mode, config_menu_select,
-	config_menu_width, config_menu_lines, config_focus_mode, config_raise_mode, config_window_placement;
 
-char *config_menu_font, *config_menu_fg, *config_menu_bg, *config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,
+#define winlist_ascend(l,i,w) for ((i) = 0; (i) < (l)->len && (((w) = (l)->array[i]) || 1); (i)++)
+#define winlist_descend(l,i,w) for ((i) = (l)->len-1; (i) >= 0 && (((w) = (l)->array[i]) || 1); (i)--)
+
+#define clients_ascend(l,i,w,c) winlist_ascend(l,i,w) if (((c) = client_create(w)))
+#define clients_descend(l,i,w,c) winlist_descend(l,i,w) if (((c) = client_create(w)))
+
+#define managed_ascend(i,w,c) clients_ascend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
+#define managed_descend(i,w,c) clients_descend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
+
+#define tag_ascend(i,w,c,t) managed_ascend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
+#define tag_descend(i,w,c,t) managed_descend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
+
+// window lists
+typedef struct {
+	Window *array;
+	void **data;
+	int len;
+} winlist;
+
+// usable space on a monitor
+typedef struct {
+	int x, y, w, h;
+	int l, r, t, b;
+} workarea;
+
+typedef struct {
+	int x, y, w, h;
+	int sx, sy, sw, sh;
+	int states;
+	Atom state[CLIENTSTATE];
+} winundo;
+
+// track window stuff
+typedef struct {
+	bool have_closed, last_corner, have_old, have_mr,
+		hlock, vlock, has_mapped, undo_levels;
+	int x, y, w, h, sx, sy, sw, sh, mr_x, mr_y, mr_w, mr_h;
+	double mr_time;
+	unsigned int tags;
+	winundo undo[UNDO];
+} wincache;
+
+typedef struct _rule {
+	char pattern[RULEPATTERN];
+	regex_t re;
+	bitmap flags;
+	int w, h;
+	bool w_is_pct, h_is_pct;
+	struct _rule *next;
+} winrule;
+
+winrule *config_rules = NULL;
+
+typedef struct _ruleset {
+	char name[RULESETNAME]; // file path
+	winrule *rules;
+	struct _ruleset *next;
+} winruleset;
+
+winruleset *config_rulesets = NULL;
+
+typedef struct {
+	const char *name;
+	bitmap flag;
+} winrulemap;
+
+winrulemap rulemap[] = {
+	{ "tag1", TAG1 },
+	{ "tag2", TAG2 },
+	{ "tag3", TAG3 },
+	{ "tag4", TAG4 },
+	{ "tag5", TAG5 },
+	{ "tag6", TAG6 },
+	{ "tag7", TAG7 },
+	{ "tag8", TAG8 },
+	{ "tag9", TAG9 },
+	{ "ignore", RULE_IGNORE },
+	{ "above", RULE_ABOVE },
+	{ "sticky", RULE_STICKY },
+	{ "below", RULE_BELOW },
+	{ "fullscreen", RULE_FULLSCREEN },
+	{ "maximize_horz", RULE_MAXHORZ },
+	{ "maximize_vert", RULE_MAXVERT },
+	{ "top",    RULE_TOP },
+	{ "bottom", RULE_BOTTOM },
+	{ "left",   RULE_LEFT },
+	{ "right",  RULE_RIGHT },
+	{ "small",  RULE_SMALL },
+	{ "medium", RULE_MEDIUM },
+	{ "large",  RULE_LARGE },
+	{ "cover", RULE_COVER },
+	{ "steal", RULE_STEAL },
+	{ "block", RULE_BLOCK },
+	{ "hlock", RULE_HLOCK },
+	{ "vlock", RULE_VLOCK },
+	{ "expand", RULE_EXPAND },
+	{ "contract", RULE_CONTRACT },
+	{ "skip_taskbar", RULE_SKIPTBAR },
+	{ "skip_pager", RULE_SKIPPAGE },
+	{ "raise", RULE_RAISE },
+	{ "lower", RULE_LOWER },
+	{ "snap_left", RULE_SNAPLEFT },
+	{ "snap_right", RULE_SNAPRIGHT },
+	{ "snap_up", RULE_SNAPUP },
+	{ "snap_down", RULE_SNAPDOWN },
+	{ "duplicate", RULE_DUPLICATE },
+	{ "minimize", RULE_MINIMIZE },
+	{ "restore", RULE_RESTORE },
+};
+
+// a managable window
+typedef struct {
+	Window window, trans;
+	XWindowAttributes xattr;
+	XSizeHints xsize;
+	int x, y, w, h, sx, sy, sw, sh, states;
+	bool manage, visible, input, focus, active, initial_state, minimized,
+		is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter,
+		is_maxh, is_maxv, is_described, is_extended, is_ruled;
+	char title[CLIENTTITLE], class[CLIENTCLASS], name[CLIENTNAME];
+	Atom state[CLIENTSTATE], type;
+	workarea monitor;
+	wincache *cache;
+	winrule *rule;
+} client;
+
+// built-in filterable popup menu list
+struct localmenu {
+	Window window;
+	GC gc;
+	Pixmap canvas;
+	XftFont *font;
+	XftColor *color;
+	XftDraw *draw;
+	XftColor fg, bg, hlfg, hlbg, bgalt;
+	unsigned long xbg;
+	char **lines, **filtered;
+	int done, max_lines, num_lines, input_size, line_height;
+	int current, width, height, horz_pad, vert_pad, offset;
+	char *input, *selected, *manual;
+	XIM xim;
+	XIC xic;
+};
+
+// config settings
+unsigned int config_modkey, config_prefix_mode, config_border_focus,
+	config_border_blur, config_border_attention, config_flash_on,
+	config_flash_off, config_warp_mode, config_flash_title,
+	config_border_width, config_flash_width, config_flash_ms,
+	config_map_mode, config_menu_select, config_menu_width,
+	config_menu_lines, config_focus_mode, config_raise_mode,
+	config_window_placement;
+
+char *config_menu_font, *config_menu_fg, *config_menu_bg,
+	*config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,
 	*config_title_font, *config_title_fg, *config_title_bg;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
@@ -345,11 +418,11 @@ Display *display; Screen *screen; Window root; int screen_id;
 
 // mouse move/resize controls
 // see ButtonPress,MotionNotify
-int mouse_dragging = 0;
+bool mouse_dragging = 0;
 XButtonEvent mouse_button;
 XWindowAttributes mouse_attr;
-int quit_pressed_once = 0;
-int prefix_mode_active = 0;
+bool quit_pressed_once = 0;
+bool prefix_mode_active = 0;
 Cursor prefix_cursor;
 Window supporting;
 
@@ -362,7 +435,7 @@ winlist *cache_client;
 winlist *cache_xattr;
 winlist *cache_inplay;
 
-workarea cache_monitor[10];
+workarea cache_monitor[6];
 
 static int (*xerror)(Display *, XErrorEvent *);
 
@@ -455,33 +528,3 @@ Atom netatoms[NETATOMS];
 enum { GOOMWWM_ATOMS(ATOM_ENUM), GATOMS };
 const char *gatom_names[] = { GOOMWWM_ATOMS(ATOM_CHAR) };
 Atom gatoms[GATOMS];
-
-// built-in filterable popup menu list
-struct localmenu {
-	Window window;
-	GC gc;
-	Pixmap canvas;
-	XftFont *font;
-	XftColor *color;
-	XftDraw *draw;
-	XftColor fg, bg, hlfg, hlbg, bgalt;
-	unsigned long xbg;
-	char **lines, **filtered;
-	int done, max_lines, num_lines, input_size, line_height;
-	int current, width, height, horz_pad, vert_pad, offset;
-	char *input, *selected, *manual;
-	XIM xim;
-	XIC xic;
-};
-
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define READ 0
-#define WRITE 1
-
-#define NEAR(a,o,b) ((b) > (a)-(o) && (b) < (a)+(o))
-#define SNAPTO(a,o,b,j) (NEAR((a),(o),(b)) ? (a): (b)+(j))
-#define OVERLAP(a,b,c,d) (((a)==(c) && (b)==(d)) || MIN((a)+(b), (c)+(d)) - MAX((a), (c)) > 0)
-#define INTERSECT(x,y,w,h,x1,y1,w1,h1) (OVERLAP((x),(w),(x1),(w1)) && OVERLAP((y),(h),(y1),(h1)))
-
-#define MINWINDOW 16

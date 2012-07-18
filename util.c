@@ -109,13 +109,6 @@ char* find_arg_str(int argc, char *argv[], char *key, char* def)
 	return (i > 0 && i < argc-1) ? argv[i+1]: def;
 }
 
-int find_arg_opts(int argc, char *argv[], char *key, char **list, int count)
-{
-	char *s = find_arg_str(argc, argv, key, NULL);
-	int i; for (i = 0; i < count; i++) if (s && !strcasecmp(s, list[i])) return i;
-	return -1;
-}
-
 int find_arg_int(int argc, char *argv[], char *key, int def)
 {
 	int i = find_arg(argc, argv, key);

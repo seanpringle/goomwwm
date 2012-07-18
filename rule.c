@@ -24,50 +24,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-winrulemap rulemap[] = {
-	{ "tag1", TAG1 },
-	{ "tag2", TAG2 },
-	{ "tag3", TAG3 },
-	{ "tag4", TAG4 },
-	{ "tag5", TAG5 },
-	{ "tag6", TAG6 },
-	{ "tag7", TAG7 },
-	{ "tag8", TAG8 },
-	{ "tag9", TAG9 },
-	{ "ignore", RULE_IGNORE },
-	{ "above", RULE_ABOVE },
-	{ "sticky", RULE_STICKY },
-	{ "below", RULE_BELOW },
-	{ "fullscreen", RULE_FULLSCREEN },
-	{ "maximize_horz", RULE_MAXHORZ },
-	{ "maximize_vert", RULE_MAXVERT },
-	{ "top",    RULE_TOP },
-	{ "bottom", RULE_BOTTOM },
-	{ "left",   RULE_LEFT },
-	{ "right",  RULE_RIGHT },
-	{ "small",  RULE_SMALL },
-	{ "medium", RULE_MEDIUM },
-	{ "large",  RULE_LARGE },
-	{ "cover", RULE_COVER },
-	{ "steal", RULE_STEAL },
-	{ "block", RULE_BLOCK },
-	{ "hlock", RULE_HLOCK },
-	{ "vlock", RULE_VLOCK },
-	{ "expand", RULE_EXPAND },
-	{ "contract", RULE_CONTRACT },
-	{ "skip_taskbar", RULE_SKIPTBAR },
-	{ "skip_pager", RULE_SKIPPAGE },
-	{ "raise", RULE_RAISE },
-	{ "lower", RULE_LOWER },
-	{ "snap_left", RULE_SNAPLEFT },
-	{ "snap_right", RULE_SNAPRIGHT },
-	{ "snap_up", RULE_SNAPUP },
-	{ "snap_down", RULE_SNAPDOWN },
-	{ "duplicate", RULE_DUPLICATE },
-	{ "minimize", RULE_MINIMIZE },
-	{ "restore", RULE_RESTORE },
-};
-
 // load a rule specified on cmd line or .goomwwmrc
 void rule_parse(char *rulestr)
 {
