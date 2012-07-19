@@ -1491,11 +1491,11 @@ client* client_over_there_ish(client *c, int direction)
 	if (direction == FOCUSDOWN)
 		{ zone.x = 0-large; zone.y = c->y+c->sh/2; zone.w = large*2; zone.h = c->sh/2 + large; }
 
-	winlist *consider = clients_partly_visible(&zone, 0, c->window);
+	winlist *consider = clients_partly_visible(&zone, 0, None);
 
 	client *m = NULL;
 	// client that overlaps preferred
-	clients_descend(consider, i, w, o) if (o->manage)
+	clients_descend(consider, i, w, o) if (w != c->window && o->manage)
 	{
 		client_extended_data(o);
 		int overlap_x = OVERLAP(c->y, c->sh, o->y, o->sh);
@@ -1506,7 +1506,7 @@ client* client_over_there_ish(client *c, int direction)
 		if (direction == FOCUSDOWN  && overlap_y && (!m || o->y+o->sh/2 < m->y+m->sh/2)) m = o;
 	}
 	// otherwise, the closest one
-	if (!m) clients_descend(consider, i, w, o) if (o->manage)
+	if (!m) clients_descend(consider, i, w, o) if (w != c->window && o->manage)
 	{
 		client_extended_data(o);
 		if (!m) m = o;
