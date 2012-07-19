@@ -1543,8 +1543,20 @@ void client_swapto(client *c, int direction)
 			((direction == FOCUSUP  || direction == FOCUSDOWN ) && overlap_y))
 		{
 			client_commit(c); client_commit(m);
+
+			// swap EWMH states
+			Atom state[CLIENTSTATE]; int states = c->states;
+			memmove(&state, c->state,     sizeof(state));
+			memmove(&c->state, &m->state, sizeof(state));
+			memmove(&m->state, &state,    sizeof(state));
+			c->states = m->states; m->states = states;
+			client_flush_state(c); client_flush_state(m);
+
+			// swap positions
 			client_moveresize(c, 0, mx, my, mw, mh);
 			client_moveresize(m, 0, cx, cy, cw, ch);
+
+			// ensure we can be seen
 			client_raise(c, 0);
 			client_raise_under(m, c);
 		}
