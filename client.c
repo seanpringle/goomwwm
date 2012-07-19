@@ -602,7 +602,7 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	if (c->cache->vlock) { my = c->y; mh = c->sh; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
-	winlist *visible = clients_fully_visible(&c->monitor, 0, c->window);
+	winlist *visible = clients_fully_visible(&c->monitor, current_tag, c->window);
 
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
@@ -709,7 +709,7 @@ void client_snapto(client *c, int direction)
 	if (c->cache->vlock && (direction == SNAPUP   || direction == SNAPDOWN )) return;
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
-	winlist *visible = clients_partly_visible(&c->monitor, 0, c->window);
+	winlist *visible = clients_partly_visible(&c->monitor, current_tag, c->window);
 
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
@@ -1491,7 +1491,7 @@ client* client_over_there_ish(client *c, int direction)
 	if (direction == FOCUSDOWN)
 		{ zone.x = 0-large; zone.y = c->y+c->sh/2; zone.w = large*2; zone.h = c->sh/2 + large; }
 
-	winlist *consider = clients_partly_visible(&zone, 0, None);
+	winlist *consider = clients_partly_visible(&zone, current_tag, None);
 
 	client *m = NULL;
 	// client that overlaps preferred

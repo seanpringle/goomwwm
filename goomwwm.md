@@ -249,7 +249,7 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 
 
 -contract
-:	Set an X11 key name to contract the active window to fill an underlying space without obscuring any other window that would then be fully visible (default: XK_Contract). Opposite of -expand.
+:	Set an X11 key name to contract the active window to fill an underlying space without obscuring any other window in the current tag that would then be fully visible (default: XK_Contract). Opposite of -expand.
 
 	goomwwm -contract BackSpace
 
@@ -269,7 +269,7 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	goomwwm -exec firefox
 
 -expand
-:	Set an X11 key name to expand the active window to fill adjacent space without obscuring any other fully visible window (default: XK_Return). Opposite of -contract.
+:	Set an X11 key name to expand the active window to fill adjacent space without obscuring any other fully visible window in the current tag (default: XK_Return). Opposite of -contract.
 
 	goomwwm -expand Return
 
@@ -322,12 +322,12 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	goomwwm -focus "Royal Blue"
 
 -focusdown
-:	Set an X11 key name to switch focus downward form the active window (default: XK_k).
+:	Set an X11 key name to switch focus downward from the active window within the current tag (default: XK_k).
 
 	goomwwm -focusdown k
 
 -focusleft
-:	Set an X11 key name to switch focus to left of the active window (default: XK_j).
+:	Set an X11 key name to switch focus to left of the active window within the current tag (default: XK_j).
 
 	goomwwm -focusleft j
 
@@ -348,12 +348,12 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	:	focus follows mouse within current tag.
 
 -focusright
-:	Set an X11 key name to switch focus to right of the active window (default: XK_l).
+:	Set an X11 key name to switch focus to right of the active window within the current tag (default: XK_l).
 
 	goomwwm -focusright l
 
 -focusup
-:	Set an X11 key name to switch focus upward form the active window (default: XK_i).
+:	Set an X11 key name to switch focus upward form the active window within the current tag (default: XK_i).
 
 	goomwwm -focusup i
 
