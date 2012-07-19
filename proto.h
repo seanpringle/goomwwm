@@ -71,6 +71,7 @@ void client_toggle_tag(client *c, unsigned int tag, int flash);
 client* client_find(char *pattern);
 void client_find_or_start(char *pattern);
 void client_rules_ewmh(client *c);
+void client_rules_monitor(client *c);
 void client_rules_moveresize(client *c);
 void client_rules_locks(client *c);
 void client_rules_tags(client *c);

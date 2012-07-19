@@ -394,6 +394,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	// update window co-ords for subsequent operations before caches are reset
 	c->x = fx; c->y = fy; c->w = c->sw = fw; c->h = c->sh = fh;
 	c->sx = fx - monitor.x; c->sy = fy - monitor.y;
+	memmove(&c->monitor, &monitor, sizeof(workarea));
 
 	// compensate for border on non-fullscreen windows
 	if (fw < monitor.w || fh < monitor.h)
@@ -1737,6 +1738,34 @@ void client_rules_ewmh(client *c)
 	}
 }
 
+void client_rules_monitor(client *c)
+{
+	if (client_rule(c, RULE_MONITOR1|RULE_MONITOR2|RULE_MONITOR3))
+	{
+		client_extended_data(c);
+		XineramaScreenInfo *info; int monitors;
+		workarea mon; memset(&mon, 0, sizeof(workarea));
+		if ((info = XineramaQueryScreens(display, &monitors)))
+		{
+			if (client_rule(c, RULE_MONITOR1) && monitors > 0)
+				monitor_dimensions_struts(info[0].x_org+1, info[0].y_org+1, &mon);
+			if (client_rule(c, RULE_MONITOR2) && monitors > 1)
+				monitor_dimensions_struts(info[1].x_org+1, info[1].y_org+1, &mon);
+			if (client_rule(c, RULE_MONITOR3) && monitors > 2)
+				monitor_dimensions_struts(info[2].x_org+1, info[2].y_org+1, &mon);
+			XFree(info);
+		}
+		// only move the window if the monitor has changed. this preserves PLACEPOINTER if
+		// the target monitor == the active monitor
+		if (mon.w && (mon.x != c->monitor.x || mon.y != c->monitor.y))
+		{
+			memmove(&c->monitor, &mon, sizeof(workarea));
+			client_moveresize(c, 0, MAX(mon.x, mon.x + ((mon.w - c->sw) / 2)),
+				MAX(mon.y, mon.y + ((mon.h - c->sh) / 2)), c->sw, c->sh);
+		}
+	}
+}
+
 void client_rules_moveresize(client *c)
 {
 	client_extended_data(c);
@@ -1814,6 +1843,7 @@ void client_rules_moveresize_post(client *c)
 void client_rules_apply(client *c)
 {
 	client_rules_ewmh(c);
+	client_rules_monitor(c);
 	client_rules_moveresize(c);
 	client_rules_locks(c);
 	client_rules_tags(c);

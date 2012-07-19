@@ -560,6 +560,9 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	tag1 tag2 tag3 tag4 tag5 tag6 tag7 tag8 tag9
 	:	Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
 
+	monitor1 monitor2 monitor3
+	:	Place the window on a specific monitor. These are numbered based on what Xinerama thinks the monitor order should be (ie, usually the same screen numbers as defined in xorg.conf).
+
 	above below fullscreen maximize_horz maximize_vert sticky skip_taskbar skip_pager
 	:	Apply respective _NET_WM_STATE_* to a window.
 

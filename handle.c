@@ -620,6 +620,10 @@ void handle_maprequest(XEvent *ev)
 		client_rules_tags(c);
 		if (!c->cache->tags) client_toggle_tag(c, current_tag, NOFLASH);
 
+		// specifying a non-active monitor will center the window there
+		// this overrides PLACEPOINTER!
+		client_rules_monitor(c);
+
 		// rules may move window again
 		client_rules_moveresize(c);
 

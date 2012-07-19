@@ -132,6 +132,9 @@ typedef unsigned long long bitmap;
 #define RULE_DUPLICATE 1LL<<39
 #define RULE_MINIMIZE 1LL<<40
 #define RULE_RESTORE 1LL<<41
+#define RULE_MONITOR1 1LL<<42
+#define RULE_MONITOR2 1LL<<43
+#define RULE_MONITOR3 1LL<<44
 
 #define RULEPATTERN CLIENTCLASS
 #define RULESETNAME 50
@@ -296,6 +299,9 @@ winrulemap rulemap[] = {
 	{ "duplicate", RULE_DUPLICATE },
 	{ "minimize", RULE_MINIMIZE },
 	{ "restore", RULE_RESTORE },
+	{ "monitor1", RULE_MONITOR1 },
+	{ "monitor2", RULE_MONITOR2 },
+	{ "monitor3", RULE_MONITOR3 },
 };
 
 // a managable window
