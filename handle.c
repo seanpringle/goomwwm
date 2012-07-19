@@ -694,8 +694,8 @@ void handle_mapnotify(XEvent *ev)
 		ewmh_client_list();
 		// some gtk windows see to need an extra kick to make them respect expose events...
 		// something to do with the configurerequest step? this little nudge makes it all work :-|
-		XSetWindowBorderWidth(display, c->window, 0);
-		XSetWindowBorderWidth(display, c->window, config_border_width);
+		//XSetWindowBorderWidth(display, c->window, 0);
+		//XSetWindowBorderWidth(display, c->window, config_border_width);
 		winlist_forget(windows_minimized, c->window);
 		c->cache->has_mapped = 1;
 	}
