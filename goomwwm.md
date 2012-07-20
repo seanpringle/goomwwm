@@ -559,6 +559,12 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	block
 	:	Do not immediately focus the window when it first maps.
 
+	reset
+	:	Remove all EWMH states and H/V locks (useful for -ruleset).
+
+	once
+	:	Allow a rule to execute only once (useful for -ruleset).
+
 	minimize restore
 	:	Start window pre-minimzed, or restore a window on rule set switch.
 
@@ -582,6 +588,9 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 
 	hlock vlock
 	:	Lock window horizontally or vertically.
+
+	htile huntile vtile vuntile
+	:	Tile or untile a window with its fellows.
 
 	snap_left snap_right snap_up snap_down
 	:	Immediately snap a window to another's edge.

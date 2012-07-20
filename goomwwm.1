@@ -943,6 +943,16 @@ Do not immediately focus the window when it first maps.
 .RS
 .RE
 .TP
+.B reset
+Remove all EWMH states and H/V locks (useful for -ruleset).
+.RS
+.RE
+.TP
+.B once
+Allow a rule to execute only once (useful for -ruleset).
+.RS
+.RE
+.TP
 .B minimize restore
 Start window pre-minimzed, or restore a window on rule set switch.
 .RS
@@ -991,6 +1001,11 @@ May be combined.
 .TP
 .B hlock vlock
 Lock window horizontally or vertically.
+.RS
+.RE
+.TP
+.B htile huntile vtile vuntile
+Tile or untile a window with its fellows.
 .RS
 .RE
 .TP
