@@ -129,7 +129,20 @@ void client_extended_data(client *c)
 // true if a client window matches a rule pattern
 int client_rule_match(client *c, winrule *r)
 {
-	if (c->trans) return 0;
+	if (c->trans
+		|| c->type == netatoms[_NET_WM_WINDOW_TYPE_DESKTOP]
+		|| c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK]
+		// EWMH seems to often equate dialogs with transient_for, and we already ignore transients...
+		|| c->type == netatoms[_NET_WM_WINDOW_TYPE_DIALOG]
+		// following should never be children of the root window anyway? hence never managed or ruled. ignore anyway...
+		|| c->type == netatoms[_NET_WM_WINDOW_TYPE_DROPDOWN_MENU]
+		|| c->type == netatoms[_NET_WM_WINDOW_TYPE_POPUP_MENU]
+		|| c->type == netatoms[_NET_WM_WINDOW_TYPE_TOOLTIP]
+		|| c->type == netatoms[_NET_WM_WINDOW_TYPE_NOTIFICATION]
+		|| c->type == netatoms[_NET_WM_WINDOW_TYPE_COMBO]
+		) return 0;
+		// _NET_WM_WINDOW_TYPE_SPLASH can be annoying, so we do let them be ruled
+		// _NET_WM_WINDOW_TYPE_UTILITY and TOOLBAR are both persistent and may be managed and ruled
 	client_descriptive_data(c);
 	if (strchr(r->pattern, ':') && strchr("cnt", r->pattern[0]))
 	{
