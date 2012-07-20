@@ -155,6 +155,7 @@ int client_rule_match(client *c, winrule *r)
 		if (r->pattern[0] == 'c') return regexec(&r->re, c->class, 0, NULL, 0) ?0:1;
 		if (r->pattern[0] == 'n') return regexec(&r->re, c->name,  0, NULL, 0) ?0:1;
 		if (r->pattern[0] == 't') return regexec(&r->re, c->title, 0, NULL, 0) ?0:1;
+		// check if window on edge:(top|left|bottom|right)
 		if (r->pattern[0] == 'e')
 		{
 			client_extended_data(c);
@@ -1401,12 +1402,6 @@ void client_htile(client *c)
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 			client_moveresize(o, 0, c->x+(width*i), c->y, width, c->sh);
 		}
-	} else
-	// nothing to tile with. still make a gap for something subsequent
-	{
-		client_commit(c);
-		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-		client_moveresize(c, 0, c->x, c->y, c->sw/2, c->sh);
 	}
 	winlist_free(tiles);
 }
@@ -1432,12 +1427,6 @@ void client_huntile(client *c)
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 			client_moveresize(o, 0, min_x, c->y, max_x-min_x, c->sh);
 		}
-	} else
-	// nothing to untile with. still grow
-	{
-		client_commit(c);
-		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-		client_moveresize(c, 0, c->x, c->y, c->sw*2, c->sh);
 	}
 	winlist_free(tiles);
 }
@@ -1462,12 +1451,6 @@ void client_vtile(client *c)
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
 			client_moveresize(o, 0, c->x, c->y+(height*i), c->sw, height);
 		}
-	} else
-	// nothing to tile with. still make a gap for something subsequent
-	{
-		client_commit(c);
-		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
-		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh/2);
 	}
 	winlist_free(tiles);
 }
@@ -1493,12 +1476,6 @@ void client_vuntile(client *c)
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
 			client_moveresize(o, 0, c->x, min_y, c->sw, max_y-min_y);
 		}
-	} else
-	// nothing to untile with. still grow
-	{
-		client_commit(c);
-		client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh*2);
 	}
 	winlist_free(tiles);
 }

@@ -159,9 +159,8 @@ void handle_keypress(XEvent *ev)
 		if (ISKEY(KEY_TSWITCH))
 			client_switcher(current_tag);
 		else
-		// Page Up/Down makes the focused window larger and smaller respectively
-		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN])
-			&& (ISKEY(KEY_GROW) || ISKEY(KEY_SHRINK)))
+		// Page Up/Down rapidly moves the active window through 4 sizes
+		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_GROW) || ISKEY(KEY_SHRINK)))
 		{
 			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy;
 
@@ -205,6 +204,15 @@ void handle_keypress(XEvent *ev)
 				if (ISKEY(KEY_GROW))   { fw = widths[is+1]; fh = heights[is+1]; }
 				if (ISKEY(KEY_SHRINK)) { fw = widths[is-1]; fh = heights[is-1]; }
 			}
+		}
+		else
+		// Shift+ Page Up/Down makes the focused window larger and smaller respectively
+		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_INC) || ISKEY(KEY_DEC)))
+		{
+			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy; fw = c->sw; fh = c->sh;
+			int dx = screen_width/25; int dy = screen_height/25;
+			if (ISKEY(KEY_INC)) { fw += dx; fh += dy; }
+			if (ISKEY(KEY_DEC)) { fw -= dx; fh -= dy; }
 		}
 
 		// border snap arrow key movement
@@ -815,7 +823,6 @@ void handle_clientmessage(XEvent *ev)
 			event_note("msg: %s", msg);
 			if (msg && m->message_type == gatoms[GOOMWWM_RESTART])
 			{
-				event_note("restart: %s", msg);
 				execsh(msg);
 				exit(EXIT_FAILURE);
 			}

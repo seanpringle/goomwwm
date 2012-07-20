@@ -53,11 +53,17 @@ Mod-c
 Mod-Escape
 :	Close the active window.
 
-Mod-Page_Up
+Mod-PageUp
 :	Grow the active window through four basic sizes that tile well together: 1/9th, 1/4th, 4/9th, or fullscreen.
 
-Mod-Page_Down
+Mod-PageDown
 :	Shrink the active window through the same four sizes.
+
+Mod-Shift-PageUp
+:	Increase size of the active window.
+
+Mod-Shift-PageDown
+:	Decrease size of the active window.
 
 Mod-h
 :	Horizontally tile the active window and others with the same tag, position, and size.
@@ -379,7 +385,7 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 
 
 -htile
-:	Set an X11 key to horizontally tile the active window and others with the same tag, position, and size (default: XK_h). If no other window is found, a gap is created.
+:	Set an X11 key to horizontally tile the active window and others with the same tag, position, and size (default: XK_h).
 
 	goomwwm -htile h
 
@@ -747,7 +753,7 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	goomwwm -vmax Home
 
 -vtile
-:	Set an X11 key to vertically tile the active window and other windows with the same tag, position, and size (default: XK_v). If no other window is found, a gap is created.
+:	Set an X11 key to vertically tile the active window and other windows with the same tag, position, and size (default: XK_v).
 
 	goomwwm -vtile h
 
