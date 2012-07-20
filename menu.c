@@ -152,7 +152,7 @@ int menu(char **lines, char *manual, int firstsel)
 	int y = mon.y + (mon.h/2) - (my->height/2);
 	int b = 1;
 
-	my->window = XCreateSimpleWindow(display, root, x-b, y-b, my->width, my->height, b, config_border_focus, my->xbg);
+	my->window = XCreateSimpleWindow(display, root, x-b, y-b, my->width, my->height, b, color_get(config_menu_bc), my->xbg);
 	// make it an unmanaged window
 	window_set_atom_prop(my->window, netatoms[_NET_WM_STATE], &netatoms[_NET_WM_STATE_ABOVE], 1);
 	window_set_atom_prop(my->window, netatoms[_NET_WM_WINDOW_TYPE], &netatoms[_NET_WM_WINDOW_TYPE_DOCK], 1);

@@ -163,9 +163,11 @@ typedef unsigned long long bitmap;
 #define MENUBGALT "#e9e8e7"
 #define MENUHLFG "#ffffff"
 #define MENUHLBG "#005577"
+#define MENUBC "#c0c0c0"
 #define TITLEXFTFONT "sans-14"
 #define TITLEFG "#222222"
 #define TITLEBG "#f2f1f0"
+#define TITLEBC "#c0c0c0"
 #define CONFIGFILE ".goomwwmrc"
 #define FOCUSCLICK 1
 #define FOCUSSLOPPY 2
@@ -349,7 +351,8 @@ unsigned int config_modkey, config_prefix_mode, config_border_focus,
 
 char *config_menu_font, *config_menu_fg, *config_menu_bg,
 	*config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,
-	*config_title_font, *config_title_fg, *config_title_bg;
+	*config_title_font, *config_title_fg, *config_title_bg,
+	*config_menu_bc, *config_title_bc;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
 KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };

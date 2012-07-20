@@ -411,6 +411,11 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	block
 	:	new windows do not get focus.
 
+-menubc
+:	Set the border color (X11 named color or hex #rrggbb) for the window-switcher menu (default: #c0c0c0).
+
+	goomwwm -menubc "#c0c0c0"
+
 -menubg
 :	Set the background text color (X11 named color or hex #rrggbb) for the window-switcher menu (default: #f2f1f0).
 
@@ -688,6 +693,11 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 :	Set an X11 key to cycle tags in reverse (default: XK_n).
 
 	goomwwm -tagprev n
+
+-titlebc
+:	Set the border color (X11 named color or hex #rrggbb) for window titles (default: #c0c0c0).
+
+	goomwwm -titlebc "#c0c0c0"
 
 -titlebg
 :	Set the background text color (X11 named color or hex #rrggbb) for window titles (default: #f2f1f0).
