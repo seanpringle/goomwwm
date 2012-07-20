@@ -40,6 +40,7 @@ void handle_keypress(XEvent *ev)
 	unsigned int state = ev->xkey.state & ~(LockMask|NumlockMask);
 
 	int i, reset_prefix = 1, reset_quit = 1;
+	while(XCheckTypedEvent(display, KeyPress, ev));
 
 	client *c = NULL;
 	reset_lazy_caches();
@@ -210,7 +211,7 @@ void handle_keypress(XEvent *ev)
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_INC) || ISKEY(KEY_DEC)))
 		{
 			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy; fw = c->sw; fh = c->sh;
-			int dx = screen_width/25; int dy = screen_height/25;
+			int dx = screen_width/16; int dy = screen_height/16;
 			if (ISKEY(KEY_INC)) { fw += dx; fh += dy; }
 			if (ISKEY(KEY_DEC)) { fw -= dx; fh -= dy; }
 		}
