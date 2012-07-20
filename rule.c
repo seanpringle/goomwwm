@@ -25,7 +25,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // load a rule specified on cmd line or .goomwwmrc
-void rule_parse(char *rulestr)
+int rule_parse(char *rulestr)
 {
 	winrule *new = allocate_clear(sizeof(winrule));
 	char *str = strdup(rulestr); strtrim(str);
@@ -35,7 +35,7 @@ void rule_parse(char *rulestr)
 	if (right-left > RULEPATTERN-1)
 	{
 		fprintf(stderr, "rule exceeded pattern space: %s\n", str);
-		free(new); free(str); return;
+		free(new); free(str); return 0;
 	}
 	strncpy(new->pattern, str, right-left);
 	while (*right && isspace(*right)) right++;
@@ -75,16 +75,19 @@ void rule_parse(char *rulestr)
 	char *pat = new->pattern;
 	if (regquick("^(class|name|title):", pat)) pat = strchr(pat, ':')+1;
 
+	int ok = 0;
 	if (regcomp(&new->re, pat, REG_EXTENDED|REG_ICASE|REG_NOSUB) == 0)
 	{
 		new->next = config_rules;
 		config_rules = new;
+		ok = 1;
 	} else
 	{
 		fprintf(stderr, "failed to compile regex: %s\n", pat);
 		free(new);
 	}
 	free(str);
+	return ok;
 }
 
 // pick a ruleset to execute
@@ -113,19 +116,60 @@ void ruleset_switcher()
 	free(list);
 }
 
+// apply a rule list to all windows in current_tag
+void rulelist_apply(winrule *list)
+{
+	int i; Window w; client *c;
+	winrule *bak = config_rules; config_rules = list;
+	tag_ascend(i, w, c, current_tag)
+	{
+		winlist_empty(cache_xattr);
+		winlist_empty(cache_client);
+		c = client_create(w);
+		client_raise(c, 0);
+		if (c) client_rules_apply(c);
+		XSync(display, False);
+	}
+	clients_ascend(windows_minimized, i, w, c)
+		if (c->manage && c->cache->tags & current_tag)
+	{
+		winlist_empty(cache_xattr);
+		winlist_empty(cache_client);
+		c = client_create(w);
+		if (c) client_rules_apply(c);
+		XSync(display, False);
+	}
+	config_rules = bak;
+}
+
+// apply a single rule to all windows in the current tag
+void rule_apply(winrule *rule)
+{
+	winrule *next = rule->next;
+	rule->next = NULL;
+	rulelist_apply(rule);
+	rule->next = next;
+}
+
 // execute a ruleset on open windows
 void ruleset_execute(char *name)
 {
-	int i; winruleset *set = NULL; Window w; client *c;
-
+	winruleset *set = NULL;
 	// find ruleset by index
 	for (set = config_rulesets; set && strcasecmp(name, set->name); set = set->next);
-
 	if (set)
 	{
-		winrule *bak = config_rules; config_rules = set->rules;
-		tag_ascend(i, w, c, current_tag) client_rules_apply(c);
-		clients_ascend(windows_minimized, i, w, c) if (c->manage && c->cache->tags & current_tag) client_rules_apply(c);
-		config_rules = bak;
+		// bit odd. rules lists are lifos present, but it's more intuitive to process
+		// rulesets in the order they were defined. should clean this up, but for now,
+		// labouriously walk the list backwards
+		winrule *rule = set->rules;
+		while (rule->next) rule = rule->next;
+		while (rule)
+		{
+			rule_apply(rule);
+			winrule *prev = set->rules;
+			while (prev && prev->next != rule) prev = prev->next;
+			rule = prev;
+		}
 	}
 }

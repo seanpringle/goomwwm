@@ -806,6 +806,7 @@ void handle_clientmessage(XEvent *ev)
 			m->message_type == gatoms[GOOMWWM_RESTART] ||
 			m->message_type == gatoms[GOOMWWM_LOG] ||
 			m->message_type == gatoms[GOOMWWM_RULESET] ||
+			m->message_type == gatoms[GOOMWWM_NOTICE] ||
 			m->message_type == gatoms[GOOMWWM_QUIT]))
 		{
 			event_client_dump(c);
@@ -821,6 +822,8 @@ void handle_clientmessage(XEvent *ev)
 				fprintf(stderr, "%s\n", msg);
 			if (msg && m->message_type == gatoms[GOOMWWM_RULESET])
 				ruleset_execute(msg);
+			if (msg && m->message_type == gatoms[GOOMWWM_NOTICE])
+				notice(msg);
 			if (m->message_type == gatoms[GOOMWWM_QUIT])
 				exit(EXIT_SUCCESS);
 			free(msg);

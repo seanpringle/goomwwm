@@ -535,7 +535,7 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	goomwwm -right Right
 
 -rule
-:	Define a window control rule (default: none). This argument can be specified multiple times to apply multiple rules. If a window matches multiple rules only the last rule specified is used.
+:	Define a global window control rule (default: none). This argument can be specified multiple times to define multiple rules. If a window matches multiple rules only the *last* rule specified is used.
 
 		goomwwm -rule "firefox tag9"
 		goomwwm -rule "xfce4-notifyd ignore"
@@ -593,7 +593,7 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	Rules are not currently applied to transient windows (dialogs).
 
 -ruleset
-:	Begin loading a named set of rules (default: none).
+:	Define a group of rules to execute on all windows in the current tag when selected by menu (default: none). See **-runruleset**.
 
 	goomwwm -ruleset Name -rule ... -rule ... -ruleset Name2 -rule ...
 
@@ -607,7 +607,10 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 		rule class:pidgin left,bottom,small,snap_right
 		rule class:chromium top,maximize_horz,large
 
-	Rule sets can be applied on the fly via menu (see -runruleset).
+
+	All **-ruleset** definitions need to come after the global **-rule** definitions on the command line, or in .goomwwmrc.
+
+	Where global rules are autonomous and their order is not important, rulesets are more like mini scripts where rules are commands executed in order. Windows may therefore be affected by multiple rules in a ruleset. Use precise regex patterns to be safe.
 
 -runrule
 :	Set an X11 key name to reapply any rule relevant to the active window (default: XK_comma).
@@ -762,25 +765,30 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 
 When run with **-cli** (command line interface) goomwwm may be used to dispatch commands to another running instance of goomwwm. Valid arguments are:
 
--restart
-:	Restart a running goomwwm instance in place (without restarting X). Useful for reloading .goomwwmrc or upgrading to a new version.
-
-	goomwwm -cli -restart
-
 -exec
 :	Switch to another window manager in place (without restarting X).
 
 	goomwwm -cli -exec dwm
 
--ruleset
-:	Switch to rule set by name.
+-notice
+:	Instruct goomwwm to display something via the popup message box.
 
-	goomwwm -cli -ruleset alpha
+	goomwwm -cli -notice "Hello World!"
 
 -quit
 :	Exit goomwwm.
 
 	goomwwm -cli -quit
+
+-restart
+:	Restart a running goomwwm instance in place (without restarting X). Useful for reloading .goomwwmrc or upgrading to a new version.
+
+	goomwwm -cli -restart
+
+-ruleset
+:	Execute a rule set by name.
+
+	goomwwm -cli -ruleset alpha
 
 # SEE ALSO
 

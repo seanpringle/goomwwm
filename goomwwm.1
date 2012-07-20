@@ -892,9 +892,10 @@ goomwwm -right Right
 .RE
 .TP
 .B -rule
-Define a window control rule (default: none).
-This argument can be specified multiple times to apply multiple rules.
-If a window matches multiple rules only the last rule specified is used.
+Define a global window control rule (default: none).
+This argument can be specified multiple times to define multiple rules.
+If a window matches multiple rules only the \f[I]last\f[] rule specified
+is used.
 .RS
 .IP
 .nf
@@ -1007,7 +1008,9 @@ Rules are not currently applied to transient windows (dialogs).
 .RE
 .TP
 .B -ruleset
-Begin loading a named set of rules (default: none).
+Define a group of rules to execute on all windows in the current tag
+when selected by menu (default: none).
+See \f[B]-runruleset\f[].
 .RS
 .PP
 goomwwm -ruleset Name -rule ...
@@ -1028,7 +1031,14 @@ rule\ class:chromium\ top,maximize_horz,large
 \f[]
 .fi
 .PP
-Rule sets can be applied on the fly via menu (see -runruleset).
+All \f[B]-ruleset\f[] definitions need to come after the global
+\f[B]-rule\f[] definitions on the command line, or in .goomwwmrc.
+.PP
+Where global rules are autonomous and their order is not important,
+rulesets are more like mini scripts where rules are commands executed in
+order.
+Windows may therefore be affected by multiple rules in a ruleset.
+Use precise regex patterns to be safe.
 .RE
 .TP
 .B -runrule
@@ -1269,6 +1279,27 @@ When run with \f[B]-cli\f[] (command line interface) goomwwm may be used
 to dispatch commands to another running instance of goomwwm.
 Valid arguments are:
 .TP
+.B -exec
+Switch to another window manager in place (without restarting X).
+.RS
+.PP
+goomwwm -cli -exec dwm
+.RE
+.TP
+.B -notice
+Instruct goomwwm to display something via the popup message box.
+.RS
+.PP
+goomwwm -cli -notice "Hello World!"
+.RE
+.TP
+.B -quit
+Exit goomwwm.
+.RS
+.PP
+goomwwm -cli -quit
+.RE
+.TP
 .B -restart
 Restart a running goomwwm instance in place (without restarting X).
 Useful for reloading .goomwwmrc or upgrading to a new version.
@@ -1277,25 +1308,11 @@ Useful for reloading .goomwwmrc or upgrading to a new version.
 goomwwm -cli -restart
 .RE
 .TP
-.B -exec
-Switch to another window manager in place (without restarting X).
-.RS
-.PP
-goomwwm -cli -exec dwm
-.RE
-.TP
 .B -ruleset
-Switch to rule set by name.
+Execute a rule set by name.
 .RS
 .PP
 goomwwm -cli -ruleset alpha
-.RE
-.TP
-.B -quit
-Exit goomwwm.
-.RS
-.PP
-goomwwm -cli -quit
 .RE
 .SH SEE ALSO
 .PP
