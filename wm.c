@@ -370,7 +370,7 @@ int wm_main(int argc, char *argv[])
 			else if (!strcasecmp(av[i], "-auto"))
 			{
 				client *a = client_find(av[i+1]);
-				if (!a) exec_cmd(av[i+1]);
+				if (!a) client_start(av[i+1]);
 			}
 		}
 		exit(EXIT_SUCCESS);

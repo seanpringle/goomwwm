@@ -1710,17 +1710,21 @@ client* client_find(char *pattern)
 	return found;
 }
 
+// execute a pattern as a shell command
+void client_start(char *pattern)
+{
+	if (regquick("^(class|name|title):", pattern))
+		pattern = strchr(pattern, ':')+1;
+	exec_cmd(pattern);
+}
+
 // search for and activate first open window matching class/name/title
 void client_find_or_start(char *pattern)
 {
 	if (!pattern) return;
 	client *c = client_find(pattern);
 	if (c) client_activate(c, RAISE, WARPDEF);
-	else {
-		if (regquick("^(class|name|title):", pattern))
-			pattern = strchr(pattern, ':')+1;
-		exec_cmd(pattern);
-	}
+	else client_start(pattern);
 }
 
 void client_rules_ewmh(client *c)
