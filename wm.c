@@ -117,7 +117,7 @@ void setup_keyboard_options(int ac, char *av[])
 	for (i = 0; i < 8; i++)
 		for (j = 0; j < (int)modmap->max_keypermod; j++)
 			if (modmap->modifiermap[i*modmap->max_keypermod+j] == XKeysymToKeycode(display, XK_Num_Lock))
-				NumlockMask = (1<<i);
+				{ NumlockMask = (1<<i); break; }
 	// determine keysyms that trigger our modkey (used by popup menu to detect mod key release)
 	memset(config_modkeycodes, 0, sizeof(config_modkeycodes)); i = 0;
 	if (config_modkey & ControlMask)

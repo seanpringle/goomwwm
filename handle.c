@@ -37,7 +37,7 @@ void handle_keypress(XEvent *ev)
 {
 	event_log("KeyPress", ev->xany.window);
 	KeySym key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
-	unsigned int state = ev->xkey.state;
+	unsigned int state = ev->xkey.state & ~(LockMask|NumlockMask);
 
 	int i, reset_prefix = 1, reset_quit = 1;
 
