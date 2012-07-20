@@ -55,6 +55,12 @@ void client_remove_state(client *c, Atom state)
 	client_flush_state(c);
 }
 
+void client_remove_all_states(client *c)
+{
+	memset(&c->state, 0, sizeof(Atom)*CLIENTSTATE);
+	c->states = 0; client_flush_state(c);
+}
+
 void client_set_state(client *c, Atom state, int on)
 {
 	if (on) client_add_state(c, state); else client_remove_state(c, state);
@@ -144,11 +150,20 @@ int client_rule_match(client *c, winrule *r)
 		// _NET_WM_WINDOW_TYPE_SPLASH can be annoying, so we do let them be ruled
 		// _NET_WM_WINDOW_TYPE_UTILITY and TOOLBAR are both persistent and may be managed and ruled
 	client_descriptive_data(c);
-	if (strchr(r->pattern, ':') && strchr("cnt", r->pattern[0]))
+	if (strchr(r->pattern, ':') && strchr("cnte", r->pattern[0]))
 	{
 		if (r->pattern[0] == 'c') return regexec(&r->re, c->class, 0, NULL, 0) ?0:1;
 		if (r->pattern[0] == 'n') return regexec(&r->re, c->name,  0, NULL, 0) ?0:1;
 		if (r->pattern[0] == 't') return regexec(&r->re, c->title, 0, NULL, 0) ?0:1;
+		if (r->pattern[0] == 'e')
+		{
+			client_extended_data(c);
+			char *p = strchr(r->pattern, ':')+1;
+			if (!strcasecmp(p, "top")    && c->is_top)    return 1;
+			if (!strcasecmp(p, "bottom") && c->is_bottom) return 1;
+			if (!strcasecmp(p, "left")   && c->is_left)   return 1;
+			if (!strcasecmp(p, "right")  && c->is_right)  return 1;
+		}
 		return 0;
 	}
 	return (
@@ -1742,9 +1757,6 @@ void client_find_or_start(char *pattern)
 
 void client_rules_ewmh(client *c)
 {
-	memset(c->state, 0, sizeof(c->state));
-	c->states = 0; client_flush_state(c);
-
 	// process EWMH rules
 	// above below are mutally exclusize
 		if (client_rule(c, RULE_ABOVE)) client_add_state(c, netatoms[_NET_WM_STATE_ABOVE]);
@@ -1798,8 +1810,6 @@ void client_rules_monitor(client *c)
 void client_rules_moveresize(client *c)
 {
 	client_extended_data(c);
-	c->cache->vlock = 0;
-	c->cache->hlock = 0;
 	int mr = 0;
 
 	// if a size rule exists, apply it
@@ -1834,9 +1844,6 @@ void client_rules_moveresize(client *c)
 // h/v lock must occur after the first client_moveresize
 void client_rules_locks(client *c)
 {
-	c->cache->vlock = 0;
-	c->cache->hlock = 0;
-
 	if (client_rule(c, RULE_HLOCK|RULE_VLOCK))
 	{
 		if (!client_rule(c, RULE_MAXHORZ) && client_rule(c, RULE_HLOCK)) c->cache->hlock = 1;
@@ -1866,12 +1873,24 @@ void client_rules_moveresize_post(client *c)
 	if (client_rule(c, RULE_CONTRACT))  client_contract(c, HORIZONTAL|VERTICAL);
 	if (client_rule(c, RULE_EXPAND))    client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
 	if (client_rule(c, RULE_DUPLICATE)) client_duplicate(c);
+	// tiling
+	if (client_rule(c, RULE_HUNTILE)) client_huntile(c);
+	if (client_rule(c, RULE_HTILE))   client_htile(c);
+	if (client_rule(c, RULE_VUNTILE)) client_vuntile(c);
+	if (client_rule(c, RULE_VTILE))   client_vtile(c);
 	current_tag = tag;
 }
 
 // check and apply all possible rules to a client
 void client_rules_apply(client *c)
 {
+	if (client_rule(c, RULE_RESET))
+	{
+		client_remove_all_states(c);
+		c->cache->vlock = 0;
+		c->cache->hlock = 0;
+	}
+
 	client_rules_ewmh(c);
 	client_rules_monitor(c);
 	client_rules_moveresize(c);

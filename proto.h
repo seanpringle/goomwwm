@@ -4,6 +4,7 @@ void client_flush_state(client *c);
 int client_has_state(client *c, Atom state);
 void client_add_state(client *c, Atom state);
 void client_remove_state(client *c, Atom state);
+void client_remove_all_states(client *c);
 void client_set_state(client *c, Atom state, int on);
 void client_descriptive_data(client *c);
 void client_extended_data(client *c);

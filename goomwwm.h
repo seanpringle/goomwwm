@@ -135,6 +135,12 @@ typedef unsigned long long bitmap;
 #define RULE_MONITOR1 1LL<<42
 #define RULE_MONITOR2 1LL<<43
 #define RULE_MONITOR3 1LL<<44
+#define RULE_ONCE 1LL<<45
+#define RULE_HTILE 1LL<<46
+#define RULE_HUNTILE 1LL<<47
+#define RULE_VTILE 1LL<<48
+#define RULE_VUNTILE 1LL<<49
+#define RULE_RESET 1LL<<50
 
 #define RULEPATTERN CLIENTCLASS
 #define RULESETNAME 50
@@ -304,6 +310,12 @@ winrulemap rulemap[] = {
 	{ "monitor1", RULE_MONITOR1 },
 	{ "monitor2", RULE_MONITOR2 },
 	{ "monitor3", RULE_MONITOR3 },
+	{ "once", RULE_ONCE },
+	{ "htile", RULE_HTILE },
+	{ "vtile", RULE_VTILE },
+	{ "huntile", RULE_HUNTILE },
+	{ "vuntile", RULE_VUNTILE },
+	{ "reset", RULE_RESET },
 };
 
 // a managable window

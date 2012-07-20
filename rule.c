@@ -119,24 +119,26 @@ void ruleset_switcher()
 // apply a rule list to all windows in current_tag
 void rulelist_apply(winrule *list)
 {
-	int i; Window w; client *c;
+	int i, done = 0; Window w; client *c;
 	winrule *bak = config_rules; config_rules = list;
-	tag_ascend(i, w, c, current_tag)
+	tag_descend(i, w, c, current_tag)
+		if (!done)
 	{
 		winlist_empty(cache_xattr);
 		winlist_empty(cache_client);
 		c = client_create(w);
-		client_raise(c, 0);
 		if (c) client_rules_apply(c);
+		if (c && c->is_ruled && c->rule && c->rule->flags & RULE_ONCE) done = 1;
 		XSync(display, False);
 	}
-	clients_ascend(windows_minimized, i, w, c)
-		if (c->manage && c->cache->tags & current_tag)
+	clients_descend(windows_minimized, i, w, c)
+		if (!done && c->manage && c->cache->tags & current_tag)
 	{
 		winlist_empty(cache_xattr);
 		winlist_empty(cache_client);
 		c = client_create(w);
 		if (c) client_rules_apply(c);
+		if (c && c->is_ruled && c->rule && c->rule->flags & RULE_ONCE) done = 1;
 		XSync(display, False);
 	}
 	config_rules = bak;
