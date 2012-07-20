@@ -1788,9 +1788,10 @@ void client_rules_moveresize(client *c)
 	// if a size rule exists, apply it
 	if (client_rule(c, RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER|RULE_SIZE))
 	{
-		if (client_rule(c, RULE_SMALL))  { c->sw = c->monitor.w/3; c->sh = c->monitor.h/3; }
+		int w_small = c->monitor.w/3, h_small = c->monitor.h/3;
+		if (client_rule(c, RULE_SMALL))  { c->sw = w_small; c->sh = h_small; }
 		if (client_rule(c, RULE_MEDIUM)) { c->sw = c->monitor.w/2; c->sh = c->monitor.h/2; }
-		if (client_rule(c, RULE_LARGE))  { c->sw = (c->monitor.w/3)*2; c->sh = (c->monitor.h/3)*2; }
+		if (client_rule(c, RULE_LARGE))  { c->sw = c->monitor.w-w_small; c->sh = c->monitor.h-h_small; }
 		if (client_rule(c, RULE_COVER))  { c->sw = c->monitor.w; c->sh = c->monitor.h; }
 		if (client_rule(c, RULE_SIZE))
 		{
