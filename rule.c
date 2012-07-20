@@ -153,6 +153,19 @@ void rule_apply(winrule *rule)
 	rule->next = next;
 }
 
+// execute a rule on open windows
+void rule_execute(char *rulestr)
+{
+	if (rule_parse(rulestr))
+	{
+		winrule *rule = config_rules;
+		config_rules = rule->next;
+		rule_apply(rule);
+		regfree(&rule->re);
+		free(rule);
+	}
+}
+
 // execute a ruleset on open windows
 void ruleset_execute(char *name)
 {

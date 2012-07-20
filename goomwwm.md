@@ -794,6 +794,11 @@ When run with **-cli** (command line interface) goomwwm may be used to dispatch 
 
 	goomwwm -cli -restart
 
+-rule
+:	Execute a temporary rule on windows in the current tag.
+
+	goomwwm -cli -rule "xterm large"
+
 -ruleset
 :	Execute a rule set by name.
 

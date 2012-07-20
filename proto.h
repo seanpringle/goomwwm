@@ -113,6 +113,7 @@ int rule_parse(char *rulestr);
 void ruleset_switcher();
 void rulelist_apply(winrule *list);
 void rule_apply(winrule *rule);
+void rule_execute(char *rulestr);
 void ruleset_execute(char *name);
 unsigned int tag_to_desktop(unsigned int tag);
 unsigned int desktop_to_tag(unsigned int desktop);
