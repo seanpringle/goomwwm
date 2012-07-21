@@ -1597,6 +1597,7 @@ void client_minimize(client *c)
 	// no update fo windows_activated yet. see handle_unmapnotify()
 	winlist_forget(windows_minimized, c->window);
 	winlist_append(windows_minimized, c->window, NULL);
+	client_add_state(c, netatoms[_NET_WM_STATE_HIDDEN]);
 }
 
 void client_restore(client *c)
@@ -1605,6 +1606,7 @@ void client_restore(client *c)
 	// no update fo windows_minimized yet. see handle_mapnotify()
 	winlist_forget(windows_activated, c->window);
 	winlist_prepend(windows_activated, c->window, NULL);
+	client_remove_state(c, netatoms[_NET_WM_STATE_HIDDEN]);
 }
 
 // built-in window switcher
