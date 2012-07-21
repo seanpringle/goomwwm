@@ -449,7 +449,6 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		c->cache->have_mr = 1;
 		c->cache->mr_x = fx; c->cache->mr_y = fy;
 		c->cache->mr_w = fw; c->cache->mr_h = fh;
-		c->cache->mr_time = timestamp();
 	}
 }
 
@@ -457,21 +456,28 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 void client_commit(client *c)
 {
 	client_extended_data(c);
-	winundo *undo;
+	int levels = 0; winundo *undo = c->cache->undo;
+	// count current undo chain length for this window
+	while (undo) { levels++; undo = undo->next; }
 
-	if (c->cache->undo_levels > 0)
+	if (levels > 0)
 	{
-		// check if the last undo state matches current state. if so, no point recording
-		undo = &c->cache->undo[c->cache->undo_levels-1];
+		// check if the most recent undo state matches current state. if so, no point recording
+		undo = c->cache->undo;
 		if (undo->x == c->x && undo->y == c->y && undo->w == c->w && undo->h == c->h) return;
 	}
 	// LIFO up to UNDO cells deep
-	if (c->cache->undo_levels == UNDO)
+	if (levels == UNDO)
 	{
-		memmove(c->cache->undo, &c->cache->undo[1], sizeof(winundo)*(UNDO-1));
-		c->cache->undo_levels--;
+		undo = c->cache->undo;
+		// find second last link
+		while (undo->next && undo->next->next) undo = undo->next;
+		// chop of the last link
+		free(undo->next); undo->next = NULL;
 	}
-	undo = &c->cache->undo[c->cache->undo_levels++];
+	undo = allocate_clear(sizeof(winundo));
+	undo->next = c->cache->undo; c->cache->undo = undo;
+	// do the actual snapshot
 	undo->x  = c->x;  undo->y  = c->y;  undo->w  = c->w;  undo->h  = c->h;
 	undo->sx = c->sx; undo->sy = c->sy; undo->sw = c->sw; undo->sh = c->sh;
 	for (undo->states = 0; undo->states < c->states; undo->states++)
@@ -481,13 +487,16 @@ void client_commit(client *c)
 // move/resize a window back to it's last known size and position
 void client_rollback(client *c)
 {
-	if (c->cache->undo_levels > 0)
+	if (c->cache->undo)
 	{
-		winundo *undo = &c->cache->undo[--c->cache->undo_levels];
+		// remove most recent winundo from the undo chain
+		winundo *undo = c->cache->undo; c->cache->undo = undo->next;
+		// do the actual rollback
 		for (c->states = 0; c->states < undo->states; c->states++)
 			c->state[c->states] = undo->state[c->states];
 		client_flush_state(c);
 		client_moveresize(c, 0, undo->x, undo->y, undo->sw, undo->sh);
+		free(undo);
 	}
 }
 

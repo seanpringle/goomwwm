@@ -217,19 +217,18 @@ typedef struct {
 	short x, y, w, h, l, r, t, b;
 } workarea;
 
-typedef struct {
+typedef struct _winundo {
 	short x, y, w, h, sx, sy, sw, sh, states;
 	Atom state[CLIENTSTATE];
+	struct _winundo *next;
 } winundo;
 
 // track window stuff
 typedef struct {
-	bool have_closed, last_corner, have_old, have_mr,
-		hlock, vlock, has_mapped, undo_levels;
+	bool have_closed, last_corner, have_old, have_mr, hlock, vlock, has_mapped;
 	short x, y, w, h, sx, sy, sw, sh, mr_x, mr_y, mr_w, mr_h;
-	double mr_time;
 	unsigned int tags;
-	winundo undo[UNDO];
+	winundo *undo;
 } wincache;
 
 typedef struct _rule {

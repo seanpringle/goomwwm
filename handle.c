@@ -478,7 +478,6 @@ void handle_motionnotify(XEvent *ev)
 			c->cache->have_mr = 1;
 			c->cache->mr_x = x; c->cache->mr_y = y;
 			c->cache->mr_w = w; c->cache->mr_h = h;
-			c->cache->mr_time = timestamp();
 		}
 	}
 }
