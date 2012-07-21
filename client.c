@@ -215,8 +215,9 @@ client* client_create(Window win)
 		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_SPLASH]
 		?1:0;
 
-	c->active = c->manage && c->visible && window_is_active(c->window) ?1:0;
+	c->active    = c->manage && c->visible && window_is_active(c->window) ?1:0;
 	c->minimized = winlist_find(windows_minimized, c->window) >= 0 ? 1:0;
+	c->shaded    = winlist_find(windows_shaded, c->window) >= 0 ? 1:0;
 
 	// focus seems a really dodgy way to determine the "active" window, but in some
 	// cases checking both ->active and ->focus is necessary to bahave logically
@@ -1088,6 +1089,7 @@ void client_activate(client *c, int raise, int warp)
 	clients_ascend(windows_in_play(), i, w, o) if (w != c->window) client_deactivate(o);
 
 	if (c->minimized) client_restore(c);
+	if (c->shaded) client_reveal(c);
 
 	// setup ourself
 	if (config_raise_mode == RAISEFOCUS || raise)
@@ -1598,6 +1600,7 @@ void client_minimize(client *c)
 	winlist_forget(windows_minimized, c->window);
 	winlist_append(windows_minimized, c->window, NULL);
 	client_add_state(c, netatoms[_NET_WM_STATE_HIDDEN]);
+	c->minimized = 1; c->visible = 0;
 }
 
 void client_restore(client *c)
@@ -1606,7 +1609,22 @@ void client_restore(client *c)
 	// no update fo windows_minimized yet. see handle_mapnotify()
 	winlist_forget(windows_activated, c->window);
 	winlist_prepend(windows_activated, c->window, NULL);
-	client_remove_state(c, netatoms[_NET_WM_STATE_HIDDEN]);
+	c->minimized = 0; c->shaded = 0; c->visible = 1;
+}
+
+void client_shade(client *c)
+{
+	XUnmapWindow(display, c->window);
+	// no update fo windows_activated yet. see handle_unmapnotify()
+	winlist_forget(windows_shaded, c->window);
+	winlist_append(windows_shaded, c->window, NULL);
+	client_add_state(c, netatoms[_NET_WM_STATE_SHADED]);
+	c->shaded = 1; c->visible = 0;
+}
+
+void client_reveal(client *c)
+{
+	client_restore(c);
 }
 
 // built-in window switcher
@@ -1618,13 +1636,17 @@ void client_switcher(unsigned int tag)
 	Window w; client *c; winlist *ids = winlist_new();
 
 	// type=0 normal windows
-	// type=1 minimized windows
+	// type=1 shaded windows
+	// type=2 minimized windows
 	for (type = 0; type < 2; type++)
 	{
+		winlist *l = windows_activated;
+		if (type == 1) l = windows_shaded;
+		if (type == 2) l = windows_shaded;
 		// calc widths of wm_class and tag csv fields
-		clients_descend(type ? windows_minimized: windows_activated, i, w, c)
+		clients_descend(l, i, w, c)
 		{
-			if (c->manage && (c->visible || c->minimized) && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
+			if (c->manage && (c->visible || c->minimized || c->shaded) && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
 			{
 				client_descriptive_data(c);
 				if (!tag || (c->cache && c->cache->tags & tag))
@@ -1722,9 +1744,20 @@ client* client_find(char *pattern)
 	// first, try in current_tag only
 	tag_descend(i, w, c, current_tag)
 		if (client_rule_match(c, rule)) { found = c; break; }
+	// look for something minimized or shaded
+	if (!found) clients_descend(windows_minimized, i, w, c)
+		if (c->cache->tags & current_tag && client_rule_match(c, rule))
+			{ found = c; client_restore(c); break; }
+	if (!found) clients_descend(windows_shaded, i, w, c)
+		if (c->cache->tags & current_tag && client_rule_match(c, rule))
+			{ found = c; client_restore(c); break; }
 	// failing that, search regardless of tag
 	if (!found) managed_descend(i, w, c)
 		if (client_rule_match(c, rule)) { found = c; break; }
+	if (!found) clients_descend(windows_minimized, i, w, c)
+		if (client_rule_match(c, rule)) { found = c; client_restore(c); break; }
+	if (!found) clients_descend(windows_shaded, i, w, c)
+		if (client_rule_match(c, rule)) { found = c; client_restore(c); break; }
 
 	rule_free(rule);
 	return found;

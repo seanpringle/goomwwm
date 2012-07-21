@@ -135,6 +135,16 @@ void rulelist_apply(winrule *list)
 		if (c && c->is_ruled && c->rule && c->rule->flags & RULE_ONCE) done = 1;
 		XSync(display, False);
 	}
+	clients_descend(windows_shaded, i, w, c)
+		if (!done && c->manage && c->cache->tags & current_tag)
+	{
+		reset_cache_xattr();
+		reset_cache_client();
+		c = client_create(w);
+		if (c) client_rules_apply(c);
+		if (c && c->is_ruled && c->rule && c->rule->flags & RULE_ONCE) done = 1;
+		XSync(display, False);
+	}
 	clients_descend(windows_minimized, i, w, c)
 		if (!done && c->manage && c->cache->tags & current_tag)
 	{

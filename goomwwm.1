@@ -296,6 +296,12 @@ Minimize a window.
 .RS
 .RE
 .TP
+.B Mod-o
+Show only windows in the current tag.
+Hide everything else.
+.RS
+.RE
+.TP
 .B Mod-Pause (press twice)
 Quit goomwwm.
 .RS
@@ -814,6 +820,14 @@ control,mod1,mod2,mod3,mod4,mod5 (default: mod4).
 .RS
 .PP
 goomwwm -modkey control,mod1
+.RE
+.TP
+.B -only
+Set an X11 key name to show only windows in the current tag, hiding
+everything else (default: XK_o).
+.RS
+.PP
+goomwwm -only o
 .RE
 .TP
 .B -placement

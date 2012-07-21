@@ -164,6 +164,9 @@ Mod-. (period)
 Mod-/ (slash)
 :	Minimize a window.
 
+Mod-o
+:	Show only windows in the current tag. Hide everything else.
+
 Mod-Pause  (press twice)
 :	Quit goomwwm.
 
@@ -485,6 +488,11 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 :	Change the modifier key mask to any combination of: control,mod1,mod2,mod3,mod4,mod5 (default: mod4).
 
 	goomwwm -modkey control,mod1
+
+-only
+:	Set an X11 key name to show only windows in the current tag, hiding everything else (default: XK_o).
+
+	goomwwm -only o
 
 -placement
 :	Control the position of new windows (default: any).

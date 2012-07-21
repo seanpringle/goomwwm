@@ -333,7 +333,7 @@ typedef struct {
 	short states;            // number of EWMH states set
 	short initial_state;     // pulled from wm hints
 	// general flags
-	bool manage, visible, input, focus, active, minimized;
+	bool manage, visible, input, focus, active, minimized, shaded;
 	bool is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter;
 	bool is_maxh, is_maxv, is_described, is_extended, is_ruled;
 	// descriptive buffers loaded after client_descriptive_data()
@@ -440,6 +440,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_MINIMIZE,           0, XK_slash,      -minimize  ),\
 	X(KEY_RULE,               0, XK_comma,      -runrule   ),\
 	X(KEY_RULESET,            0, XK_period,     -runruleset),\
+	X(KEY_TAGONLY,            0, XK_o,          -only      ),\
 	X(KEY_LAUNCH,             0, XK_x,          -launch    )
 
 enum { KEYLIST(KEY_ENUM) };
@@ -461,7 +462,7 @@ Cursor prefix_cursor;
 Window supporting;
 
 // tracking windows
-winlist *windows, *windows_activated, *windows_minimized;
+winlist *windows, *windows_activated, *windows_minimized, *windows_shaded;
 unsigned int current_tag = TAG1;
 
 // caches used to reduce X server round trips

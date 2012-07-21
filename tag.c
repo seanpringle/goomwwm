@@ -47,8 +47,20 @@ void tag_set_current(unsigned int tag)
 // raise all windows in a tag
 void tag_raise(unsigned int tag)
 {
-	int i, found = 0; Window w; client *c;
+	int i, found = 0, shaded = 0; Window w; client *c;
 	winlist *stack;
+
+	// if this tag was previously hidden, reveal it
+	clients_ascend(windows_shaded, i, w, c)
+		if (c->manage && c->cache->tags & tag)
+			{ client_reveal(c); shaded++; }
+	if (shaded)
+	{
+		XSync(display, False);
+		reset_cache_xattr();
+		reset_cache_client();
+		reset_cache_inplay();
+	}
 
 	winlist *inplay = windows_in_play();
 	stack = winlist_new();
@@ -101,4 +113,12 @@ void tag_auto_switch()
 		int i, n = 0; Window w; client *o; tag_descend(i, w, o, current_tag) n++;
 		if (!n) tag_raise(desktop_to_tag(tag_to_desktop(c->cache->tags)));
 	}
+}
+
+void tag_only(unsigned int tag)
+{
+	int i; Window w; client *c;
+	managed_descend(i, w, c)
+		if (!(c->cache->tags & tag))
+			client_shade(c);
 }

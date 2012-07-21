@@ -88,7 +88,7 @@ void setup_screen()
 		if (c && c->manage && (c->visible || client_get_wm_state(c) == IconicState))
 		{
 			window_select(c->window);
-			winlist_append(c->visible ? windows_activated: windows_minimized, c->window, NULL);
+			winlist_append(c->visible ? windows_activated: windows_shaded, c->window, NULL);
 			client_full_review(c);
 		}
 	}
@@ -363,6 +363,7 @@ int wm_main(int argc, char *argv[])
 	windows = winlist_new();
 	windows_activated = winlist_new();
 	windows_minimized = winlist_new();
+	windows_shaded    = winlist_new();
 
 	// do this before setting error handler, so it fails if other wm in place
 	XSelectInput(display, DefaultRootWindow(display), SubstructureRedirectMask);

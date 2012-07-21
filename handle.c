@@ -83,6 +83,7 @@ void handle_keypress(XEvent *ev)
 	// tag cycling
 	else if (ISKEY(KEY_TAGNEXT)) tag_raise(current_tag & TAG9 ? TAG1: current_tag<<1);
 	else if (ISKEY(KEY_TAGPREV)) tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
+	else if (ISKEY(KEY_TAGONLY)) tag_only(current_tag);
 
 	else
 	// following only relevant with a focused window
@@ -672,8 +673,11 @@ void handle_mapnotify(XEvent *ev)
 		client_full_review(c);
 		// dont reapply rules to windows that volantarily unmapped for
 		// some reason, or were explicitly minimized
-		if (c->cache->has_mapped || c->minimized)
-			client_activate(c, RAISE, WARPDEF);
+		if (c->cache->has_mapped || c->minimized || c->shaded)
+		{
+			if (!c->shaded)
+				client_activate(c, RAISE, WARPDEF);
+		}
 		else
 		// apply rules to new windows
 		{	// initial raise does not check -raisemode
@@ -704,11 +708,10 @@ void handle_mapnotify(XEvent *ev)
 			}
 		}
 		ewmh_client_list();
-		// some gtk windows see to need an extra kick to make them respect expose events...
-		// something to do with the configurerequest step? this little nudge makes it all work :-|
-		//XSetWindowBorderWidth(display, c->window, 0);
-		//XSetWindowBorderWidth(display, c->window, config_border_width);
 		winlist_forget(windows_minimized, c->window);
+		winlist_forget(windows_shaded, c->window);
+		client_remove_state(c, netatoms[_NET_WM_STATE_HIDDEN]);
+		client_remove_state(c, netatoms[_NET_WM_STATE_SHADED]);
 		c->cache->has_mapped = 1;
 	}
 
@@ -729,7 +732,7 @@ void handle_unmapnotify(XEvent *ev)
 	{
 		event_log("UnmapNotify", c->window);
 		event_client_dump(c);
-		if (c->minimized)
+		if (c->minimized || c->shaded)
 		{
 			client_set_wm_state(c, IconicState);
 			winlist_forget(windows_activated, c->window);
@@ -740,6 +743,7 @@ void handle_unmapnotify(XEvent *ev)
 			window_unset_prop(c->window, netatoms[_NET_WM_DESKTOP]);
 			winlist_forget(windows_activated, c->window);
 			winlist_forget(windows_minimized, c->window);
+			winlist_forget(windows_shaded,    c->window);
 		}
 	}
 	// if window has already been destroyed, above client_create() may have failed
