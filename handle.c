@@ -232,7 +232,7 @@ void handle_keypress(XEvent *ev)
 			int cy = (screen_height - h) / 2;
 			int done = 0;
 			// expire the toggle cache
-			c->cache->have_old = 0;
+			free(c->cache->ewmh); c->cache->ewmh = NULL;
 
 			// monitor switching if window is on an edge
 			if (ISKEY(KEY_LEFT) && c->is_left)
@@ -471,14 +471,6 @@ void handle_motionnotify(XEvent *ev)
 		}
 		w = MAX(MINWINDOW, w); h = MAX(MINWINDOW, h);
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
-		// update move/req cache. allows client_flash() and handle_configurerequest to
-		// play nice with mouse-based stuff
-		if (c->cache)
-		{
-			c->cache->have_mr = 1;
-			c->cache->mr_x = x; c->cache->mr_y = y;
-			c->cache->mr_w = w; c->cache->mr_h = h;
-		}
 	}
 }
 
@@ -503,6 +495,7 @@ void handle_destroynotify(XEvent *ev)
 		wincache *cache = windows->data[idx];
 		winundo *next, *undo = cache->undo;
 		while (undo) { next = undo->next; free(undo); undo = next; }
+		free(cache->ewmh);
 	}
 	winlist_forget(windows, win);
 	winlist_forget(windows_activated, win);

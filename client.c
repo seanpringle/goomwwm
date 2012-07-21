@@ -440,16 +440,6 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		c->w = fw; c->h = fh;
 	}
 	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
-
-	// track the move/resize instruction
-	// apps that come back with an alternative configurerequest (eg, some terminals, gvim, etc)
-	// get denied unless their hints check out
-	if (c->cache)
-	{
-		c->cache->have_mr = 1;
-		c->cache->mr_x = fx; c->cache->mr_y = fy;
-		c->cache->mr_w = fw; c->cache->mr_h = fh;
-	}
 }
 
 // record a window's size and position in the undo log
@@ -507,29 +497,38 @@ void client_save_position(client *c)
 {
 	client_extended_data(c);
 	if (!c->cache) return;
-	c->cache->have_old = 1;
-	c->cache->x = c->x; c->cache->sx = c->sx;
-	c->cache->y = c->y; c->cache->sy = c->sy;
-	c->cache->w = c->w; c->cache->sw = c->sw;
-	c->cache->h = c->h; c->cache->sh = c->sh;
+
+	if (!c->cache->ewmh)
+		c->cache->ewmh = allocate_clear(sizeof(winundo));
+
+	winundo *undo = c->cache->ewmh;
+
+	undo->x = c->x; undo->sx = c->sx;
+	undo->y = c->y; undo->sy = c->sy;
+	undo->w = c->w; undo->sw = c->sw;
+	undo->h = c->h; undo->sh = c->sh;
 }
 
 // save co-ords for later flip-back
 void client_save_position_horz(client *c)
 {
 	client_extended_data(c); if (!c->cache) return;
-	if (!c->cache->have_old) client_save_position(c);
-	c->cache->x = c->x; c->cache->sx = c->sx;
-	c->cache->w = c->w; c->cache->sw = c->sw;
+	if (!c->cache->ewmh) client_save_position(c);
+
+	winundo *undo = c->cache->ewmh;
+	undo->x = c->x; undo->sx = c->sx;
+	undo->w = c->w; undo->sw = c->sw;
 }
 
 // save co-ords for later flip-back
 void client_save_position_vert(client *c)
 {
 	client_extended_data(c); if (!c->cache) return;
-	if (!c->cache->have_old) client_save_position(c);
-	c->cache->y = c->y; c->cache->sy = c->sy;
-	c->cache->h = c->h; c->cache->sh = c->sh;
+	if (!c->cache->ewmh) client_save_position(c);
+
+	winundo *undo = c->cache->ewmh;
+	undo->y = c->y; undo->sy = c->sy;
+	undo->h = c->h; undo->sh = c->sh;
 }
 
 // revert to saved co-ords
@@ -537,10 +536,10 @@ void client_restore_position(client *c, int smart, int x, int y, int w, int h)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
-		c->cache && c->cache->have_old ? c->cache->x: x,
-		c->cache && c->cache->have_old ? c->cache->y: y,
-		c->cache && c->cache->have_old ? c->cache->sw: w,
-		c->cache && c->cache->have_old ? c->cache->sh: h);
+		c->cache && c->cache->ewmh ? c->cache->ewmh->x: x,
+		c->cache && c->cache->ewmh ? c->cache->ewmh->y: y,
+		c->cache && c->cache->ewmh ? c->cache->ewmh->sw: w,
+		c->cache && c->cache->ewmh ? c->cache->ewmh->sh: h);
 }
 
 // revert to saved co-ords
@@ -548,8 +547,8 @@ void client_restore_position_horz(client *c, int smart, int x, int w)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
-		c->cache && c->cache->have_old ? c->cache->x: x, c->y,
-		c->cache && c->cache->have_old ? c->cache->sw: w, c->sh);
+		c->cache && c->cache->ewmh ? c->cache->ewmh->x: x, c->y,
+		c->cache && c->cache->ewmh ? c->cache->ewmh->sw: w, c->sh);
 }
 
 // revert to saved co-ords
@@ -557,8 +556,8 @@ void client_restore_position_vert(client *c, int smart, int y, int h)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
-		c->x, c->cache && c->cache->have_old ? c->cache->y: y,
-		c->sw, c->cache && c->cache->have_old ? c->cache->sh: h);
+		c->x,  c->cache && c->cache->ewmh ? c->cache->ewmh->y: y,
+		c->sw, c->cache && c->cache->ewmh ? c->cache->ewmh->sh: h);
 }
 
 // build list of unobscured windows within a workarea
@@ -701,16 +700,16 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	}
 	// if there is nowhere to grow and we have a saved position, flip back to it.
 	// allows the expand key to be used as a toggle!
-	if (x == c->x && y == c->y && w == c->sw && h == c->sh && c->cache->have_old)
+	if (x == c->x && y == c->y && w == c->sw && h == c->sh && c->cache->ewmh)
 	{
 		if (directions & VERTICAL && directions & HORIZONTAL)
-			client_restore_position(c, 0, c->x, c->y, c->cache->sw, c->cache->sh);
+			client_restore_position(c, 0, c->x, c->y, c->cache->ewmh->sw, c->cache->ewmh->sh);
 		else
 		if (directions & VERTICAL)
-			client_restore_position_vert(c, 0, c->y, c->cache->sh);
+			client_restore_position_vert(c, 0, c->y, c->cache->ewmh->sh);
 		else
 		if (directions & HORIZONTAL)
-			client_restore_position_horz(c, 0, c->x, c->cache->sw);
+			client_restore_position_horz(c, 0, c->x, c->cache->ewmh->sw);
 	} else
 	{
 		// save pos for toggle
@@ -832,21 +831,21 @@ void client_snapto(client *c, int direction)
 // for now, four coloured squares in the corners. could get fancier?
 void client_flash(client *c, unsigned int color, int delay, int title)
 {
-	client_descriptive_data(c);
-	client_extended_data(c);
+	XSync(display, False);
 	if (!fork())
 	{
+		Window win = c->window;
 		display = XOpenDisplay(0x0);
+		reset_cache_xattr();
+		reset_cache_client();
+		reset_cache_inplay();
+
+		c = client_create(win);
+		if (!c) exit(EXIT_FAILURE);
+		client_extended_data(c);
 
 		int x1 = c->x, x2 = c->x + c->sw - config_flash_width;
 		int y1 = c->y, y2 = c->y + c->sh - config_flash_width;
-
-		// if there is a move request dispatched, flash there to match
-		if (c->cache && c->cache->have_mr)
-		{
-			x1 = c->cache->mr_x; x2 = x1 + c->cache->mr_w - config_flash_width + config_border_width;
-			y1 = c->cache->mr_y; y2 = y1 + c->cache->mr_h - config_flash_width + config_border_width;
-		}
 
 		// use message_box for title
 		if (title || config_flash_title)
@@ -1173,7 +1172,6 @@ void client_nws_fullscreen(client *c, int action)
 		client_add_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
 		// _NET_WM_STATE_FULLSCREEN will override size
 		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
-		c->cache->have_mr = 0;
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))

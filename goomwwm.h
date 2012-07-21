@@ -225,9 +225,9 @@ typedef struct _winundo {
 
 // track window stuff
 typedef struct {
-	bool have_closed, last_corner, have_old, have_mr, hlock, vlock, has_mapped;
-	short x, y, w, h, sx, sy, sw, sh, mr_x, mr_y, mr_w, mr_h;
+	bool have_closed, last_corner, hlock, vlock, has_mapped;
 	unsigned int tags;
+	winundo *ewmh;
 	winundo *undo;
 } wincache;
 
