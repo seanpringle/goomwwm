@@ -175,7 +175,7 @@ void ruleset_execute(char *name)
 	winruleset *set = NULL;
 	// find ruleset by index
 	for (set = config_rulesets; set && strcasecmp(name, set->name); set = set->next);
-	if (set)
+	if (set && set->rules)
 	{
 		// bit odd. rules lists are lifos present, but it's more intuitive to process
 		// rulesets in the order they were defined. should clean this up, but for now,
