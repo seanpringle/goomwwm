@@ -47,7 +47,7 @@ void tag_set_current(unsigned int tag)
 // raise all windows in a tag
 void tag_raise(unsigned int tag)
 {
-	int i; Window w; client *c;
+	int i, found = 0; Window w; client *c;
 	winlist *stack;
 
 	winlist *inplay = windows_in_play();
@@ -63,7 +63,7 @@ void tag_raise(unsigned int tag)
 	clients_descend(inplay, i, w, c)
 		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
 			&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]) && c->cache->tags & tag)
-				client_stack_family(c, stack);
+				{ client_stack_family(c, stack); found++; }
 	// locate _NET_WM_WINDOW_TYPE_DOCK windows
 	clients_descend(inplay, i, w, c)
 		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
@@ -72,7 +72,7 @@ void tag_raise(unsigned int tag)
 	// locate all other windows in the tag
 	managed_descend(i, w, c)
 		if (winlist_find(stack, w) < 0 && c->trans == None && c->cache->tags & tag)
-			client_stack_family(c, stack);
+			{ client_stack_family(c, stack); found++; }
 	if (stack->len)
 	{
 		// raise the top window in the stack
@@ -88,7 +88,8 @@ void tag_raise(unsigned int tag)
 		{ client_activate(c, RAISE, WARPDEF); break; }
 
 	// in case no windows are in the tag, show some activity
-	notice("Tag %d", tag_to_desktop(tag)+1);
+	if (found) notice("Tag %d", tag_to_desktop(tag)+1);
+	else notice("Tag %d (empty!)", tag_to_desktop(tag)+1);
 }
 
 // check active client. if
