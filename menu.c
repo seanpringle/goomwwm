@@ -44,7 +44,7 @@ void menu_draw(struct localmenu *my)
 			my->filtered[n++] = my->lines[i];
 	// vertical bounds of highlight bar
 	my->current = MAX(0, MIN(my->current, n-1));
-	for (i = 0; my->filtered[i]; i++)
+	for (i = 0; i < my->max_lines && my->filtered[i]; i++)
 	{
 		XftColor fg = my->fg;
 		// vertical position of *top* of current line
