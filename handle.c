@@ -495,10 +495,17 @@ void handle_createnotify(XEvent *ev)
 // we don't track window state internally much, so this is just for info
 void handle_destroynotify(XEvent *ev)
 {
-	Window w = ev->xdestroywindow.window;
+	Window win = ev->xdestroywindow.window;
 	// remove any cached data on a window
-	winlist_forget(windows, w);
-	winlist_forget(windows_activated, w);
+	int idx = winlist_find(windows, win);
+	if (idx >= 0)
+	{
+		wincache *cache = windows->data[idx];
+		winundo *next, *undo = cache->undo;
+		while (undo) { next = undo->next; free(undo); undo = next; }
+	}
+	winlist_forget(windows, win);
+	winlist_forget(windows_activated, win);
 }
 
 // very loose with configure requests
