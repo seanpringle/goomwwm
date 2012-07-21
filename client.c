@@ -73,21 +73,18 @@ void client_descriptive_data(client *c)
 
 	char *name;
 	if ((name = window_get_text_prop(c->window, netatoms[_NET_WM_NAME])) && name)
-	{
-		snprintf(c->title, CLIENTTITLE, "%s", name);
-		free(name);
-	}
+		c->title = name;
 	else
 	if (XFetchName(display, c->window, &name))
 	{
-		snprintf(c->title, CLIENTTITLE, "%s", name);
+		c->title = strdup(name);
 		XFree(name);
 	}
 	XClassHint chint;
 	if (XGetClassHint(display, c->window, &chint))
 	{
-		snprintf(c->class, CLIENTCLASS, "%s", chint.res_class);
-		snprintf(c->name, CLIENTNAME, "%s", chint.res_name);
+		c->class = strdup(chint.res_class);
+		c->name  = strdup(chint.res_name);
 		XFree(chint.res_class); XFree(chint.res_name);
 	}
 	c->is_described = 1;
@@ -197,7 +194,7 @@ client* client_create(Window win)
 	if (!attr) return NULL;
 
 	client *c = allocate_clear(sizeof(client));
-	c->window = win;
+	c->window = win; c->title = c->name = c->class = empty;
 	// copy xattr so we don't have to care when stuff is freed
 	memmove(&c->xattr, attr, sizeof(XWindowAttributes));
 	XGetTransientForHint(display, win, &c->trans);
@@ -258,6 +255,16 @@ client* client_create(Window win)
 	return c;
 }
 
+// release client memory. this should only be called during the global cache resets
+void client_free(client *c)
+{
+	if (!c) return;
+	if (c->title != empty) free(c->title);
+	if (c->class != empty) free(c->class);
+	if (c->name  != empty) free(c->name);
+	free(c);
+}
+
 // true if client windows overlap
 int clients_intersect(client *a, client *b)
 {
@@ -304,7 +311,7 @@ void client_warp_pointer(client *c)
 {
 	// needs the updated stacking mode, so clear cache
 	XSync(display, False);
-	winlist_empty(cache_inplay);
+	reset_cache_inplay();
 
 	client_extended_data(c);
 	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
@@ -1710,8 +1717,7 @@ client* client_find(char *pattern)
 	if (!found) managed_descend(i, w, c)
 		if (client_rule_match(c, rule)) { found = c; break; }
 
-	regfree(&rule->re);
-	free(rule);
+	rule_free(rule);
 	return found;
 }
 

@@ -44,7 +44,21 @@ void reset_lazy_caches()
 {
 	memset(cache_monitor, 0, sizeof(cache_monitor));
 }
-
+void reset_cache_xattr()
+{
+	winlist_empty(cache_xattr);
+}
+void reset_cache_client()
+{
+	int i; Window w;
+	winlist_ascend(cache_client, i, w)
+		client_free(cache_client->data[i]);
+	cache_client->len = 0;
+}
+void reset_cache_inplay()
+{
+	winlist_empty(cache_inplay);
+}
 // an X screen. may have multiple monitors, xinerama, etc
 void setup_screen()
 {
@@ -263,7 +277,7 @@ void setup_rule_options(int ac, char *av[])
 	// load window rules
 	// put rules in a default ruleset
 	config_rulesets = allocate_clear(sizeof(winruleset));
-	strcpy(config_rulesets->name, "[default rules]");
+	config_rulesets->name = strdup("[default rules]");
 	for (i = 0; i < ac; i++)
 	{
 		// load any other rule sets
@@ -272,7 +286,7 @@ void setup_rule_options(int ac, char *av[])
 			config_rulesets->rules = config_rules;
 			config_rules = NULL;
 			winruleset *set = allocate_clear(sizeof(winruleset));
-			snprintf(set->name, RULESETNAME, "%s", av[++i]);
+			set->name = strdup(av[++i]);
 			set->next = config_rulesets;
 			config_rulesets = set;
 		}
@@ -383,9 +397,9 @@ int wm_main(int argc, char *argv[])
 	for(;;)
 	{
 		// caches only live for a single event
-		winlist_empty(cache_xattr);
-		winlist_empty(cache_client);
-		winlist_empty(cache_inplay);
+		reset_cache_xattr();
+		reset_cache_client();
+		reset_cache_inplay();
 
 		// block and wait for something
 		XNextEvent(display, &ev);

@@ -29,7 +29,7 @@ void ewmh_client_list()
 {
 	XSync(display, False);
 	// this often happens after we've made changes. refresh
-	winlist_empty(cache_inplay);
+	reset_cache_inplay();
 
 	winlist *relevant = winlist_new();
 	winlist *mapped   = winlist_new();

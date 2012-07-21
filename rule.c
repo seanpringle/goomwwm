@@ -32,12 +32,7 @@ int rule_parse(char *rulestr)
 	char *left = str, *right = str;
 	// locate end of pattern
 	while (*right && !isspace(*right)) right++;
-	if (right-left > RULEPATTERN-1)
-	{
-		fprintf(stderr, "rule exceeded pattern space: %s\n", str);
-		free(new); free(str); return 0;
-	}
-	strncpy(new->pattern, str, right-left);
+	new->pattern = strndup(str, right-left);
 	while (*right && isspace(*right)) right++;
 	// walk over rule flags, space or command delimited
 	while (*right && !isspace(*right))
@@ -84,10 +79,19 @@ int rule_parse(char *rulestr)
 	} else
 	{
 		fprintf(stderr, "failed to compile regex: %s\n", pat);
-		free(new);
+		free(new->pattern); free(new);
 	}
 	free(str);
 	return ok;
+}
+
+// release rule memory
+void rule_free(winrule *rule)
+{
+	if (!rule) return;
+	regfree(&rule->re);
+	free(rule->pattern);
+	free(rule);
 }
 
 // pick a ruleset to execute
@@ -124,8 +128,8 @@ void rulelist_apply(winrule *list)
 	tag_descend(i, w, c, current_tag)
 		if (!done)
 	{
-		winlist_empty(cache_xattr);
-		winlist_empty(cache_client);
+		reset_cache_xattr();
+		reset_cache_client();
 		c = client_create(w);
 		if (c) client_rules_apply(c);
 		if (c && c->is_ruled && c->rule && c->rule->flags & RULE_ONCE) done = 1;
@@ -134,8 +138,8 @@ void rulelist_apply(winrule *list)
 	clients_descend(windows_minimized, i, w, c)
 		if (!done && c->manage && c->cache->tags & current_tag)
 	{
-		winlist_empty(cache_xattr);
-		winlist_empty(cache_client);
+		reset_cache_xattr();
+		reset_cache_client();
 		c = client_create(w);
 		if (c) client_rules_apply(c);
 		if (c && c->is_ruled && c->rule && c->rule->flags & RULE_ONCE) done = 1;
@@ -161,8 +165,7 @@ void rule_execute(char *rulestr)
 		winrule *rule = config_rules;
 		config_rules = rule->next;
 		rule_apply(rule);
-		regfree(&rule->re);
-		free(rule);
+		rule_free(rule);
 	}
 }
 

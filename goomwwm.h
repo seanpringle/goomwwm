@@ -82,10 +82,7 @@ typedef unsigned long long bitmap;
 #define SWAPRIGHT 2
 #define SWAPUP 3
 #define SWAPDOWN 4
-#define CLIENTTITLE 60
-#define CLIENTCLASS 30
-#define CLIENTNAME 30
-#define CLIENTSTATE 10
+#define CLIENTSTATE 7
 
 #define TAG1 1
 #define TAG2 (1<<1)
@@ -141,9 +138,6 @@ typedef unsigned long long bitmap;
 #define RULE_VTILE 1LL<<48
 #define RULE_VUNTILE 1LL<<49
 #define RULE_RESET 1LL<<50
-
-#define RULEPATTERN CLIENTCLASS
-#define RULESETNAME 50
 
 // just defaults, mostly configurable from command line
 #define BORDER 2
@@ -215,19 +209,16 @@ typedef unsigned long long bitmap;
 typedef struct {
 	Window *array;
 	void **data;
-	int len;
+	short len;
 } winlist;
 
 // usable space on a monitor
 typedef struct {
-	int x, y, w, h;
-	int l, r, t, b;
+	short x, y, w, h, l, r, t, b;
 } workarea;
 
 typedef struct {
-	int x, y, w, h;
-	int sx, sy, sw, sh;
-	int states;
+	short x, y, w, h, sx, sy, sw, sh, states;
 	Atom state[CLIENTSTATE];
 } winundo;
 
@@ -235,17 +226,17 @@ typedef struct {
 typedef struct {
 	bool have_closed, last_corner, have_old, have_mr,
 		hlock, vlock, has_mapped, undo_levels;
-	int x, y, w, h, sx, sy, sw, sh, mr_x, mr_y, mr_w, mr_h;
+	short x, y, w, h, sx, sy, sw, sh, mr_x, mr_y, mr_w, mr_h;
 	double mr_time;
 	unsigned int tags;
 	winundo undo[UNDO];
 } wincache;
 
 typedef struct _rule {
-	char pattern[RULEPATTERN];
+	char *pattern;
 	regex_t re;
 	bitmap flags;
-	int w, h;
+	short w, h;
 	bool w_is_pct, h_is_pct;
 	struct _rule *next;
 } winrule;
@@ -253,7 +244,7 @@ typedef struct _rule {
 winrule *config_rules = NULL;
 
 typedef struct _ruleset {
-	char name[RULESETNAME]; // file path
+	char *name; // file path
 	winrule *rules;
 	struct _ruleset *next;
 } winruleset;
@@ -318,16 +309,19 @@ winrulemap rulemap[] = {
 	{ "reset", RULE_RESET },
 };
 
+// a placeholder
+char *empty = "";
+
 // a managable window
 typedef struct {
 	Window window, trans;
 	XWindowAttributes xattr;
 	XSizeHints xsize;
-	int x, y, w, h, sx, sy, sw, sh, states;
+	short x, y, w, h, sx, sy, sw, sh, states;
 	bool manage, visible, input, focus, active, initial_state, minimized,
 		is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter,
 		is_maxh, is_maxv, is_described, is_extended, is_ruled;
-	char title[CLIENTTITLE], class[CLIENTCLASS], name[CLIENTNAME];
+	char *title, *class, *name;
 	Atom state[CLIENTSTATE], type;
 	workarea monitor;
 	wincache *cache;
@@ -345,8 +339,8 @@ struct localmenu {
 	XftColor fg, bg, hlfg, hlbg, bgalt;
 	unsigned long xbg;
 	char **lines, **filtered;
-	int done, max_lines, num_lines, input_size, line_height;
-	int current, width, height, horz_pad, vert_pad, offset;
+	short done, max_lines, num_lines, input_size, line_height;
+	short current, width, height, horz_pad, vert_pad, offset;
 	char *input, *selected, *manual;
 	XIM xim;
 	XIC xic;
