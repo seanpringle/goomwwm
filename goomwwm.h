@@ -207,8 +207,8 @@ typedef unsigned long long bitmap;
 
 // window lists
 typedef struct {
-	Window *array;
-	void **data;
+	Window *array; // actual window ids
+	void **data;   // an associated struct
 	short len;
 } winlist;
 
@@ -217,39 +217,50 @@ typedef struct {
 	short x, y, w, h, l, r, t, b;
 } workarea;
 
+// snapshot a window's size/pos and EWMH state
 typedef struct _winundo {
 	short x, y, w, h, sx, sy, sw, sh, states;
 	Atom state[CLIENTSTATE];
 	struct _winundo *next;
 } winundo;
 
-// track window stuff
+// track general window stuff
+// every window we know about gets one of these, even if it's empty
 typedef struct {
-	bool have_closed, last_corner, hlock, vlock, has_mapped;
-	unsigned int tags;
-	winundo *ewmh;
-	winundo *undo;
+	bool have_closed;  // true when we've previously politely sent a close request
+	bool last_corner;  // the last screen corner, used to make corner seem sticky during resizing
+	bool hlock, vlock; // horizontal and vertical size/position locks
+	bool has_mapped;   // true when a client has mapped previously. used to avoid applying rules
+	unsigned int tags; // desktop tags
+	winundo *ewmh;     // undo size/pos for EWMH FULLSCREEN/MAXIMIZE_HORZ/MAXIMIZE_VERT toggles
+	winundo *undo;     // general size/pos undo LIFO linked list
 } wincache;
 
+// rule for controlling window size/pos/behaviour
 typedef struct _rule {
-	char *pattern;
-	regex_t re;
-	bitmap flags;
-	short w, h;
-	bool w_is_pct, h_is_pct;
+	char *pattern; // POSIX regex pattern to match on class/name/title
+	regex_t re;    // precompiled regex
+	bitmap flags;  // RULE_* flags
+	short w, h;    // manually specified width/height
+	bool w_is_pct, h_is_pct; // true if w/h is a percentage of screen size
 	struct _rule *next;
 } winrule;
 
+// all global rules. this is separate from rule sets!
 winrule *config_rules = NULL;
 
+// a set of rules to execute in order, like a mini script.
+// this is separate from global rules!
 typedef struct _ruleset {
-	char *name; // file path
-	winrule *rules;
+	char *name;     // any name, for disply in the popup menu
+	winrule *rules; // linked list of rules in reverse-definition order
 	struct _ruleset *next;
 } winruleset;
 
+// all defined rulesets
 winruleset *config_rulesets = NULL;
 
+// for converting rule strings to bit flags
 typedef struct {
 	const char *name;
 	bitmap flag;
@@ -311,20 +322,27 @@ winrulemap rulemap[] = {
 // a placeholder
 char *empty = "";
 
-// a managable window
+// collect and store data on a window
 typedef struct {
-	Window window, trans;
-	XWindowAttributes xattr;
-	XSizeHints xsize;
-	short x, y, w, h, sx, sy, sw, sh, states;
-	bool manage, visible, input, focus, active, initial_state, minimized,
-		is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter,
-		is_maxh, is_maxv, is_described, is_extended, is_ruled;
+	Window window;           // window's id
+	Window trans;            // our transient_for
+	XWindowAttributes xattr; // copy of cache_xattr data
+	XSizeHints xsize;        // only loaded after client_extended_data()
+	short x, y, w, h;        // size/pos pulled from xattr
+	short sx, sy, sw, sh;    // size/pos relative to monitor and including border
+	short states;            // number of EWMH states set
+	short initial_state;     // pulled from wm hints
+	// general flags
+	bool manage, visible, input, focus, active, minimized;
+	bool is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter;
+	bool is_maxh, is_maxv, is_described, is_extended, is_ruled;
+	// descriptive buffers loaded after client_descriptive_data()
 	char *title, *class, *name;
+	// EWMH states and type
 	Atom state[CLIENTSTATE], type;
-	workarea monitor;
-	wincache *cache;
-	winrule *rule;
+	workarea monitor; // monitor holding the window, with strut padding detected
+	wincache *cache;  // a persistent cache for this window (clients are freed each event)
+	winrule *rule;    // loaded after client_rule
 } client;
 
 // built-in filterable popup menu list
