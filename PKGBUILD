@@ -1,44 +1,29 @@
 # Contributor: Sean Pringle <sean.pringle@gmail.com>
 
-pkgname=goomwwm-git
-pkgver=20120625
+pkgname=goomwwm
+pkgver=1.0_rc1
 pkgrel=1
 pkgdesc="Get out of my way, Window Manager!"
 arch=('i686' 'x86_64')
-url="http://github.com/seanpringle/goomwwm"
+url="http://aerosuidae.net/goomwwm"
 license=('MIT')
 depends=('libx11' 'libxft' 'freetype2')
-makedepends=('git')
+optdepends=('dmenu')
+makedepends=()
 provides=('goomwwm')
-
-_gitroot="git://github.com/seanpringle/goomwwm.git"
-_gitname="goomwwm"
+conflicts=('goomwwm-git')
+source=("http://aerosuidae.net/goomwwm/$pkgname-1.0-rc1.tar.gz")
+md5sums=('c1402a5340316f83795ba616c75aba2b')
 
 build() {
-  cd "$srcdir"
-  msg "Connecting to GIT server...."
-
-  if [ -d $_gitname ] ; then
-    cd $_gitname && git pull origin
-    msg "The local files are updated."
-  else
-    git clone $_gitroot --depth=1
-  fi
-
-  msg "GIT checkout done or server timeout"
-  msg "Starting make..."
-
-  rm -rf "$srcdir/$_gitname-build"
-  cp -r "$srcdir/$_gitname" "$srcdir/$_gitname-build"
-  cd "$srcdir/$_gitname-build"
-
+  cd "${srcdir}/$pkgname-${pkgver//_/-}"
   make
 }
 
 package() {
-  cd "$srcdir/$_gitname-build"
-  install -Dm 755 $_gitname "$pkgdir/usr/bin/$_gitname"
-  install -Dm 644 "$_gitname.desktop" "$pkgdir/usr/share/xsessions/$_gitname.desktop"
-  gzip -c "$_gitname.1" > "$_gitname.1.gz"
-  install -Dm644 "$_gitname.1.gz" "$pkgdir/usr/share/man/man1/$_gitname.1.gz"
+  cd "${srcdir}/$pkgname-${pkgver//_/-}"
+  install -Dm 755 $pkgname "$pkgdir/usr/bin/$pkgname"
+  install -Dm 644 "$pkgname.desktop" "$pkgdir/usr/share/xsessions/$pkgname.desktop"
+  gzip -c "$pkgname.1" > "$pkgname.1.gz"
+  install -Dm644 "$pkgname.1.gz" "$pkgdir/usr/share/man/man1/$pkgname.1.gz"
 }
