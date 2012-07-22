@@ -613,16 +613,20 @@ void handle_maprequest(XEvent *ev)
 		if ((config_window_placement == PLACEANY && !(c->xsize.flags & (PPosition|USPosition))) || (config_window_placement == PLACECENTER))
 		{
 			client *p = NULL;
-			workarea *m = &c->monitor;
 			// try to center transients on their main window
 			if (c->trans != None && (p = client_create(c->trans)) && p)
 			{
 				client_extended_data(p);
-				m = &p->monitor;
+				client_moveresize(c, 0, p->x + (p->sw/2) - (c->sw/2),
+					p->y + (p->sh/2) - (c->sh/2), c->sw, c->sh);
 			}
+			else
 			// center everything else on current monitor
-			client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->sw) / 2)),
-				MAX(m->y, m->y + ((m->h - c->sh) / 2)), c->sw, c->sh);
+			{
+				workarea *m = &c->monitor;
+				client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->sw) / 2)),
+					MAX(m->y, m->y + ((m->h - c->sh) / 2)), c->sw, c->sh);
+			}
 		}
 
 		// default to current tag
