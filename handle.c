@@ -627,7 +627,11 @@ void handle_maprequest(XEvent *ev)
 				client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->sw) / 2)),
 					MAX(m->y, m->y + ((m->h - c->sh) / 2)), c->sw, c->sh);
 			}
-		}
+		} else
+		// let program or user specified positions go through, but require it to be neatly on-screen.
+		// client_moveresize() does the necessary nudging
+		if (c->xsize.flags & (PPosition|USPosition))
+			client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
 
 		// default to current tag
 		client_rules_tags(c);
