@@ -843,6 +843,7 @@ void client_flash(client *c, unsigned int color, int delay, int title)
 
 		c = client_create(win);
 		if (!c) exit(EXIT_FAILURE);
+		client_descriptive_data(c);
 		client_extended_data(c);
 
 		int x1 = c->x, x2 = c->x + c->sw - config_flash_width;
