@@ -1350,6 +1350,14 @@ Switch to another window manager in place (without restarting X).
 goomwwm -cli -exec dwm
 .RE
 .TP
+.B -findstart
+Locate a window by class, name, or title.
+If not found, execute it.
+.RS
+.PP
+goomwwm -cli -findstart class:xterm
+.RE
+.TP
 .B -notice
 Instruct goomwwm to display something via the popup message box.
 .RS

@@ -807,6 +807,11 @@ When run with **-cli** (command line interface) goomwwm may be used to dispatch 
 
 	goomwwm -cli -exec dwm
 
+-findstart
+:	Locate a window by class, name, or title. If not found, execute it.
+
+	goomwwm -cli -findstart class:xterm
+
 -notice
 :	Instruct goomwwm to display something via the popup message box.
 
