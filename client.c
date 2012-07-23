@@ -1007,7 +1007,10 @@ void client_lower(client *c, int priority)
 void client_review_border(client *c)
 {
 	client_extended_data(c);
-	XSetWindowBorderWidth(display, c->window, c->is_full ? 0:config_border_width);
+	unsigned long width = c->is_full ? 0:config_border_width;
+	XSetWindowBorderWidth(display, c->window, width);
+	unsigned long extents[4] = { width, width, width, width };
+	window_set_cardinal_prop(c->window, netatoms[_NET_FRAME_EXTENTS], extents, 4);
 }
 
 // set allowed _NET_WM_STATE_* client messages
