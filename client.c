@@ -1079,7 +1079,17 @@ void client_deactivate(client *c, client *a)
 {
 	XSetWindowBorder(display, c->window, client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION])
 		? config_border_attention: config_border_blur);
-	if (c->visible && client_rule(c, RULE_AUTOMINI) && (!a || a->trans != c->window)) client_minimize(c);
+	if (c->visible && client_rule(c, RULE_AUTOMINI))
+	{
+		bool trans = 0;
+		// check whether the active window is one of our family
+		while (a && !trans && a->trans != None)
+		{
+			if (a->trans == c->window) trans = 1;
+			a = client_create(a->trans);
+		}
+		if (!trans) client_minimize(c);
+	}
 }
 
 // raise and focus a client
