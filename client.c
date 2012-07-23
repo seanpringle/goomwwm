@@ -1639,11 +1639,11 @@ void client_switcher(unsigned int tag)
 	// type=0 normal windows
 	// type=1 shaded windows
 	// type=2 minimized windows
-	for (type = 0; type < 2; type++)
+	for (type = 0; type < 3; type++)
 	{
 		winlist *l = windows_activated;
 		if (type == 1) l = windows_shaded;
-		if (type == 2) l = windows_shaded;
+		if (type == 2) l = windows_minimized;
 		// calc widths of wm_class and tag csv fields
 		clients_descend(l, i, w, c)
 		{
