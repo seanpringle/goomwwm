@@ -428,6 +428,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_TSWITCH,            0, XK_grave,      -tswitch   ),\
 	X(KEY_CYCLE,              0, XK_c,          -cycle     ),\
 	X(KEY_CLOSE,              0, XK_Escape,     -close     ),\
+	X(KEY_TAGCLOSE,   ShiftMask, XK_Escape,     -tagclose  ),\
 	X(KEY_HTILE,              0, XK_h,          -htile     ),\
 	X(KEY_VTILE,              0, XK_v,          -vtile     ),\
 	X(KEY_HUNTILE,    ShiftMask, XK_h,          -huntile   ),\
@@ -442,7 +443,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_MINIMIZE,           0, XK_slash,      -minimize  ),\
 	X(KEY_RULE,               0, XK_comma,      -runrule   ),\
 	X(KEY_RULESET,            0, XK_period,     -runruleset),\
-	X(KEY_TAGONLY,            0, XK_o,          -only      ),\
+	X(KEY_TAGONLY,            0, XK_o,          -tagonly   ),\
 	X(KEY_LAUNCH,             0, XK_x,          -launch    )
 
 enum { KEYLIST(KEY_ENUM) };

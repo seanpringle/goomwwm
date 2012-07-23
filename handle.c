@@ -81,9 +81,10 @@ void handle_keypress(XEvent *ev)
 		tag_raise(1<<i);
 
 	// tag cycling
-	else if (ISKEY(KEY_TAGNEXT)) tag_raise(current_tag & TAG9 ? TAG1: current_tag<<1);
-	else if (ISKEY(KEY_TAGPREV)) tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
-	else if (ISKEY(KEY_TAGONLY)) tag_only(current_tag);
+	else if (ISKEY(KEY_TAGNEXT))  tag_raise(current_tag & TAG9 ? TAG1: current_tag<<1);
+	else if (ISKEY(KEY_TAGPREV))  tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
+	else if (ISKEY(KEY_TAGONLY))  tag_only(current_tag);
+	else if (ISKEY(KEY_TAGCLOSE)) tag_close(current_tag);
 
 	else
 	// following only relevant with a focused window

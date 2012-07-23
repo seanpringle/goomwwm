@@ -125,6 +125,7 @@ void tag_set_current(unsigned int tag);
 void tag_raise(unsigned int tag);
 void tag_auto_switch();
 void tag_only(unsigned int tag);
+void tag_close(unsigned int tag);
 void* allocate(unsigned long bytes);
 void* allocate_clear(unsigned long bytes);
 void* reallocate(void *ptr, unsigned long bytes);
