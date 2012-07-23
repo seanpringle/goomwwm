@@ -857,7 +857,7 @@ void client_flash(client *c, unsigned int color, int delay, int title)
 
 		// use message_box for title
 		if (title || config_flash_title)
-			message_box(delay, c->x+c->sw/2, c->y+c->sh/2, config_title_fg, config_title_bg, "black", c->title);
+			message_box(delay, c->x+c->sw/2, c->y+c->sh/2, config_title_fg, config_title_bg, config_title_bc, c->title);
 
 		// four coloured squares in the window's corners
 		Window tl = XCreateSimpleWindow(display, root, x1, y1, config_flash_width, config_flash_width, 0, None, color);
