@@ -512,20 +512,23 @@ void handle_configurerequest(XEvent *ev)
 		event_log("ConfigureRequest", c->window);
 		event_client_dump(c);
 		window_select(c->window);
-		XConfigureRequestEvent *e = &ev->xconfigurerequest;
-		// only move/resize requests go through. never stacking
-		unsigned long mask = e->value_mask & (CWX|CWY|CWWidth|CWHeight|CWBorderWidth);
-
-		XWindowChanges wc;
 		client_extended_data(c);
-
-		wc.x = e->value_mask & CWX ? e->x: c->x;
-		wc.y = e->value_mask & CWY ? e->y: c->y;
-		wc.width  = e->value_mask & CWWidth  ? e->width : c->w;
-		wc.height = e->value_mask & CWHeight ? e->height: c->h;
-		wc.border_width = c->manage ? config_border_width: 0;
-		wc.sibling = None; wc.stack_mode = None;
-		XConfigureWindow(display, c->window, mask, &wc);
+		// only move/resize requests go through. never stacking
+		XConfigureRequestEvent *e = &ev->xconfigurerequest;
+		int x = e->value_mask & CWX ? e->x: c->x;
+		int y = e->value_mask & CWY ? e->y: c->y;
+		int w = (e->value_mask & CWWidth  ? e->width : c->w) + (c->border_width * 2);
+		int h = (e->value_mask & CWHeight ? e->height: c->h) + (c->border_width * 2);
+		if (c->manage)
+		{
+			// managed windows need to conform to a few rules
+			client_moveresize(c, 0, x, y, w, h);
+			client_review_border(c);
+		} else
+		{
+			// everything else can go through as it likes
+			XMoveResizeWindow(display, c->window, x, y, w, h);
+		}
 	}
 }
 
