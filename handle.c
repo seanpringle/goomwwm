@@ -241,28 +241,28 @@ void handle_keypress(XEvent *ev)
 			{
 				monitor_dimensions_struts(c->monitor.x-c->monitor.l-vague, c->y, &mon);
 				if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ done = 1; fx = mon.x+mon.w-w; fy = y; fw = w; fh = h; }
+					{ done = 1; fx = mon.x+mon.w-w; fy = c->y; fw = w; fh = h; }
 			}
 			else
 			if (ISKEY(KEY_RIGHT) && c->is_right)
 			{
 				monitor_dimensions_struts(c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
 				if (mon.x > c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ done = 1; fx = mon.x; fy = y; fw = w; fh = h; }
+					{ done = 1; fx = mon.x; fy = c->y; fw = w; fh = h; }
 			}
 			else
 			if (ISKEY(KEY_UP) && c->is_top)
 			{
 				monitor_dimensions_struts(c->x, c->monitor.y-c->monitor.t-vague, &mon);
 				if (mon.y < c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ done = 1; fx = x; fy = mon.y+mon.h-h; fw = w; fh = h; }
+					{ done = 1; fx = c->x; fy = mon.y+mon.h-h; fw = w; fh = h; }
 			}
 			else
 			if (ISKEY(KEY_DOWN) && c->is_bottom)
 			{
 				monitor_dimensions_struts(c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
 				if (mon.y > c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ done = 1; fx = x; fy = mon.y; fw = w; fh = h; }
+					{ done = 1; fx = c->x; fy = mon.y; fw = w; fh = h; }
 			}
 
 			// move within current monitor
