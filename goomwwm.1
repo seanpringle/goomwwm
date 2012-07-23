@@ -335,6 +335,19 @@ combination:
 goomwwm\ -above\ control-shift-a
 \f[]
 .fi
+.PP
+To explicitly bind a key without any modifier, not even the default, use
+\f[B]nomod\f[]:
+.IP
+.nf
+\f[C]
+goomwwm\ -above\ nomod-f12
+\f[]
+.fi
+.PP
+Note that this would capture F12 globally, making it unusable for
+anything else.
+Use \f[I]nomod\f[] with care.
 .TP
 .B -1 -2 -3 -4 -5 -6 -7 -8 -9
 Set a number key to a keyword to search for a window by WM_CLASS,

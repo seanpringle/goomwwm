@@ -183,6 +183,12 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 
 	goomwwm -above control-shift-a
 
+To explicitly bind a key without any modifier, not even the default, use **nomod**:
+
+	goomwwm -above nomod-f12
+
+Note that this would capture F12 globally, making it unusable for anything else. Use *nomod* with care.
+
 -1 -2 -3 -4 -5 -6 -7 -8 -9
 :	Set a number key to a keyword to search for a window by WM_CLASS, application name, or title, and then raise and focus it. If a window is not found, the string supplied will be executed as a shell command to start the application.
 
