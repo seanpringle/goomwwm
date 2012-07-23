@@ -1602,6 +1602,12 @@ void client_minimize(client *c)
 	winlist_append(windows_minimized, c->window, NULL);
 	client_add_state(c, netatoms[_NET_WM_STATE_HIDDEN]);
 	c->minimized = 1; c->visible = 0;
+
+	// also minimize any transients
+	int i; Window w; client *o;
+	managed_descend(i, w, o)
+		if (o->trans == c->window && o->visible && !o->minimized && !o->shaded)
+			client_minimize(o);
 }
 
 void client_restore(client *c)
@@ -1611,6 +1617,11 @@ void client_restore(client *c)
 	winlist_forget(windows_activated, c->window);
 	winlist_prepend(windows_activated, c->window, NULL);
 	c->minimized = 0; c->shaded = 0; c->visible = 1;
+
+	// also restore any transients
+	int i; Window w; client *o;
+	clients_descend(windows_minimized, i, w, o)
+		if (o->trans == c->window) client_restore(o);
 }
 
 void client_shade(client *c)
@@ -1621,11 +1632,22 @@ void client_shade(client *c)
 	winlist_append(windows_shaded, c->window, NULL);
 	client_add_state(c, netatoms[_NET_WM_STATE_SHADED]);
 	c->shaded = 1; c->visible = 0;
+
+	// also shade any transients
+	int i; Window w; client *o;
+	managed_descend(i, w, o)
+		if (o->trans == c->window && o->visible && !o->minimized && !o->shaded)
+			client_shade(o);
 }
 
 void client_reveal(client *c)
 {
 	client_restore(c);
+
+	// also restore any transients
+	int i; Window w; client *o;
+	clients_descend(windows_shaded, i, w, o)
+		if (o->trans == c->window) client_restore(o);
 }
 
 // built-in window switcher

@@ -128,7 +128,7 @@ void handle_keypress(XEvent *ev)
 		else if (ISKEY(KEY_DUPLICATE))  client_duplicate(c);
 		else if (ISKEY(KEY_MINIMIZE))   client_minimize(c);
 		else if (ISKEY(KEY_RULE))       client_rules_apply(c);
-		else if (ISKEY(KEY_RULESET))    ruleset_switcher(ev->xany.window);
+		else if (ISKEY(KEY_RULESET))    ruleset_switcher();
 		else if (ISKEY(KEY_INFO))       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
 
 		// directional focus change
