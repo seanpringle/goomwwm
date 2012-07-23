@@ -331,11 +331,11 @@ void client_warp_pointer(client *c)
 		// step toward client window
 		while ((xd || yd ) && INTERSECT(c->x, c->y, c->w, c->h, x, y, 1, 1) && !client_warp_check(c, x, y))
 			{ x += xd; y += yd; }
+		// ensure pointer is slightly inside border
+		x = MIN(c->x+c->w-vague, MAX(c->x+vague, x));
+		y = MIN(c->y+c->h-vague, MAX(c->y+vague, y));
+		XWarpPointer(display, None, None, 0, 0, 0, 0, x-mx, y-my);
 	}
-	// ensure pointer is slightly inside border
-	x = MIN(c->x+c->w-vague, MAX(c->x+vague, x));
-	y = MIN(c->y+c->h-vague, MAX(c->y+vague, y));
-	XWarpPointer(display, None, None, 0, 0, 0, 0, x-mx, y-my);
 }
 
 // move & resize a window nicely, respecting hints and EWMH states
