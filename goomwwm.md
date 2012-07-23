@@ -183,6 +183,12 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 
 	goomwwm -above control-shift-a
 
+To explicitly bind a key without any modifier, not even the default, use **nomod**:
+
+	goomwwm -above nomod-f12
+
+Note that this would capture F12 globally, making it unusable for anything else. Use *nomod* with care.
+
 -1 -2 -3 -4 -5 -6 -7 -8 -9
 :	Set a number key to a keyword to search for a window by WM_CLASS, application name, or title, and then raise and focus it. If a window is not found, the string supplied will be executed as a shell command to start the application.
 
@@ -587,6 +593,9 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	minimize restore
 	:	Start window pre-minimzed, or restore a window on rule set switch.
 
+	minimize_auto
+	:	Automatically minimize a window when it loses focus.
+
 	tag1 tag2 tag3 tag4 tag5 tag6 tag7 tag8 tag9
 	:	Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
 
@@ -797,6 +806,11 @@ When run with **-cli** (command line interface) goomwwm may be used to dispatch 
 :	Switch to another window manager in place (without restarting X).
 
 	goomwwm -cli -exec dwm
+
+-findstart
+:	Locate a window by class, name, or title. If not found, execute it.
+
+	goomwwm -cli -findstart class:xterm
 
 -notice
 :	Instruct goomwwm to display something via the popup message box.

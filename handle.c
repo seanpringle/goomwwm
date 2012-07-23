@@ -81,9 +81,10 @@ void handle_keypress(XEvent *ev)
 		tag_raise(1<<i);
 
 	// tag cycling
-	else if (ISKEY(KEY_TAGNEXT)) tag_raise(current_tag & TAG9 ? TAG1: current_tag<<1);
-	else if (ISKEY(KEY_TAGPREV)) tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
-	else if (ISKEY(KEY_TAGONLY)) tag_only(current_tag);
+	else if (ISKEY(KEY_TAGNEXT))  tag_raise(current_tag & TAG9 ? TAG1: current_tag<<1);
+	else if (ISKEY(KEY_TAGPREV))  tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
+	else if (ISKEY(KEY_TAGONLY))  tag_only(current_tag);
+	else if (ISKEY(KEY_TAGCLOSE)) tag_close(current_tag);
 
 	else
 	// following only relevant with a focused window
@@ -127,7 +128,7 @@ void handle_keypress(XEvent *ev)
 		else if (ISKEY(KEY_UNDO))       client_rollback(c);
 		else if (ISKEY(KEY_DUPLICATE))  client_duplicate(c);
 		else if (ISKEY(KEY_MINIMIZE))   client_minimize(c);
-		else if (ISKEY(KEY_RULE))       client_rules_apply(c);
+		else if (ISKEY(KEY_RULE))       client_rules_apply(c, RULESRESET);
 		else if (ISKEY(KEY_RULESET))    ruleset_switcher();
 		else if (ISKEY(KEY_INFO))       client_flash(c, config_border_focus, FLASHMSTITLE, FLASHTITLE);
 
@@ -599,7 +600,7 @@ void handle_maprequest(XEvent *ev)
 		// received, some clients seem to be able to map before applying the border change,
 		// resulting in a little jump on screen. ensure border is done first
 		client_review_border(c);
-		client_deactivate(c);
+		client_deactivate(c, client_active(0));
 		client_rules_ewmh(c);
 
 		// PLACEPOINTER: center window on pointer
@@ -833,6 +834,7 @@ void handle_clientmessage(XEvent *ev)
 			m->message_type == gatoms[GOOMWWM_LOG] ||
 			m->message_type == gatoms[GOOMWWM_RULESET] ||
 			m->message_type == gatoms[GOOMWWM_RULE] ||
+			m->message_type == gatoms[GOOMWWM_FIND_OR_START] ||
 			m->message_type == gatoms[GOOMWWM_NOTICE] ||
 			m->message_type == gatoms[GOOMWWM_QUIT]))
 		{
@@ -850,6 +852,8 @@ void handle_clientmessage(XEvent *ev)
 				ruleset_execute(msg);
 			if (msg && m->message_type == gatoms[GOOMWWM_RULE])
 				rule_execute(msg);
+			if (msg && m->message_type == gatoms[GOOMWWM_FIND_OR_START])
+				client_find_or_start(msg);
 			if (msg && m->message_type == gatoms[GOOMWWM_NOTICE])
 				notice(msg);
 			if (m->message_type == gatoms[GOOMWWM_QUIT])
@@ -868,7 +872,7 @@ void handle_propertynotify(XEvent *ev)
 	if (c && c->visible && c->manage)
 	{
 		if (p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION] && !c->active)
-			client_deactivate(c);
+			client_deactivate(c, client_active(0));
 	}
 	// clear monitor workarea/strut cache
 	if (p->atom == netatoms[_NET_WM_STRUT] || p->atom == netatoms[_NET_WM_STRUT_PARTIAL])

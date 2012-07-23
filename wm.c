@@ -166,6 +166,7 @@ void setup_keyboard_options(int ac, char *av[])
 		if (!key) continue;
 
 		unsigned int mask = parse_key_mask(key, config_modkey);
+		if (strcasestr(key, "nomod")) mask = 0;
 		if (strrchr(key, '-')) key = strrchr(key, '-')+1;
 		if (strrchr(key, '+')) key = strrchr(key, '+')+1;
 		KeySym sym = XStringToKeysym(key);

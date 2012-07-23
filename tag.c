@@ -123,3 +123,9 @@ void tag_only(unsigned int tag)
 		if (!(c->cache->tags & tag))
 			client_shade(c);
 }
+
+void tag_close(unsigned int tag)
+{
+	int i; Window w; client *c;
+	tag_descend(i, w, c, tag) client_close(c);
+}

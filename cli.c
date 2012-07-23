@@ -51,6 +51,9 @@ int cli_main(int argc, char *argv[])
 	if ((arg = find_arg_str(argc, argv, "-rule", NULL)))
 		cli_message(gatoms[GOOMWWM_RULE], arg);
 
+	if ((arg = find_arg_str(argc, argv, "-findstart", NULL)))
+		cli_message(gatoms[GOOMWWM_FIND_OR_START], arg);
+
 	if (find_arg(argc, argv, "-quit") >= 0)
 		cli_message(gatoms[GOOMWWM_QUIT], NULL);
 

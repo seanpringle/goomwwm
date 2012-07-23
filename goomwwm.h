@@ -138,6 +138,10 @@ typedef unsigned long long bitmap;
 #define RULE_VTILE 1LL<<48
 #define RULE_VUNTILE 1LL<<49
 #define RULE_RESET 1LL<<50
+#define RULE_AUTOMINI 1LL<<51
+
+#define RULESDEF 0
+#define RULESRESET 1
 
 // just defaults, mostly configurable from command line
 #define BORDER 2
@@ -317,6 +321,7 @@ winrulemap rulemap[] = {
 	{ "huntile", RULE_HUNTILE },
 	{ "vuntile", RULE_VUNTILE },
 	{ "reset", RULE_RESET },
+	{ "minimize_auto", RULE_AUTOMINI },
 };
 
 // a placeholder
@@ -427,6 +432,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_TSWITCH,            0, XK_grave,      -tswitch   ),\
 	X(KEY_CYCLE,              0, XK_c,          -cycle     ),\
 	X(KEY_CLOSE,              0, XK_Escape,     -close     ),\
+	X(KEY_TAGCLOSE,   ShiftMask, XK_Escape,     -tagclose  ),\
 	X(KEY_HTILE,              0, XK_h,          -htile     ),\
 	X(KEY_VTILE,              0, XK_v,          -vtile     ),\
 	X(KEY_HUNTILE,    ShiftMask, XK_h,          -huntile   ),\
@@ -568,6 +574,7 @@ Atom netatoms[NETATOMS];
 	X(GOOMWWM_RULESET),\
 	X(GOOMWWM_RULE),\
 	X(GOOMWWM_NOTICE),\
+	X(GOOMWWM_FIND_OR_START),\
 	X(GOOMWWM_RESTART)
 
 enum { GOOMWWM_ATOMS(ATOM_ENUM), GATOMS };

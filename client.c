@@ -1085,10 +1085,21 @@ void client_full_review(client *c)
 }
 
 // update client border to blurred
-void client_deactivate(client *c)
+void client_deactivate(client *c, client *a)
 {
 	XSetWindowBorder(display, c->window, client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION])
 		? config_border_attention: config_border_blur);
+	if (c->visible && client_rule(c, RULE_AUTOMINI))
+	{
+		bool trans = 0;
+		// check whether the active window is one of our family
+		while (a && !trans && a->trans != None)
+		{
+			if (a->trans == c->window) trans = 1;
+			a = client_create(a->trans);
+		}
+		if (!trans) client_minimize(c);
+	}
 }
 
 // raise and focus a client
@@ -1097,7 +1108,7 @@ void client_activate(client *c, int raise, int warp)
 	int i; Window w; client *o;
 
 	// deactivate everyone else
-	clients_ascend(windows_in_play(), i, w, o) if (w != c->window) client_deactivate(o);
+	clients_ascend(windows_in_play(), i, w, o) if (w != c->window) client_deactivate(o, c);
 
 	if (c->minimized) client_restore(c);
 	if (c->shaded) client_reveal(c);
@@ -1940,9 +1951,9 @@ void client_rules_moveresize_post(client *c)
 }
 
 // check and apply all possible rules to a client
-void client_rules_apply(client *c)
+void client_rules_apply(client *c, bool reset)
 {
-	if (client_rule(c, RULE_RESET))
+	if (client_rule(c, RULE_RESET) || reset)
 	{
 		client_remove_all_states(c);
 		c->cache->vlock = 0;
