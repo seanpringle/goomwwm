@@ -792,6 +792,9 @@ void handle_clientmessage(XEvent *ev)
 			else
 			if (m->message_type == netatoms[_NET_CLOSE_WINDOW])
 				client_close(c);
+			else
+			if (m->message_type == netatoms[_NET_REQUEST_FRAME_EXTENTS])
+				client_review_border(c);
 
 			if (c->visible)
 			{
