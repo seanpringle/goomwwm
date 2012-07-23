@@ -494,6 +494,9 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 
 	goomwwm -only o
 
+-onlyauto
+:	Make **-only** behavior automatic after current tag switch. Note that while this setting makes tags behave pretty much like virtual desktops, it also reduces flexibility.
+
 -placement
 :	Control the position of new windows (default: any).
 

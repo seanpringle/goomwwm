@@ -94,6 +94,7 @@ void tag_raise(unsigned int tag)
 	}
 	winlist_free(stack);
 	tag_set_current(tag);
+	if (config_only_auto) tag_only(tag);
 
 	// focus the last-focused client in the tag
 	clients_descend(windows_activated, i, w, c) if (c->cache->tags & tag)

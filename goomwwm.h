@@ -370,7 +370,7 @@ unsigned int config_modkey, config_prefix_mode, config_border_focus,
 	config_border_width, config_flash_width, config_flash_ms,
 	config_map_mode, config_menu_select, config_menu_width,
 	config_menu_lines, config_focus_mode, config_raise_mode,
-	config_window_placement;
+	config_window_placement, config_only_auto;
 
 char *config_menu_font, *config_menu_fg, *config_menu_bg,
 	*config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,

@@ -250,6 +250,9 @@ void setup_general_options(int ac, char *av[])
 	if (!strcasecmp(mode, "center"))  config_window_placement = PLACECENTER;
 	if (!strcasecmp(mode, "pointer")) config_window_placement = PLACEPOINTER;
 
+	// autohide non-current tags
+	config_only_auto = find_arg(ac, av, "-onlyauto") >= 0 ? 1:0;
+
 	// menu select mode
 	config_menu_select = MENURETURN;
 	if (!config_prefix_mode)
