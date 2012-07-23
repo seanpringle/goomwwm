@@ -81,7 +81,7 @@ void client_rules_moveresize(client *c);
 void client_rules_locks(client *c);
 void client_rules_tags(client *c);
 void client_rules_moveresize_post(client *c);
-void client_rules_apply(client *c);
+void client_rules_apply(client *c, bool reset);
 void event_client_dump(client *c);
 void ewmh_client_list();
 void ewmh_active_window(Window w);

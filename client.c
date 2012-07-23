@@ -1941,9 +1941,9 @@ void client_rules_moveresize_post(client *c)
 }
 
 // check and apply all possible rules to a client
-void client_rules_apply(client *c)
+void client_rules_apply(client *c, bool reset)
 {
-	if (client_rule(c, RULE_RESET))
+	if (client_rule(c, RULE_RESET) || reset)
 	{
 		client_remove_all_states(c);
 		c->cache->vlock = 0;

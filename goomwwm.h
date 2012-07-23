@@ -140,6 +140,9 @@ typedef unsigned long long bitmap;
 #define RULE_RESET 1LL<<50
 #define RULE_AUTOMINI 1LL<<51
 
+#define RULESDEF 0
+#define RULESRESET 1
+
 // just defaults, mostly configurable from command line
 #define BORDER 2
 #define FOCUS "Royal Blue"
