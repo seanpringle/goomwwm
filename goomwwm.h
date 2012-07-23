@@ -337,6 +337,7 @@ typedef struct {
 	short sx, sy, sw, sh;    // size/pos relative to monitor and including border
 	short states;            // number of EWMH states set
 	short initial_state;     // pulled from wm hints
+	short border_width;      // pulled from xwindowattributes
 	// general flags
 	bool manage, visible, input, focus, active, minimized, shaded;
 	bool is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter;

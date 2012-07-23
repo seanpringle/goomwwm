@@ -247,6 +247,7 @@ client* client_create(Window win)
 
 	// co-ords are x,y upper left outsize border, w,h inside border
 	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
+	c->border_width = c->manage ? config_border_width: c->xattr.border_width;
 
 	winlist_append(cache_client, c->window, c);
 
@@ -331,11 +332,11 @@ void client_warp_pointer(client *c)
 		// step toward client window
 		while ((xd || yd ) && INTERSECT(c->x, c->y, c->w, c->h, x, y, 1, 1) && !client_warp_check(c, x, y))
 			{ x += xd; y += yd; }
+		// ensure pointer is slightly inside border
+		x = MIN(c->x+c->w-vague, MAX(c->x+vague, x));
+		y = MIN(c->y+c->h-vague, MAX(c->y+vague, y));
+		XWarpPointer(display, None, None, 0, 0, 0, 0, x-mx, y-my);
 	}
-	// ensure pointer is slightly inside border
-	x = MIN(c->x+c->w-vague, MAX(c->x+vague, x));
-	y = MIN(c->y+c->h-vague, MAX(c->y+vague, y));
-	XWarpPointer(display, None, None, 0, 0, 0, 0, x-mx, y-my);
 }
 
 // move & resize a window nicely, respecting hints and EWMH states
@@ -365,6 +366,9 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 			{ fy = monitor.y; fh = monitor.h; }
 
+		fw = MAX(MINWINDOW, MIN(fw, monitor.w));
+		fh = MAX(MINWINDOW, MIN(fh, monitor.h));
+
 		// process size hints
 		if (c->xsize.flags & PMinSize)
 		{
@@ -388,8 +392,10 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		}
 
 		// bump onto screen. shrink if necessary
-		fw = MAX(MINWINDOW, MIN(fw, monitor.w+monitor.l+monitor.r));
-		fh = MAX(MINWINDOW, MIN(fh, monitor.h+monitor.t+monitor.b));
+		//fw = MAX(MINWINDOW, MIN(fw, monitor.w));
+		//fh = MAX(MINWINDOW, MIN(fh, monitor.h));
+		//fw = MAX(MINWINDOW, MIN(fw, monitor.w+monitor.l+monitor.r));
+		//fh = MAX(MINWINDOW, MIN(fh, monitor.h+monitor.t+monitor.b));
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 			{ fw = MAX(MINWINDOW, MIN(fw, monitor.w)); fh = MAX(MINWINDOW, MIN(fh, monitor.h)); }
 		fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
@@ -1011,6 +1017,7 @@ void client_review_border(client *c)
 	XSetWindowBorderWidth(display, c->window, width);
 	unsigned long extents[4] = { width, width, width, width };
 	window_set_cardinal_prop(c->window, netatoms[_NET_FRAME_EXTENTS], extents, 4);
+	c->border_width = width;
 }
 
 // set allowed _NET_WM_STATE_* client messages
