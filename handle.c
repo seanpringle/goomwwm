@@ -596,7 +596,7 @@ void handle_maprequest(XEvent *ev)
 		// received, some clients seem to be able to map before applying the border change,
 		// resulting in a little jump on screen. ensure border is done first
 		client_review_border(c);
-		client_deactivate(c);
+		client_deactivate(c, NULL);
 		client_rules_ewmh(c);
 
 		// PLACEPOINTER: center window on pointer
@@ -862,7 +862,7 @@ void handle_propertynotify(XEvent *ev)
 	if (c && c->visible && c->manage)
 	{
 		if (p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION] && !c->active)
-			client_deactivate(c);
+			client_deactivate(c, NULL);
 	}
 	// clear monitor workarea/strut cache
 	if (p->atom == netatoms[_NET_WM_STRUT] || p->atom == netatoms[_NET_WM_STRUT_PARTIAL])

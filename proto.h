@@ -40,7 +40,7 @@ void client_review_nws_actions(client *c);
 void client_review_position(client *c);
 void client_review_desktop(client *c);
 void client_full_review(client *c);
-void client_deactivate(client *c);
+void client_deactivate(client *c, client *a);
 void client_activate(client *c, int raise, int warp);
 void client_set_wm_state(client *c, unsigned long state);
 unsigned long client_get_wm_state(client *c);
