@@ -138,6 +138,7 @@ typedef unsigned long long bitmap;
 #define RULE_VTILE 1LL<<48
 #define RULE_VUNTILE 1LL<<49
 #define RULE_RESET 1LL<<50
+#define RULE_AUTOMINI 1LL<<51
 
 // just defaults, mostly configurable from command line
 #define BORDER 2
@@ -317,6 +318,7 @@ winrulemap rulemap[] = {
 	{ "huntile", RULE_HUNTILE },
 	{ "vuntile", RULE_VUNTILE },
 	{ "reset", RULE_RESET },
+	{ "minimize_auto", RULE_AUTOMINI },
 };
 
 // a placeholder

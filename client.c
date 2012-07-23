@@ -1079,6 +1079,7 @@ void client_deactivate(client *c)
 {
 	XSetWindowBorder(display, c->window, client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION])
 		? config_border_attention: config_border_blur);
+	if (client_rule(c, RULE_AUTOMINI)) client_minimize(c);
 }
 
 // raise and focus a client

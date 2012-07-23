@@ -587,6 +587,9 @@ Any combiation of **shift**, **control**, **mod1** (usually Alt), **mod2**, **mo
 	minimize restore
 	:	Start window pre-minimzed, or restore a window on rule set switch.
 
+	minimize_auto
+	:	Automatically minimize a window when it loses focus.
+
 	tag1 tag2 tag3 tag4 tag5 tag6 tag7 tag8 tag9
 	:	Apply tags to a window when it first opens. If the current tag is not in the list the window will not be raised or allowed to take focus.
 
