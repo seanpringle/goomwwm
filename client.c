@@ -110,7 +110,8 @@ void client_extended_data(client *c)
 
 	// co-ords are x,y upper left outsize border, w,h inside border
 	// correct to include border in w,h for non-fullscreen windows to simplify calculations
-	if (w < screen_width || h < screen_height) { w += config_border_width*2; h += config_border_width*2; }
+	if (c->border_width && (w < screen_width || h < screen_height))
+		{ w += config_border_width*2; h += config_border_width*2; }
 
 	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
 	c->sx = x; c->sy = y; c->sw = w; c->sh = h;
@@ -218,6 +219,7 @@ client* client_create(Window win)
 	c->active    = c->manage && c->visible && window_is_active(c->window) ?1:0;
 	c->minimized = winlist_find(windows_minimized, c->window) >= 0 ? 1:0;
 	c->shaded    = winlist_find(windows_shaded, c->window) >= 0 ? 1:0;
+	c->decorate  = c->manage;
 
 	// focus seems a really dodgy way to determine the "active" window, but in some
 	// cases checking both ->active and ->focus is necessary to bahave logically
@@ -232,6 +234,12 @@ client* client_create(Window win)
 		c->initial_state = hints->flags & StateHint ? hints->initial_state: NormalState;
 		XFree(hints);
 	}
+
+	// can't get away with ignoring old motif stuff, as some apps use it
+	Atom motif_type; int motif_items; motif_hints mhints;
+	if (window_get_prop(c->window, atoms[_MOTIF_WM_HINTS], &motif_type, &motif_items, &mhints, sizeof(mhints)) && motif_items)
+		if (mhints.flags & 2 && mhints.decorations == 0) c->decorate = 0;
+
 	// find last known state
 	idx = winlist_find(windows, c->window);
 	if (idx < 0)
@@ -245,11 +253,11 @@ client* client_create(Window win)
 	// if it's empty, nothing cares that much
 	c->cache = windows->data[idx];
 
+	winlist_append(cache_client, c->window, c);
+
 	// co-ords are x,y upper left outsize border, w,h inside border
 	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
-	c->border_width = c->manage ? config_border_width: c->xattr.border_width;
-
-	winlist_append(cache_client, c->window, c);
+	c->border_width = c->manage && c->decorate ? config_border_width: c->xattr.border_width;
 
 	// extra checks for managed windows
 	if (c->manage && client_rule(c, RULE_IGNORE)) c->manage = 0;
@@ -344,7 +352,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 {
 	client_extended_data(c);
 	fx = MAX(0, fx); fy = MAX(0, fy);
-	int bw = config_border_width*2;
+	int bw = c->border_width ? config_border_width*2: 0;
 
 	// this many be different to the client's current c->monitor...
 	workarea monitor; monitor_dimensions_struts(fx, fy, &monitor);
@@ -1013,7 +1021,7 @@ void client_lower(client *c, int priority)
 void client_review_border(client *c)
 {
 	client_extended_data(c);
-	unsigned long width = c->is_full ? 0:config_border_width;
+	unsigned long width = c->is_full || !c->manage || !c->decorate ? 0: config_border_width;
 	XSetWindowBorderWidth(display, c->window, width);
 	unsigned long extents[4] = { width, width, width, width };
 	window_set_cardinal_prop(c->window, netatoms[_NET_FRAME_EXTENTS], extents, 4);
@@ -1981,7 +1989,7 @@ void event_client_dump(client *c)
 	client_descriptive_data(c);
 	client_extended_data(c);
 	event_note("%x title: %s", (unsigned int)c->window, c->title);
-	event_note("manage:%d input:%d focus:%d initial_state:%d", c->manage, c->input, c->focus, c->initial_state);
+	event_note("manage:%d input:%d focus:%d initial_state:%d decorate:%d", c->manage, c->input, c->focus, c->initial_state, c->decorate);
 	event_note("class: %s name: %s", c->class, c->name);
 	event_note("x:%d y:%d w:%d h:%d b:%d override:%d transient:%x", c->xattr.x, c->xattr.y, c->xattr.width, c->xattr.height,
 		c->xattr.border_width, c->xattr.override_redirect ?1:0, (unsigned int)c->trans);

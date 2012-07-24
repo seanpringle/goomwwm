@@ -339,7 +339,7 @@ typedef struct {
 	short initial_state;     // pulled from wm hints
 	short border_width;      // pulled from xwindowattributes
 	// general flags
-	bool manage, visible, input, focus, active, minimized, shaded;
+	bool manage, visible, input, focus, active, minimized, shaded, decorate;
 	bool is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter;
 	bool is_maxh, is_maxv, is_described, is_extended, is_ruled;
 	// descriptive buffers loaded after client_descriptive_data()
@@ -481,10 +481,15 @@ workarea cache_monitor[6];
 
 static int (*xerror)(Display *, XErrorEvent *);
 
+typedef struct {
+	unsigned long flags, functions, decorations;
+} motif_hints;
+
 #define ATOM_ENUM(x) x
 #define ATOM_CHAR(x) #x
 
-#define ICCCM_ATOMS(X) \
+#define GENERAL_ATOMS(X) \
+	X(_MOTIF_WM_HINTS),\
 	X(WM_DELETE_WINDOW),\
 	X(WM_STATE),\
 	X(WM_TAKE_FOCUS),\
@@ -493,8 +498,8 @@ static int (*xerror)(Display *, XErrorEvent *);
 	X(WM_WINDOW_ROLE),\
 	X(WM_PROTOCOLS)
 
-enum { ICCCM_ATOMS(ATOM_ENUM), ATOMS };
-const char *atom_names[] = { ICCCM_ATOMS(ATOM_CHAR) };
+enum { GENERAL_ATOMS(ATOM_ENUM), ATOMS };
+const char *atom_names[] = { GENERAL_ATOMS(ATOM_CHAR) };
 Atom atoms[ATOMS];
 
 #define EWMH_ATOMS(X) \
