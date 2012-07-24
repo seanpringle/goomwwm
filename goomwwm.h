@@ -352,6 +352,11 @@ typedef struct {
 } client;
 
 // built-in filterable popup menu list
+enum MENU_TYPE {
+	MENU_CLIENT_LIST,
+	MENU_TAG_LIST,
+	MENU_RULE_LIST
+};
 struct localmenu {
 	Window window;
 	GC gc;
@@ -367,6 +372,7 @@ struct localmenu {
 	char *input, *selected, *manual;
 	XIM xim;
 	XIC xic;
+	enum MENU_TYPE type;
 };
 
 // config settings
