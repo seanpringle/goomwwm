@@ -34,7 +34,7 @@ void menu_draw(struct localmenu *my)
 	XGlyphInfo extents; XftTextExtentsUtf8(display, my->font, (unsigned char*)bar, len, &extents);
 	bar[1] = ' '; // XftTextExtentsUtf8 trims trailing space. replace the leading period we used to ensure cursor offset
 	XftDrawRect(my->draw, &my->bg, 0, 0, my->width, my->height);
-	XftDrawStringUtf8(my->draw, &my->fg, my->font, my->horz_pad, my->vert_pad+my->line_height-my->font->descent, (unsigned char*)bar, len);
+	XftDrawString8(my->draw, &my->fg, my->font, my->horz_pad, my->vert_pad+my->line_height-my->font->descent, (unsigned char*)bar, len);
 	XftDrawRect(my->draw, &my->fg, extents.width + my->horz_pad + cursor, my->vert_pad+2, cursor, my->line_height-4);
 
 	// filter lines by current input text
@@ -62,7 +62,7 @@ void menu_draw(struct localmenu *my)
 			// shade alternate lines for better readability
 			XftDrawRect(my->draw, &my->bgalt, my->horz_pad, y, my->width-(my->horz_pad*2), my->line_height);
 		}
-		XftDrawStringUtf8(my->draw, &fg, my->font, my->horz_pad, font_baseline, (unsigned char*)my->filtered[i], strlen(my->filtered[i]));
+		XftDrawString8(my->draw, &fg, my->font, my->horz_pad, font_baseline, (unsigned char*)my->filtered[i], strlen(my->filtered[i]));
 	}
 	// double buffering
 	XCopyArea(display, my->canvas, my->window, my->gc, 0, 0, my->width, my->height, 0, 0);
