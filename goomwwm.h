@@ -448,6 +448,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_RULE,               0, XK_comma,      -runrule   ),\
 	X(KEY_RULESET,            0, XK_period,     -runruleset),\
 	X(KEY_TAGONLY,            0, XK_o,          -only      ),\
+	X(KEY_COMMAND,            0, XK_F12,        -command   ),\
 	X(KEY_LAUNCH,             0, XK_x,          -launch    )
 
 enum { KEYLIST(KEY_ENUM) };

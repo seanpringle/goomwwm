@@ -109,6 +109,7 @@ void menu_draw(struct localmenu *my);
 void menu_select_current(struct localmenu *my);
 void menu_key(struct localmenu *my, XEvent *ev);
 int menu(char **lines, char **input, int firstsel);
+char* prompt();
 void monitor_dimensions(int x, int y, workarea *mon);
 void monitor_dimensions_struts(int x, int y, workarea *mon);
 void monitor_active(workarea *mon);

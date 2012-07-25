@@ -201,3 +201,12 @@ int menu(char **lines, char **input, int firstsel)
 				return i;
 	return -1;
 }
+
+// simple little text input prompt based on menu
+// really needs a title, or perhaps optional "prompt text>"
+char* prompt()
+{
+	char *line = NULL, *input = NULL;
+	menu(&line, &input, 0);
+	return input;
+}

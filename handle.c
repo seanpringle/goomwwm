@@ -64,6 +64,15 @@ void handle_keypress(XEvent *ev)
 	if (ISKEY(KEY_LAUNCH)) exec_cmd(config_launcher);
 
 	else
+	// simple run dialog
+	if (ISKEY(KEY_COMMAND))
+	{
+		char *cmd = prompt();
+		if (cmd) exec_cmd(cmd);
+		free(cmd);
+	}
+
+	else
 	// exec goomwwm. press twice
 	if (ISKEY(KEY_QUIT))
 	{
