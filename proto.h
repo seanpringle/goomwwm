@@ -108,7 +108,7 @@ void handle_mappingnotify(XEvent *ev);
 void menu_draw(struct localmenu *my);
 void menu_select_current(struct localmenu *my);
 void menu_key(struct localmenu *my, XEvent *ev);
-int menu(char **lines, char *manual, int firstsel);
+int menu(char **lines, char **input, int firstsel);
 void monitor_dimensions(int x, int y, workarea *mon);
 void monitor_dimensions_struts(int x, int y, workarea *mon);
 void monitor_active(workarea *mon);

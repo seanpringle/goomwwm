@@ -364,7 +364,7 @@ struct localmenu {
 	char **lines, **filtered;
 	short done, max_lines, num_lines, input_size, line_height;
 	short current, width, height, horz_pad, vert_pad, offset;
-	char *input, *selected, *manual;
+	char *input, *selected;
 	XIM xim;
 	XIC xic;
 };

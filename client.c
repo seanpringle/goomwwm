@@ -1753,10 +1753,13 @@ void client_switcher(unsigned int tag)
 	{
 		display = XOpenDisplay(0);
 		XSync(display, True);
-		int n = menu(list, NULL, 1);
+		char *input = NULL;
+		int n = menu(list, &input, 1);
 		if (n >= 0 && list[n])
 			window_send_message(root, ids->array[n], netatoms[_NET_ACTIVE_WINDOW], 2, // 2 = pager
 				SubstructureNotifyMask | SubstructureRedirectMask);
+		else
+		if (input) exec_cmd(input);
 		exit(EXIT_SUCCESS);
 	}
 	for (i = 0; i < lines; i++) free(list[i]);

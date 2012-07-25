@@ -73,9 +73,6 @@ void menu_select_current(struct localmenu *my)
 {
 	if (my->filtered[my->current])
 		my->selected = my->filtered[my->current];
-	else
-	if (my->manual)
-		strcpy(my->manual, my->input);
 	my->done = 1;
 }
 
@@ -114,7 +111,7 @@ void menu_key(struct localmenu *my, XEvent *ev)
 }
 
 // menu
-int menu(char **lines, char *manual, int firstsel)
+int menu(char **lines, char **input, int firstsel)
 {
 	int i, l;
 	struct localmenu _my, *my = &_my;
@@ -146,7 +143,6 @@ int menu(char **lines, char *manual, int firstsel)
 	my->height      = ((my->line_height) * (my->max_lines+1)) + (my->vert_pad*2);
 	my->xbg         = color_get(config_menu_bg);
 	my->selected    = NULL;
-	my->manual      = manual;
 
 	int x = mon.x + ((mon.w - my->width)/2);
 	int y = mon.y + (mon.h/2) - (my->height/2);
@@ -195,7 +191,9 @@ int menu(char **lines, char *manual, int firstsel)
 	XftFontClose(display, my->font);
 	XDestroyWindow(display, my->window);
 	release_keyboard();
-	free(my->input);
+
+	// return input to caller if no line was selected
+	if (!my->selected && input) *input = my->input; else free(my->input);
 
 	if (my->selected)
 		for (i = 0; my->lines[i]; i++)
