@@ -213,9 +213,9 @@ int menu(char **lines, char **input, char *prompt, int firstsel)
 
 // simple little text input prompt based on menu
 // really needs a title, or perhaps optional "prompt text>"
-char* prompt()
+char* prompt(char *ps)
 {
 	char *line = NULL, *input = NULL;
-	menu(&line, &input, "$ ", 0);
+	menu(&line, &input, ps, 0);
 	return input;
 }

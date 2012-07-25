@@ -67,7 +67,7 @@ void handle_keypress(XEvent *ev)
 	// simple run dialog
 	if (ISKEY(KEY_COMMAND))
 	{
-		char *cmd = prompt();
+		char *cmd = prompt("$ ");
 		if (cmd) exec_cmd(cmd);
 		free(cmd);
 	}
