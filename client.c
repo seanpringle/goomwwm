@@ -1095,8 +1095,14 @@ void client_full_review(client *c)
 // update client border to blurred
 void client_deactivate(client *c, client *a)
 {
-	XSetWindowBorder(display, c->window, client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION])
-		? config_border_attention: config_border_blur);
+	XWMHints *hint;
+	hint = XGetWMHints(display, c->window);
+
+	XSetWindowBorder(display, c->window,
+		(client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]) ||
+		 hint->flags & XUrgencyHint) ? config_border_attention :
+		 config_border_blur);
+
 	if (c->visible && client_rule(c, RULE_AUTOMINI))
 	{
 		bool trans = 0;
