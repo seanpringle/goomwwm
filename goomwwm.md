@@ -268,6 +268,11 @@ Note that this would capture F12 globally, making it unusable for anything else.
 
 	goomwwm -contract BackSpace
 
+-decrease
+:	Set an X11 key to decrementally resize the active window (default: shift+page_up).
+
+	goomwwm -decrease shift+page_down
+
 -down
 :	Set an X11 key name to move the active window downward in a 3x3 grid (default: XK_Down).
 
@@ -407,6 +412,11 @@ Note that this would capture F12 globally, making it unusable for anything else.
 :	Set an X11 key to briefly display the active window's title (default: XK_w).
 
 	goomwwm -info w
+
+-increase
+:	Set an X11 key to incrementally resize the active window (default: shift+page_up).
+
+	goomwwm -increase shift+page_up
 
 -left
 :	Set an X11 key name to move the active window to the left in a 3x3 grid (default: XK_Left).

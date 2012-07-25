@@ -476,6 +476,14 @@ Opposite of -expand.
 goomwwm -contract BackSpace
 .RE
 .TP
+.B -decrease
+Set an X11 key to decrementally resize the active window (default:
+shift+page_up).
+.RS
+.PP
+goomwwm -decrease shift+page_down
+.RE
+.TP
 .B -down
 Set an X11 key name to move the active window downward in a 3x3 grid
 (default: XK_Down).
@@ -698,6 +706,14 @@ Set an X11 key to briefly display the active window\[aq]s title
 .RS
 .PP
 goomwwm -info w
+.RE
+.TP
+.B -increase
+Set an X11 key to incrementally resize the active window (default:
+shift+page_up).
+.RS
+.PP
+goomwwm -increase shift+page_up
 .RE
 .TP
 .B -left

@@ -415,8 +415,8 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_SWAPDOWN,   ShiftMask, XK_k,          -swapdown  ),\
 	X(KEY_SHRINK,             0, XK_Page_Down,  -shrink    ),\
 	X(KEY_GROW,               0, XK_Page_Up,    -grow      ),\
-	X(KEY_DEC,        ShiftMask, XK_Page_Down,  -increase  ),\
-	X(KEY_INC,        ShiftMask, XK_Page_Up,    -decrease  ),\
+	X(KEY_DEC,        ShiftMask, XK_Page_Down,  -decrease  ),\
+	X(KEY_INC,        ShiftMask, XK_Page_Up,    -increase  ),\
 	X(KEY_FULLSCREEN,         0, XK_f,          -fullscreen),\
 	X(KEY_ABOVE,              0, XK_a,          -above     ),\
 	X(KEY_BELOW,              0, XK_b,          -below     ),\
