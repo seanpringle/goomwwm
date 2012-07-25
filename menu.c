@@ -31,19 +31,28 @@ void menu_draw(struct localmenu *my)
 	XGlyphInfo extents;
 
 	// draw text input bar
-	char bar[100];
-	int cursor  = MAX(2, my->line_height/10);
-	int bar_len = snprintf(bar, 100, "%s%s", my->prompt, my->input);
+	int bar_len       = strlen(my->input) + strlen(my->prompt);
+	int cursor_offset = MIN(my->offset + strlen(my->prompt), bar_len);
+	int cursor_width  = MAX(2, my->line_height/10);
+	char *bar = alloca(bar_len + 10);
+	sprintf(bar, "%s%s", my->prompt, my->input);
 
 	// replace spaces so XftTextExtents8 includes their width. why does it strip trailing spaces? crazy...
 	for (i = 0; i < bar_len; i++) if (isspace(bar[i])) bar[i] = '_';
+
+	// calc cursor position
+	XftTextExtents8(display, my->font, (unsigned char*)bar, cursor_offset, &extents);
+	int cursor_x = extents.width;
+
+	// calc full input text width
 	XftTextExtents8(display, my->font, (unsigned char*)bar, bar_len, &extents);
+
 	// restore correct input string
-	snprintf(bar, 100, "%s%s", my->prompt, my->input);
+	sprintf(bar, "%s%s", my->prompt, my->input);
 
 	XftDrawRect(my->draw, &my->bg, 0, 0, my->width, my->height);
 	XftDrawString8(my->draw, &my->fg, my->font, my->horz_pad, my->vert_pad+my->line_height-my->font->descent, (unsigned char*)bar, bar_len);
-	XftDrawRect(my->draw, &my->fg, extents.width + my->horz_pad + cursor, my->vert_pad+2, cursor, my->line_height-4);
+	XftDrawRect(my->draw, &my->fg, cursor_x + my->horz_pad + cursor_width, my->vert_pad+2, cursor_width, my->line_height-4);
 
 	// filter lines by current input text
 	memset(my->filtered, 0, sizeof(char*) * (my->num_lines+1));
@@ -92,14 +101,72 @@ void menu_key(struct localmenu *my, XEvent *ev)
 	if (stat == XBufferOverflow) return;
 	pad[len] = 0;
 
+	unsigned int state = ev->xkey.state;
 	key = XkbKeycodeToKeysym(display, ev->xkey.keycode, 0, 0);
+	int input_len = strlen(my->input);
 
 	if (key == XK_Escape)
+	{
 		my->done = 1;
+		my->input[0] = 0;
+	}
 	else
 	if (key == XK_BackSpace && my->offset > 0)
-		my->input[--(my->offset)] = 0;
+	{
+		// within text bounds
+		if (my->offset < input_len)
+		{
+			int chars = input_len - my->offset;
+			char *src = my->input + my->offset;
+			char *dst = src-1;
+			memmove(dst, src, chars);
+			my->input[input_len-1] = 0;
+			my->offset--;
+		}
+		else my->input[--(my->offset)] = 0;
+	}
 	else
+	// only fires if within text bounds
+	if (key == XK_Delete && my->offset < input_len)
+	{
+		int chars = input_len - my->offset;
+		char *dst = my->input + my->offset;
+		char *src = dst+1;
+		memmove(dst, src, chars);
+		my->input[input_len-1] = 0;
+	}
+	else
+	// beginning of line
+	if (key == XK_Home)
+		my->offset = 0;
+	else
+	// end of line
+	if (key == XK_End)
+		my->offset = input_len;
+	else
+	// scan for previous word gap
+	if (key == XK_Left && state & ControlMask)
+	{
+		for (; my->offset > 0 && isspace(my->input[my->offset-1]); my->offset--);
+		for (; my->offset > 0 && !isspace(my->input[my->offset-1]); my->offset--);
+	}
+	else
+	// scan for next word gap
+	if (key == XK_Right && state & ControlMask)
+	{
+		for (; my->offset < input_len && !isspace(my->input[my->offset]); my->offset++);
+		for (; my->offset < input_len && isspace(my->input[my->offset]); my->offset++);
+	}
+	else
+	// cursor left one char
+	if (key == XK_Left)
+		my->offset = MAX(0, my->offset-1);
+	else
+	// cursor right one char
+	if (key == XK_Right)
+		my->offset = MIN(input_len, my->offset+1);
+	else
+	// change line selection
 	if (key == XK_Up || key == XK_KP_Up || key == XK_KP_Subtract)
 		my->current = (my->current == 0 ? my->max_lines-1: my->current-1);
 	else
@@ -110,10 +177,26 @@ void menu_key(struct localmenu *my, XEvent *ev)
 	if (key == XK_Return || key == XK_KP_Enter)
 		menu_select_current(my);
 	else
+	// normal character insert
 	if (!iscntrl(*pad) && my->offset < my->input_size-1)
 	{
-		my->input[my->offset++] = *pad;
-		my->input[my->offset] = 0;
+		// inserting text
+		if (my->offset < input_len)
+		{
+			// be lazy, but safe with buffer bounds
+			my->input = reallocate(my->input, input_len+2); // +2 for trailing null, and new char
+			int chars = input_len - my->offset;
+			char *src = my->input + my->offset;
+			char *dst = src+1;
+			memmove(dst, src, chars);
+			my->input[my->offset++] = *pad;
+			my->input[input_len+1] = 0;
+		} else
+		// appending text
+		{
+			my->input[my->offset++] = *pad;
+			my->input[my->offset] = 0;
+		}
 	}
 	menu_draw(my);
 }
@@ -141,7 +224,7 @@ int menu(char **lines, char **input, char *prompt, int firstsel)
 	my->max_lines   = MIN(config_menu_lines, my->num_lines);
 	my->input_size  = MAX(l, 100);
 	my->filtered    = allocate_clear(sizeof(char*) * (my->num_lines+1));
-	my->input       = allocate_clear((my->input_size+1)*3); // utf8 in copied line
+	my->input       = allocate_clear(my->input_size+1);
 	my->current     = firstsel; // index of currently highlighted line
 	my->offset      = 0; // length of text in input buffer
 	my->done        = 0; // bailout flag
