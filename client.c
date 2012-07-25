@@ -219,6 +219,7 @@ client* client_create(Window win)
 	c->active    = c->manage && c->visible && window_is_active(c->window) ?1:0;
 	c->minimized = winlist_find(windows_minimized, c->window) >= 0 ? 1:0;
 	c->shaded    = winlist_find(windows_shaded, c->window) >= 0 ? 1:0;
+	c->urgent    = c->manage && client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]) ? 1:0;
 	c->decorate  = c->manage;
 
 	// focus seems a really dodgy way to determine the "active" window, but in some
@@ -232,6 +233,7 @@ client* client_create(Window win)
 	{
 		c->input = hints->flags & InputHint && hints->input ? 1: 0;
 		c->initial_state = hints->flags & StateHint ? hints->initial_state: NormalState;
+		c->urgent = c->urgent || hints->flags & XUrgencyHint ? 1: 0;
 		XFree(hints);
 	}
 
@@ -1095,8 +1097,7 @@ void client_full_review(client *c)
 // update client border to blurred
 void client_deactivate(client *c, client *a)
 {
-	XSetWindowBorder(display, c->window, client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION])
-		? config_border_attention: config_border_blur);
+	XSetWindowBorder(display, c->window, c->urgent ? config_border_attention: config_border_blur);
 	if (c->visible && client_rule(c, RULE_AUTOMINI))
 	{
 		bool trans = 0;
@@ -1992,8 +1993,8 @@ void event_client_dump(client *c)
 	client_descriptive_data(c);
 	client_extended_data(c);
 	event_note("%x title: %s", (unsigned int)c->window, c->title);
-	event_note("manage:%d input:%d focus:%d initial_state:%d decorate:%d", c->manage, c->input, c->focus, c->initial_state, c->decorate);
 	event_note("class: %s name: %s", c->class, c->name);
+	event_note("manage:%d input:%d focus:%d initial_state:%d decorate:%d urgent:%d", c->manage, c->input, c->focus, c->initial_state, c->decorate, c->urgent);
 	event_note("x:%d y:%d w:%d h:%d b:%d override:%d transient:%x", c->xattr.x, c->xattr.y, c->xattr.width, c->xattr.height,
 		c->xattr.border_width, c->xattr.override_redirect ?1:0, (unsigned int)c->trans);
 	event_note("is_full:%d is_left:%d is_top:%d is_right:%d is_bottom:%d\n\t\t is_xcenter:%d is_ycenter:%d is_maxh:%d is_maxv:%d",
