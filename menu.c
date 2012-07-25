@@ -28,13 +28,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 void menu_draw(struct localmenu *my)
 {
 	int i, n;
+	XGlyphInfo extents;
 
 	// draw text input bar
-	char bar[100]; int len = snprintf(bar, 100, ">.%s", my->input), cursor = MAX(2, my->line_height/10);
-	XGlyphInfo extents; XftTextExtentsUtf8(display, my->font, (unsigned char*)bar, len, &extents);
-	bar[1] = ' '; // XftTextExtentsUtf8 trims trailing space. replace the leading period we used to ensure cursor offset
+	char bar[100];
+	int cursor  = MAX(2, my->line_height/10);
+	int bar_len = snprintf(bar, 100, "%s%s", my->prompt, my->input);
+
+	// replace spaces so XftTextExtents8 includes their width. why does it strip trailing spaces? crazy...
+	for (i = 0; i < bar_len; i++) if (isspace(bar[i])) bar[i] = '_';
+	XftTextExtents8(display, my->font, (unsigned char*)bar, bar_len, &extents);
+	// restore correct input string
+	snprintf(bar, 100, "%s%s", my->prompt, my->input);
+
 	XftDrawRect(my->draw, &my->bg, 0, 0, my->width, my->height);
-	XftDrawString8(my->draw, &my->fg, my->font, my->horz_pad, my->vert_pad+my->line_height-my->font->descent, (unsigned char*)bar, len);
+	XftDrawString8(my->draw, &my->fg, my->font, my->horz_pad, my->vert_pad+my->line_height-my->font->descent, (unsigned char*)bar, bar_len);
 	XftDrawRect(my->draw, &my->fg, extents.width + my->horz_pad + cursor, my->vert_pad+2, cursor, my->line_height-4);
 
 	// filter lines by current input text
@@ -111,7 +119,7 @@ void menu_key(struct localmenu *my, XEvent *ev)
 }
 
 // menu
-int menu(char **lines, char **input, int firstsel)
+int menu(char **lines, char **input, char *prompt, int firstsel)
 {
 	int i, l;
 	struct localmenu _my, *my = &_my;
@@ -143,6 +151,7 @@ int menu(char **lines, char **input, int firstsel)
 	my->height      = ((my->line_height) * (my->max_lines+1)) + (my->vert_pad*2);
 	my->xbg         = color_get(config_menu_bg);
 	my->selected    = NULL;
+	my->prompt      = prompt;
 
 	int x = mon.x + ((mon.w - my->width)/2);
 	int y = mon.y + (mon.h/2) - (my->height/2);
@@ -207,6 +216,6 @@ int menu(char **lines, char **input, int firstsel)
 char* prompt()
 {
 	char *line = NULL, *input = NULL;
-	menu(&line, &input, 0);
+	menu(&line, &input, "$ ", 0);
 	return input;
 }
