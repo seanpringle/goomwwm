@@ -764,7 +764,8 @@ void handle_unmapnotify(XEvent *ev)
 	{
 		if (ev->xunmap.event == root)
 		{
-			client_active(current_tag);
+			if (!client_active(current_tag))
+				XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
 			ewmh_client_list();
 		}
 		else
