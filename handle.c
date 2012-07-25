@@ -869,11 +869,17 @@ void handle_propertynotify(XEvent *ev)
 {
 //	while (XCheckTypedWindowEvent(display, ev->xproperty.window, PropertyNotify, ev));
 	XPropertyEvent *p = &ev->xproperty;
+	XWMHints *hint;
 	client *c = client_create(p->window);
 	if (c && c->visible && c->manage)
 	{
-		if (p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION] && !c->active)
+		hint = XGetWMHints(display, p->window);
+		if ((p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION] ||
+			hint->flags & XUrgencyHint) && !c->active)
+		{
 			client_deactivate(c, client_active(0));
+			XFree(hint);
+		}
 	}
 	// clear monitor workarea/strut cache
 	if (p->atom == netatoms[_NET_WM_STRUT] || p->atom == netatoms[_NET_WM_STRUT_PARTIAL])
