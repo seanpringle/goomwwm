@@ -339,7 +339,7 @@ typedef struct {
 	short initial_state;     // pulled from wm hints
 	short border_width;      // pulled from xwindowattributes
 	// general flags
-	bool manage, visible, input, focus, active, minimized, shaded, decorate;
+	bool manage, visible, input, focus, active, minimized, shaded, decorate, urgent;
 	bool is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter;
 	bool is_maxh, is_maxv, is_described, is_extended, is_ruled;
 	// descriptive buffers loaded after client_descriptive_data()

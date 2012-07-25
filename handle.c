@@ -872,7 +872,9 @@ void handle_propertynotify(XEvent *ev)
 	client *c = client_create(p->window);
 	if (c && c->visible && c->manage)
 	{
-		if (p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION] && !c->active)
+		// urgency check only on inactive clients.
+		// possible TODO: for active clients flash border or similar?
+		if (!c->active && c->urgent && (p->atom == XA_WM_HINTS || p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]))
 			client_deactivate(c, client_active(0));
 	}
 	// clear monitor workarea/strut cache
