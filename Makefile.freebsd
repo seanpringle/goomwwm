@@ -1,0 +1,19 @@
+CFLAGS+=-Wall -O2 -I/usr/local/include -I/usr/local/include/freetype2
+LDADD+=-lutil -L/usr/local/lib -lX11 -lXft -lXinerama -lXrender -lfontconfig -lfreetype
+
+normal:
+	$(CC) -o goomwwm goomwwm.c $(CFLAGS) $(LDADD) $(LDFLAGS) 
+
+debug:
+	$(CC) -o goomwwm-debug goomwwm.c $(CFLAGS) -g -DDEBUG $(LDADD)
+
+proto:
+	cat *.c | egrep '^(void|int|char|unsigned|client|Window|winlist|XWindow)' | sed -r 's/\)/);/' > proto.h
+
+docs:
+	pandoc -s -w man goomwwm.md -o goomwwm.1
+
+all: proto normal debug docs
+
+clean:
+	rm -f goomwwm goomwwm-debug
