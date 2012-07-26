@@ -744,6 +744,11 @@ Note that this would capture F12 globally, making it unusable for anything else.
 
 	goomwwm -tagprev n
 
+-tagundo
+:	Set an X11 key to rollback the last group of window changes (default: shift-u). If the last operation altered multiple windows -- tiling, for example -- they will all be rolled back. If the last operation affected only one window, this behaves like normal **-undo**.
+
+	goomwwm -tagundo shift-u
+
 -titlebc
 :	Set the border color (X11 named color or hex #rrggbb) for window titles (default: #c0c0c0).
 

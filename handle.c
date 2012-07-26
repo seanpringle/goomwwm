@@ -85,6 +85,7 @@ void handle_keypress(XEvent *ev)
 	else if (ISKEY(KEY_TAGPREV))  tag_raise(current_tag & TAG1 ? TAG9: current_tag>>1);
 	else if (ISKEY(KEY_TAGONLY))  tag_only(current_tag);
 	else if (ISKEY(KEY_TAGCLOSE)) tag_close(current_tag);
+	else if (ISKEY(KEY_TAGUNDO))  tag_rollback(current_tag);
 
 	else
 	// following only relevant with a focused window
@@ -125,7 +126,7 @@ void handle_keypress(XEvent *ev)
 		else if (ISKEY(KEY_VTILE))      client_vtile(c);
 		else if (ISKEY(KEY_HUNTILE))    client_huntile(c);
 		else if (ISKEY(KEY_VUNTILE))    client_vuntile(c);
-		else if (ISKEY(KEY_UNDO))       client_rollback(c);
+		else if (ISKEY(KEY_UNDO))       client_rollback(c, 0);
 		else if (ISKEY(KEY_DUPLICATE))  client_duplicate(c);
 		else if (ISKEY(KEY_MINIMIZE))   client_minimize(c);
 		else if (ISKEY(KEY_RULE))       client_rules_apply(c, RULESRESET);

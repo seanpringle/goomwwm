@@ -225,6 +225,7 @@ typedef struct {
 typedef struct _winundo {
 	short x, y, w, h, sx, sy, sw, sh, states;
 	Atom state[CLIENTSTATE];
+	double stamp;
 	struct _winundo *next;
 } winundo;
 
@@ -438,6 +439,7 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_HUNTILE,    ShiftMask, XK_h,          -huntile   ),\
 	X(KEY_VUNTILE,    ShiftMask, XK_v,          -vuntile   ),\
 	X(KEY_UNDO,               0, XK_u,          -undo      ),\
+	X(KEY_TAGUNDO,    ShiftMask, XK_u,          -tagundo   ),\
 	X(KEY_TAGNEXT,            0, XK_m,          -tagnext   ),\
 	X(KEY_TAGPREV,            0, XK_n,          -tagprev   ),\
 	X(KEY_DUPLICATE,          0, XK_d,          -duplicate ),\

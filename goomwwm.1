@@ -1252,6 +1252,18 @@ Set an X11 key to cycle tags in reverse (default: XK_n).
 goomwwm -tagprev n
 .RE
 .TP
+.B -tagundo
+Set an X11 key to rollback the last group of window changes (default:
+shift-u).
+If the last operation altered multiple windows -- tiling, for example --
+they will all be rolled back.
+If the last operation affected only one window, this behaves like normal
+\f[B]-undo\f[].
+.RS
+.PP
+goomwwm -tagundo shift-u
+.RE
+.TP
 .B -titlebc
 Set the border color (X11 named color or hex #rrggbb) for window titles
 (default: #c0c0c0).

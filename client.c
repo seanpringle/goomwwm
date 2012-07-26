@@ -489,18 +489,25 @@ void client_commit(client *c)
 	undo->sx = c->sx; undo->sy = c->sy; undo->sw = c->sw; undo->sh = c->sh;
 	for (undo->states = 0; undo->states < c->states; undo->states++)
 		undo->state[undo->states] = c->state[undo->states];
+	undo->stamp = timestamp();
 }
 
 // move/resize a window back to it's last known size and position
-void client_rollback(client *c)
+void client_rollback(client *c, double stamp)
 {
-	if (c->cache->undo)
+	winundo *undo = c->cache->undo;
+	// default to only one rollback step
+	if (!stamp && undo) stamp = undo->stamp;
+
+	while ((undo = c->cache->undo) && stamp <= undo->stamp)
 	{
 		// remove most recent winundo from the undo chain
-		winundo *undo = c->cache->undo; c->cache->undo = undo->next;
+		c->cache->undo = undo->next;
+
 		// do the actual rollback
 		for (c->states = 0; c->states < undo->states; c->states++)
 			c->state[c->states] = undo->state[c->states];
+
 		client_flush_state(c);
 		client_moveresize(c, 0, undo->x, undo->y, undo->sw, undo->sh);
 		free(undo);

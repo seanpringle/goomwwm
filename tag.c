@@ -129,3 +129,22 @@ void tag_close(unsigned int tag)
 	int i; Window w; client *c;
 	tag_descend(i, w, c, tag) client_close(c);
 }
+
+// rollback move/resize all windows in a tag recently moved simultaneously
+// this behaves pretty much like normal client_rollback() unless things like tiling have taken place
+void tag_rollback(unsigned int tag)
+{
+	int i; Window w; client *c; double stamp = 0, vague = 0.1;
+	// locate the most recently altered window
+	tag_descend(i, w, c, tag)
+		if (c->cache->undo)
+			stamp = MAX(c->cache->undo->stamp, stamp);
+	// rollback everything altered since then
+	if (stamp > 0)
+		tag_descend(i, w, c, tag)
+			client_rollback(c, stamp - vague);
+}
+
+
+
+
