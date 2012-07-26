@@ -16,6 +16,7 @@ int client_protocol_event(client *c, Atom protocol);
 void client_close(client *c);
 int client_warp_check(client *c, int x, int y);
 void client_warp_pointer(client *c);
+void client_process_size_hints(client *c, int *x, int *y, int *w, int *h);
 void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh);
 void client_commit(client *c);
 void client_rollback(client *c);

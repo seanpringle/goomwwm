@@ -167,6 +167,13 @@ void handle_keypress(XEvent *ev)
 		{
 			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy;
 
+			// for windows with resize increments, be a little looser detecting their zone
+			if (c->xsize.flags & PResizeInc)
+			{
+				vague = MAX(vague, c->xsize.width_inc);
+				vague = MAX(vague, c->xsize.height_inc);
+			}
+
 			// window width zone
 			int isw4 = (w >= width4 || NEAR(width4, vague, w)) ?1:0;
 			int isw3 = !isw4 && (w >= width3 || NEAR(width3, vague, w)) ?1:0;
@@ -452,25 +459,7 @@ void handle_motionnotify(XEvent *ev)
 				if (xsnap && ysnap) break;
 			}
 		}
-		// process size hints
-		if (c->xsize.flags & PMinSize)
-		{
-			w = MAX(w, c->xsize.min_width);
-			h = MAX(h, c->xsize.min_height);
-		}
-		if (c->xsize.flags & PMaxSize)
-		{
-			w = MIN(w, c->xsize.max_width);
-			h = MIN(h, c->xsize.max_height);
-		}
-		if (c->xsize.flags & PAspect)
-		{
-			double ratio = (double) w / h;
-			double minr  = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
-			double maxr  = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
-				if (ratio < minr) h = (int)(w / minr);
-			else if (ratio > maxr) w = (int)(h * maxr);
-		}
+		client_process_size_hints(c, &x, &y, &w, &h);
 		w = MAX(MINWINDOW, w); h = MAX(MINWINDOW, h);
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
 	}

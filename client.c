@@ -349,6 +349,50 @@ void client_warp_pointer(client *c)
 	}
 }
 
+// adjust co-ordinates to take hints into account, ready for move/resize
+void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
+{
+	// fw/fh still include borders here
+	int fx = *x, fy = *y, fw = *w, fh = *h;
+	int bw = c->border_width ? config_border_width*2: 0;
+	int basew = 0, baseh = 0;
+
+	if (c->xsize.flags & PBaseSize)
+	{
+		basew = c->xsize.base_width;
+		baseh = c->xsize.base_height;
+	}
+	if (c->xsize.flags & PMinSize)
+	{
+		// fw/fh still include borders here
+		fw = MAX(fw, c->xsize.min_width  + bw);
+		fh = MAX(fh, c->xsize.min_height + bw);
+	}
+	if (c->xsize.flags & PMaxSize)
+	{
+		// fw/fh still include borders here
+		fw = MIN(fw, c->xsize.max_width  + bw);
+		fh = MIN(fh, c->xsize.max_height + bw);
+	}
+	if (c->xsize.flags & PResizeInc)
+	{
+		// fw/fh still include borders here
+		fw -= basew + bw; fh -= baseh + bw;
+		fw -= fw % c->xsize.width_inc;
+		fh -= fh % c->xsize.height_inc;
+		fw += basew + bw; fh += baseh + bw;
+	}
+	if (c->xsize.flags & PAspect)
+	{
+		double ratio = (double) fw / fh;
+		double minr  = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
+		double maxr  = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
+			if (ratio < minr) fh = (int)(fw / minr);
+		else if (ratio > maxr) fw = (int)(fh * maxr);
+	}
+	*x = fx; *y = fy; *w = fw; *h = fh;
+}
+
 // move & resize a window nicely, respecting hints and EWMH states
 void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 {
@@ -379,33 +423,9 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		fw = MAX(MINWINDOW, MIN(fw, monitor.w));
 		fh = MAX(MINWINDOW, MIN(fh, monitor.h));
 
-		// process size hints
-		if (c->xsize.flags & PMinSize)
-		{
-			// fw/fh still include borders here
-			fw = MAX(fw, c->xsize.min_width  + bw);
-			fh = MAX(fh, c->xsize.min_height + bw);
-		}
-		if (c->xsize.flags & PMaxSize)
-		{
-			// fw/fh still include borders here
-			fw = MIN(fw, c->xsize.max_width  + bw);
-			fh = MIN(fh, c->xsize.max_height + bw);
-		}
-		if (c->xsize.flags & PAspect)
-		{
-			double ratio = (double) fw / fh;
-			double minr  = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
-			double maxr  = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
-				if (ratio < minr) fh = (int)(fw / minr);
-			else if (ratio > maxr) fw = (int)(fh * maxr);
-		}
+		client_process_size_hints(c, &fx, &fy, &fw, &fh);
 
 		// bump onto screen. shrink if necessary
-		//fw = MAX(MINWINDOW, MIN(fw, monitor.w));
-		//fh = MAX(MINWINDOW, MIN(fh, monitor.h));
-		//fw = MAX(MINWINDOW, MIN(fw, monitor.w+monitor.l+monitor.r));
-		//fh = MAX(MINWINDOW, MIN(fh, monitor.h+monitor.t+monitor.b));
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 			{ fw = MAX(MINWINDOW, MIN(fw, monitor.w)); fh = MAX(MINWINDOW, MIN(fh, monitor.h)); }
 		fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
@@ -715,29 +735,8 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 		w = MIN(w, mw);
 		h = MIN(h, mh);
 	}
-	// if there is nowhere to grow and we have a saved position, flip back to it.
-	// allows the expand key to be used as a toggle!
-	if (x == c->x && y == c->y && w == c->sw && h == c->sh && c->cache->ewmh)
+	if (x != c->x || y != c->y || w != c->sw || h != c->sh)
 	{
-		if (directions & VERTICAL && directions & HORIZONTAL)
-			client_restore_position(c, 0, c->x, c->y, c->cache->ewmh->sw, c->cache->ewmh->sh);
-		else
-		if (directions & VERTICAL)
-			client_restore_position_vert(c, 0, c->y, c->cache->ewmh->sh);
-		else
-		if (directions & HORIZONTAL)
-			client_restore_position_horz(c, 0, c->x, c->cache->ewmh->sw);
-	} else
-	{
-		// save pos for toggle
-		if (directions & VERTICAL && directions & HORIZONTAL)
-			client_save_position(c);
-		else
-		if (directions & VERTICAL)
-			client_save_position_vert(c);
-		else
-		if (directions & HORIZONTAL)
-			client_save_position_horz(c);
 		client_commit(c);
 		client_moveresize(c, 0, x, y, w, h);
 	}
@@ -1053,6 +1052,7 @@ void client_review_position(client *c)
 	if (c->cache && !c->is_full)
 	{
 		// don't change last_corner if it still matches
+		if (!c->cache->last_corner && c->is_xcenter && c->is_ycenter) return;
 		if (c->cache->last_corner == TOPLEFT     && c->is_left  && c->is_top)    return;
 		if (c->cache->last_corner == BOTTOMLEFT  && c->is_left  && c->is_bottom) return;
 		if (c->cache->last_corner == TOPRIGHT    && c->is_right && c->is_top)    return;
@@ -1989,13 +1989,31 @@ void event_client_dump(client *c)
 	if (!c) return;
 	client_descriptive_data(c);
 	client_extended_data(c);
-	event_note("%x title: %s", (unsigned int)c->window, c->title);
+	event_note("title: %s", c->title);
 	event_note("class: %s name: %s", c->class, c->name);
 	event_note("manage:%d input:%d focus:%d initial_state:%d decorate:%d urgent:%d", c->manage, c->input, c->focus, c->initial_state, c->decorate, c->urgent);
 	event_note("x:%d y:%d w:%d h:%d b:%d override:%d transient:%x", c->xattr.x, c->xattr.y, c->xattr.width, c->xattr.height,
 		c->xattr.border_width, c->xattr.override_redirect ?1:0, (unsigned int)c->trans);
-	event_note("is_full:%d is_left:%d is_top:%d is_right:%d is_bottom:%d\n\t\t is_xcenter:%d is_ycenter:%d is_maxh:%d is_maxv:%d",
+	event_note("is_full:%d is_left:%d is_top:%d is_right:%d is_bottom:%d\n\tis_xcenter:%d is_ycenter:%d is_maxh:%d is_maxv:%d",
 		c->is_full, c->is_left, c->is_top, c->is_right, c->is_bottom, c->is_xcenter, c->is_ycenter, c->is_maxh, c->is_maxv);
+	event_note("PMinSize:%d,%d,%d PMaxSize:%d,%d,%d PBaseSize:%d,%d,%d PResizeInc:%d,%d,%d PAspect:%d,%d/%d,%d/%d",
+		(c->xsize.flags & PMinSize ? 1: 0),
+			(c->xsize.flags & PMinSize ? c->xsize.min_width: 0),
+			(c->xsize.flags & PMinSize ? c->xsize.min_height: 0),
+		(c->xsize.flags & PMaxSize ? 1: 0),
+			(c->xsize.flags & PMaxSize ? c->xsize.max_width: 0),
+			(c->xsize.flags & PMaxSize ? c->xsize.max_height: 0),
+		(c->xsize.flags & PBaseSize ? 1: 0),
+			(c->xsize.flags & PBaseSize ? c->xsize.base_width: 0),
+			(c->xsize.flags & PBaseSize ? c->xsize.base_height: 0),
+		(c->xsize.flags & PResizeInc ? 1: 0),
+			(c->xsize.flags & PResizeInc ? c->xsize.width_inc: 0),
+			(c->xsize.flags & PResizeInc ? c->xsize.height_inc: 0),
+		(c->xsize.flags & PAspect ? 1: 0),
+			(c->xsize.flags & PAspect ? c->xsize.min_aspect.x: 0),
+			(c->xsize.flags & PAspect ? c->xsize.min_aspect.y: 0),
+			(c->xsize.flags & PAspect ? c->xsize.max_aspect.x: 0),
+			(c->xsize.flags & PAspect ? c->xsize.max_aspect.y: 0));
 	int i, j;
 	for (i = 0; i < NETATOMS; i++) if (c->type == netatoms[i]) event_note("type:%s", netatom_names[i]);
 	for (i = 0; i < NETATOMS; i++) for (j = 0; j < c->states; j++) if (c->state[j] == netatoms[i]) event_note("state:%s", netatom_names[i]);
