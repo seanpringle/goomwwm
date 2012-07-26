@@ -13,7 +13,7 @@ makedepends=()
 provides=('goomwwm')
 conflicts=('goomwwm-git')
 source=("http://aerosuidae.net/goomwwm/$pkgname-$pkgver.tar.gz")
-md5sums=('e1b81f30548a25af26ddcfb9acfd3732')
+md5sums=('d4b30d3c23932a6f91d8afc2231a2300')
 
 build() {
   cd "${srcdir}/$pkgname-$pkgver"
