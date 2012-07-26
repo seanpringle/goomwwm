@@ -459,7 +459,9 @@ void handle_motionnotify(XEvent *ev)
 				if (xsnap && ysnap) break;
 			}
 		}
+		w += bw; h += bw;
 		client_process_size_hints(c, &x, &y, &w, &h);
+		w -= bw; h -= bw;
 		w = MAX(MINWINDOW, w); h = MAX(MINWINDOW, h);
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
 	}
