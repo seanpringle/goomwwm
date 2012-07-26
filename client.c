@@ -355,6 +355,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	client_extended_data(c);
 	fx = MAX(0, fx); fy = MAX(0, fy);
 	int bw = c->border_width ? config_border_width*2: 0;
+	int basew = 0, baseh = 0;
 
 	// this many be different to the client's current c->monitor...
 	workarea monitor; monitor_dimensions_struts(fx, fy, &monitor);
@@ -380,6 +381,13 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		fh = MAX(MINWINDOW, MIN(fh, monitor.h));
 
 		// process size hints
+		if (c->xsize.flags & PBaseSize)
+		{
+			basew = c->xsize.base_width;
+			baseh = c->xsize.base_height;
+		}
+		fw -= basew; fh -= baseh;
+
 		if (c->xsize.flags & PMinSize)
 		{
 			// fw/fh still include borders here
@@ -400,6 +408,13 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 				if (ratio < minr) fh = (int)(fw / minr);
 			else if (ratio > maxr) fw = (int)(fh * maxr);
 		}
+
+		if (c->xsize.flags & PResizeInc)
+		{
+			fw -= fw % c->xsize.width_inc;
+			fh -= fh % c->xsize.height_inc;
+		}
+		fw += basew; fh += baseh;
 
 		// bump onto screen. shrink if necessary
 		//fw = MAX(MINWINDOW, MIN(fw, monitor.w));

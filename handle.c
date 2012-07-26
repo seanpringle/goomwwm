@@ -380,6 +380,7 @@ void handle_buttonrelease(XEvent *ev)
 // only get these if a window move/resize has been started in buttonpress
 void handle_motionnotify(XEvent *ev)
 {
+	int basew = 0, baseh = 0;
 	// compress events to reduce window jitter and CPU load
 	while(XCheckTypedEvent(display, MotionNotify, ev));
 	client *c = client_create(ev->xmotion.window);
@@ -453,6 +454,13 @@ void handle_motionnotify(XEvent *ev)
 			}
 		}
 		// process size hints
+		if (c->xsize.flags & PBaseSize)
+		{
+			basew = c->xsize.base_width;
+			baseh = c->xsize.base_height;
+		}
+
+		w -= basew; h -= baseh;
 		if (c->xsize.flags & PMinSize)
 		{
 			w = MAX(w, c->xsize.min_width);
@@ -471,6 +479,12 @@ void handle_motionnotify(XEvent *ev)
 				if (ratio < minr) h = (int)(w / minr);
 			else if (ratio > maxr) w = (int)(h * maxr);
 		}
+		if (c->xsize.flags & PResizeInc)
+		{
+			w -= w % c->xsize.width_inc;
+			h -= h % c->xsize.height_inc;
+		}
+		w += basew; h += baseh;
 		w = MAX(MINWINDOW, w); h = MAX(MINWINDOW, h);
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
 	}
