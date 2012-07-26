@@ -739,6 +739,14 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	{
 		client_commit(c);
 		client_moveresize(c, 0, x, y, w, h);
+		// if we looked like we could expand, but couldn't due to some condition in client_moveresize(),
+		// act like a toggle and rollback instead
+		winundo *undo = c->cache->undo;
+		if (undo->x == c->x && undo->y == c->y && undo->w == c->w && undo->h == c->h)
+		{
+			client_rollback(c);
+			client_rollback(c);
+		}
 	}
 	free(regions);
 	winlist_free(visible);
