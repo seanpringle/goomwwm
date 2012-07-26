@@ -791,6 +791,7 @@ void handle_clientmessage(XEvent *ev)
 		if (c && c->manage)
 		{
 			event_client_dump(c);
+			event_note("atom: %x", m->message_type);
 			// these may occur for either minimized or normal windows
 			if (m->message_type == netatoms[_NET_ACTIVE_WINDOW])
 				client_activate(c, RAISE, WARPDEF);
@@ -800,17 +801,22 @@ void handle_clientmessage(XEvent *ev)
 			else
 			if (m->message_type == netatoms[_NET_REQUEST_FRAME_EXTENTS])
 				client_review_border(c);
-
+			else
 			if (c->visible)
 			{
 				// these only get applied to mapped windows
 				if (m->message_type == netatoms[_NET_MOVERESIZE_WINDOW] &&
 					(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
 				{
+					client_extended_data(c);
 					client_commit(c);
-					client_extended_data(c); client_moveresize(c, 0,
-						m->data.l[1] >= 0 ? m->data.l[1]: c->x,  m->data.l[2] >= 0 ? m->data.l[2]: c->y,
-						m->data.l[3] >= 1 ? m->data.l[3]: c->sw, m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
+					// to be handled following the same rules as configurenotify
+					// therefore assume request does not account for borders/frame-extents
+					int x = m->data.l[1] >= 0 ? m->data.l[1]: c->x;
+					int y = m->data.l[2] >= 0 ? m->data.l[2]: c->y;
+					int w = (m->data.l[3] >= 1 ? m->data.l[3]: c->w) + (c->border_width * 2);
+					int h = (m->data.l[4] >= 1 ? m->data.l[4]: c->h) + (c->border_width * 2);
+					client_moveresize(c, 0, x, y, w, h);
 				}
 				else
 				if (m->message_type == netatoms[_NET_WM_STATE])
