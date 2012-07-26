@@ -739,19 +739,16 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 		w = MIN(w, mw);
 		h = MIN(h, mh);
 	}
-	if (x != c->x || y != c->y || w != c->sw || h != c->sh)
+	client_commit(c);
+	client_moveresize(c, 0, x, y, w, h);
+	// if we looked like we could expand, but couldn't due to some condition in client_moveresize(),
+	// act like a toggle and rollback instead
+	winundo *undo = c->cache->undo;
+	if (undo->x == c->x && undo->y == c->y && undo->w == c->w && undo->h == c->h)
 	{
-		client_commit(c);
-		client_moveresize(c, 0, x, y, w, h);
-		// if we looked like we could expand, but couldn't due to some condition in client_moveresize(),
-		// act like a toggle and rollback instead
-		winundo *undo = c->cache->undo;
-		if (undo->x == c->x && undo->y == c->y && undo->w == c->w && undo->h == c->h)
-		{
-			// yes, twice!
-			client_rollback(c);
-			client_rollback(c);
-		}
+		// yes, twice!
+		client_rollback(c);
+		client_rollback(c);
 	}
 	free(regions);
 	winlist_free(visible);
