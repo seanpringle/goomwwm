@@ -439,10 +439,12 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		// expanding w is already covered by bumping above
 		if (c->cache && c->cache->last_corner && c->sw > fw)
 		{
-			if (c->cache->last_corner == TOPLEFT || c->cache->last_corner == BOTTOMLEFT)
+			if (c->cache->last_corner == TOPLEFT || c->cache->last_corner == BOTTOMLEFT || c->cache->last_corner == CENTERLEFT)
 				fx = monitor.x;
-			if (c->cache->last_corner == TOPRIGHT || c->cache->last_corner == BOTTOMRIGHT)
+			if (c->cache->last_corner == TOPRIGHT || c->cache->last_corner == BOTTOMRIGHT || c->cache->last_corner == CENTERRIGHT)
 				fx = monitor.x + monitor.w - fw;
+			if (c->cache->last_corner == CENTERTOP || c->cache->last_corner == CENTERBOTTOM)
+				fx = monitor.x + (monitor.w - fw)/2;
 		}
 		// screen center always wins
 		else if (c->is_xcenter) fx = monitor.x + ((monitor.w - fw) / 2);
@@ -453,10 +455,12 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		// expanding h is already covered by bumping above
 		if (c->cache && c->cache->last_corner && c->sh > fh)
 		{
-			if (c->cache->last_corner == TOPLEFT || c->cache->last_corner == TOPRIGHT)
+			if (c->cache->last_corner == TOPLEFT || c->cache->last_corner == TOPRIGHT || c->cache->last_corner == CENTERTOP)
 				fy = monitor.y;
-			if (c->cache->last_corner == BOTTOMLEFT || c->cache->last_corner == BOTTOMRIGHT)
+			if (c->cache->last_corner == BOTTOMLEFT || c->cache->last_corner == BOTTOMRIGHT || c->cache->last_corner == CENTERBOTTOM)
 				fy = monitor.y + monitor.h - fh;
+			if (c->cache->last_corner == CENTERLEFT || c->cache->last_corner == CENTERRIGHT)
+				fy = monitor.y + (monitor.h - fh)/2;
 		}
 		// screen center always wins
 		else if (c->is_ycenter) fy = monitor.y + ((monitor.h - fh) / 2);
@@ -1062,15 +1066,23 @@ void client_review_position(client *c)
 	{
 		// don't change last_corner if it still matches
 		if (!c->cache->last_corner && c->is_xcenter && c->is_ycenter) return;
-		if (c->cache->last_corner == TOPLEFT     && c->is_left  && c->is_top)    return;
-		if (c->cache->last_corner == BOTTOMLEFT  && c->is_left  && c->is_bottom) return;
-		if (c->cache->last_corner == TOPRIGHT    && c->is_right && c->is_top)    return;
-		if (c->cache->last_corner == BOTTOMRIGHT && c->is_right && c->is_bottom) return;
+		if (c->cache->last_corner == CENTERLEFT   && c->is_left   && c->is_ycenter) return;
+		if (c->cache->last_corner == CENTERRIGHT  && c->is_right  && c->is_ycenter) return;
+		if (c->cache->last_corner == CENTERTOP    && c->is_top    && c->is_xcenter) return;
+		if (c->cache->last_corner == CENTERBOTTOM && c->is_bottom && c->is_xcenter) return;
+		if (c->cache->last_corner == TOPLEFT      && c->is_left   && c->is_top)     return;
+		if (c->cache->last_corner == BOTTOMLEFT   && c->is_left   && c->is_bottom)  return;
+		if (c->cache->last_corner == TOPRIGHT     && c->is_right  && c->is_top)     return;
+		if (c->cache->last_corner == BOTTOMRIGHT  && c->is_right  && c->is_bottom)  return;
 		// nope, we've moved too much. decide on a new corner, preferring left and top
-		if (c->is_left && c->is_top)          c->cache->last_corner = TOPLEFT;
-		else if (c->is_left  && c->is_bottom) c->cache->last_corner = BOTTOMLEFT;
-		else if (c->is_right && c->is_top)    c->cache->last_corner = TOPRIGHT;
-		else if (c->is_right && c->is_bottom) c->cache->last_corner = BOTTOMRIGHT;
+		     if (c->is_left   && c->is_ycenter) c->cache->last_corner = CENTERLEFT;
+		else if (c->is_right  && c->is_ycenter) c->cache->last_corner = CENTERRIGHT;
+		else if (c->is_top    && c->is_xcenter) c->cache->last_corner = CENTERTOP;
+		else if (c->is_bottom && c->is_xcenter) c->cache->last_corner = CENTERBOTTOM;
+		else if (c->is_left   && c->is_top)     c->cache->last_corner = TOPLEFT;
+		else if (c->is_left   && c->is_bottom)  c->cache->last_corner = BOTTOMLEFT;
+		else if (c->is_right  && c->is_top)     c->cache->last_corner = TOPRIGHT;
+		else if (c->is_right  && c->is_bottom)  c->cache->last_corner = BOTTOMRIGHT;
 		else c->cache->last_corner = 0;
 	}
 }
@@ -2003,8 +2015,8 @@ void event_client_dump(client *c)
 	event_note("manage:%d input:%d focus:%d initial_state:%d decorate:%d urgent:%d", c->manage, c->input, c->focus, c->initial_state, c->decorate, c->urgent);
 	event_note("x:%d y:%d w:%d h:%d b:%d override:%d transient:%x", c->xattr.x, c->xattr.y, c->xattr.width, c->xattr.height,
 		c->xattr.border_width, c->xattr.override_redirect ?1:0, (unsigned int)c->trans);
-	event_note("is_full:%d is_left:%d is_top:%d is_right:%d is_bottom:%d\n\tis_xcenter:%d is_ycenter:%d is_maxh:%d is_maxv:%d",
-		c->is_full, c->is_left, c->is_top, c->is_right, c->is_bottom, c->is_xcenter, c->is_ycenter, c->is_maxh, c->is_maxv);
+	event_note("is_full:%d is_left:%d is_top:%d is_right:%d is_bottom:%d\n\tis_xcenter:%d is_ycenter:%d is_maxh:%d is_maxv:%d last_corner:%d",
+		c->is_full, c->is_left, c->is_top, c->is_right, c->is_bottom, c->is_xcenter, c->is_ycenter, c->is_maxh, c->is_maxv, c->cache->last_corner);
 	event_note("PMinSize:%d,%d,%d PMaxSize:%d,%d,%d PBaseSize:%d,%d,%d PResizeInc:%d,%d,%d PAspect:%d,%d/%d,%d/%d",
 		(c->xsize.flags & PMinSize ? 1: 0),
 			(c->xsize.flags & PMinSize ? c->xsize.min_width: 0),
