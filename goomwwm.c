@@ -25,6 +25,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 #define _GNU_SOURCE
+#include "version.h"
 #include "goomwwm.h"
 #include "proto.h"
 #include "util.c"
@@ -51,7 +52,16 @@ int main(int argc, char *argv[])
 		|| find_arg(argc, argv, "-h") >= 0)
 	{
 		fprintf(stderr, "See the man page or visit http://github.com/seanpringle/goomwwm\n");
-		return EXIT_FAILURE;
+		return EXIT_SUCCESS;
+	}
+
+	// catch version request
+	if (find_arg(argc, argv, "-version") >= 0
+		|| find_arg(argc, argv, "--version") >= 0
+		|| find_arg(argc, argv, "-v") >= 0)
+	{
+		fprintf(stderr, "%s\n", VERSION);
+		return EXIT_SUCCESS;
 	}
 
 	if(!(display = XOpenDisplay(0)))
