@@ -754,8 +754,8 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	if (undo->x == c->x && undo->y == c->y && undo->w == c->w && undo->h == c->h)
 	{
 		// yes, twice!
-		client_rollback(c);
-		client_rollback(c);
+		client_rollback(c, 0);
+		client_rollback(c, 0);
 	}
 	free(regions);
 	winlist_free(visible);
