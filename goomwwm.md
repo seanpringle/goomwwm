@@ -812,6 +812,11 @@ Note that this would capture F12 globally, making it unusable for anything else.
 
 When run with **-cli** (command line interface) goomwwm may be used to dispatch commands to another running instance of goomwwm. Valid arguments are:
 
+-duration
+:	A time delay in seconds. Currently used only for **-notice**.
+
+	goomwwm -cli -notice "Hello World" -duration 5
+
 -exec
 :	Switch to another window manager in place (without restarting X).
 
@@ -825,7 +830,7 @@ When run with **-cli** (command line interface) goomwwm may be used to dispatch 
 -notice
 :	Instruct goomwwm to display something via the popup message box.
 
-	goomwwm -cli -notice "Hello World!"
+	goomwwm -cli -notice "Hello World"
 
 -quit
 :	Exit goomwwm.

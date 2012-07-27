@@ -59,8 +59,8 @@ int cli_main(int argc, char *argv[])
 
 	if ((arg = find_arg_str(argc, argv, "-notice", NULL)))
 	{
-		// optional delay in seconds. 0 means SAYMS
-		int delay = find_arg_int(argc, argv, "-delay", 0);
+		// optional duration in seconds. 0 means SAYMS
+		int delay = find_arg_int(argc, argv, "-duration", 0);
 		// bit of a hack for v1... write delay inline
 		char *tmp = alloca(strlen(arg) + 10);
 		sprintf(tmp, "%d %s", delay, arg);
