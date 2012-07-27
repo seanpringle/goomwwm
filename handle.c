@@ -854,10 +854,15 @@ void handle_clientmessage(XEvent *ev)
 				rule_execute(msg);
 			if (msg && m->message_type == gatoms[GOOMWWM_FIND_OR_START])
 				client_find_or_start(msg);
-			if (msg && m->message_type == gatoms[GOOMWWM_NOTICE])
-				notice(msg);
 			if (m->message_type == gatoms[GOOMWWM_QUIT])
 				exit(EXIT_SUCCESS);
+			if (msg && m->message_type == gatoms[GOOMWWM_NOTICE])
+			{
+				char *notice = msg;
+				// delay in milliseconds is prefixed
+				int delay = strtol(notice, &notice, 10) * 1000;
+				notification(delay ? delay: SAYMS, strtrim(notice));
+			}
 			free(msg);
 		}
 	}

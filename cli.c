@@ -58,7 +58,14 @@ int cli_main(int argc, char *argv[])
 		cli_message(gatoms[GOOMWWM_QUIT], NULL);
 
 	if ((arg = find_arg_str(argc, argv, "-notice", NULL)))
-		cli_message(gatoms[GOOMWWM_NOTICE], arg);
+	{
+		// optional delay in seconds. 0 means SAYMS
+		int delay = find_arg_int(argc, argv, "-delay", 0);
+		// bit of a hack for v1... write delay inline
+		char *tmp = alloca(strlen(arg) + 10);
+		sprintf(tmp, "%d %s", delay, arg);
+		cli_message(gatoms[GOOMWWM_NOTICE], tmp);
+	}
 
 	//TODO: make this a two-way event exchange
 	usleep(300000); // 0.3s
