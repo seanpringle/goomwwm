@@ -268,13 +268,22 @@ void message_box(int delay, int x, int y, char *fgc, char *bgc, char *bc, char *
 	exit(EXIT_SUCCESS);
 }
 
-// say something informative
+// bottom right of screen
 void notice(const char *fmt, ...)
 {
 	char txt[100]; va_list ap;
 	va_start(ap,fmt); vsnprintf(txt, 100, fmt, ap); va_end(ap);
 	workarea mon; monitor_active(&mon);
 	message_box(SAYMS, mon.x+mon.w-1, mon.y+mon.h-1, config_title_fg, config_title_bg, config_title_bc, txt);
+}
+
+// bottom left of screen
+void notification(int delay, const char *fmt, ...)
+{
+	char txt[100]; va_list ap;
+	va_start(ap,fmt); vsnprintf(txt, 100, fmt, ap); va_end(ap);
+	workarea mon; monitor_active(&mon);
+	message_box(delay, mon.x, mon.y+mon.h-1, config_title_fg, config_title_bg, config_title_bc, txt);
 }
 
 #ifdef DEBUG
