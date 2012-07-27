@@ -259,6 +259,14 @@ void setup_general_options(int ac, char *av[])
 	// autohide non-current tags
 	config_only_auto = find_arg(ac, av, "-onlyauto") >= 0 ? 1:0;
 
+	// resize hints mode
+	config_resize_inc = SMARTRESIZEINC;
+	config_resizeinc_ignore = SMARTRESIZEINC_IGNORE;
+	mode = find_arg_str(ac, av, "-resizehints", "smart");
+	if (!strcasecmp(mode, "all"))  config_resize_inc = RESIZEINC;
+	if (!strcasecmp(mode, "none")) config_resize_inc = NORESIZEINC;
+	if (strcasecmp(mode, "smart")) config_resizeinc_ignore = mode;
+
 	// menu select mode
 	config_menu_select = MENURETURN;
 	if (!config_prefix_mode)

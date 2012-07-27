@@ -374,13 +374,18 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 		fw = MIN(fw, c->xsize.max_width  + bw);
 		fh = MIN(fh, c->xsize.max_height + bw);
 	}
-	if (c->xsize.flags & PResizeInc)
+	if (config_resize_inc && c->xsize.flags & PResizeInc)
 	{
-		// fw/fh still include borders here
-		fw -= basew + bw; fh -= baseh + bw;
-		fw -= fw % c->xsize.width_inc;
-		fh -= fh % c->xsize.height_inc;
-		fw += basew + bw; fh += baseh + bw;
+		client_descriptive_data(c);
+		if (config_resize_inc == RESIZEINC
+			|| (config_resize_inc == SMARTRESIZEINC && !regquick(SMARTRESIZEINC_IGNORE, c->class)))
+		{
+			// fw/fh still include borders here
+			fw -= basew + bw; fh -= baseh + bw;
+			fw -= fw % c->xsize.width_inc;
+			fh -= fh % c->xsize.height_inc;
+			fw += basew + bw; fh += baseh + bw;
+		}
 	}
 	if (c->xsize.flags & PAspect)
 	{

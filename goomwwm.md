@@ -564,6 +564,25 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	click
 	:	Window is raised on Mod-AnyButton click (default for -focusmode sloppy[tag]).
 
+-resizehints
+:	How to handle windows that specify resize-increment hints (Default: smart). These are what can sometimes cause tiled terminals to have gaps around the edges.
+
+	goomwwm -resizehints smart
+
+	Valid settings are:
+
+	all
+	:	All window hints are respected.
+
+	none
+	:	No window hints are respected. Note that this does not prevent windows from sending a follow-up request to be resized to respect their hints. gnome-terminal and lxterminal both do this and may always show gaps.
+
+	smart
+	:	Most window hints are respected, except for a few apps we know can handle having their hints ignored. At present, this is **xterm** and **urxvt**.
+
+	(posix regex)
+	:	Implies smart mode. A regular expression to match the WM_CLASS of windows to ignore **smart** mode. By default this is "^(xterm|urxvt)$". Regex is case-insensitive using POSIX extended syntax.
+
 -right
 :	Set an X11 key name to move the active window to the right in a 3x3 grid (default: XK_Right).
 
