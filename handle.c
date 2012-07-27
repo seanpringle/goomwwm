@@ -168,6 +168,13 @@ void handle_keypress(XEvent *ev)
 		{
 			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy;
 
+			// for windows with resize increments, be a little looser detecting their zone
+			if (c->xsize.flags & PResizeInc)
+			{
+				vague = MAX(vague, c->xsize.width_inc);
+				vague = MAX(vague, c->xsize.height_inc);
+			}
+
 			// window width zone
 			int isw4 = (w >= width4 || NEAR(width4, vague, w)) ?1:0;
 			int isw3 = !isw4 && (w >= width3 || NEAR(width3, vague, w)) ?1:0;
@@ -453,25 +460,11 @@ void handle_motionnotify(XEvent *ev)
 				if (xsnap && ysnap) break;
 			}
 		}
-		// process size hints
-		if (c->xsize.flags & PMinSize)
-		{
-			w = MAX(w, c->xsize.min_width);
-			h = MAX(h, c->xsize.min_height);
-		}
-		if (c->xsize.flags & PMaxSize)
-		{
-			w = MIN(w, c->xsize.max_width);
-			h = MIN(h, c->xsize.max_height);
-		}
-		if (c->xsize.flags & PAspect)
-		{
-			double ratio = (double) w / h;
-			double minr  = (double) c->xsize.min_aspect.x / c->xsize.min_aspect.y;
-			double maxr  = (double) c->xsize.max_aspect.x / c->xsize.max_aspect.y;
-				if (ratio < minr) h = (int)(w / minr);
-			else if (ratio > maxr) w = (int)(h * maxr);
-		}
+		//client_process_size_hints expects borders to be included
+		w += bw; h += bw;
+		client_process_size_hints(c, &x, &y, &w, &h);
+		w -= bw; h -= bw;
+
 		w = MAX(MINWINDOW, w); h = MAX(MINWINDOW, h);
 		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
 	}
@@ -792,6 +785,7 @@ void handle_clientmessage(XEvent *ev)
 		if (c && c->manage)
 		{
 			event_client_dump(c);
+			event_note("atom: %x", m->message_type);
 			// these may occur for either minimized or normal windows
 			if (m->message_type == netatoms[_NET_ACTIVE_WINDOW])
 				client_activate(c, RAISE, WARPDEF);
@@ -801,17 +795,22 @@ void handle_clientmessage(XEvent *ev)
 			else
 			if (m->message_type == netatoms[_NET_REQUEST_FRAME_EXTENTS])
 				client_review_border(c);
-
+			else
 			if (c->visible)
 			{
 				// these only get applied to mapped windows
 				if (m->message_type == netatoms[_NET_MOVERESIZE_WINDOW] &&
 					(m->data.l[1] >= 0 || m->data.l[2] >= 0 || m->data.l[3] > 0 || m->data.l[4] > 0))
 				{
+					client_extended_data(c);
 					client_commit(c);
-					client_extended_data(c); client_moveresize(c, 0,
-						m->data.l[1] >= 0 ? m->data.l[1]: c->x,  m->data.l[2] >= 0 ? m->data.l[2]: c->y,
-						m->data.l[3] >= 1 ? m->data.l[3]: c->sw, m->data.l[4] >= 1 ? m->data.l[4]: c->sh);
+					// to be handled following the same rules as configurenotify
+					// therefore assume request does not account for borders/frame-extents
+					int x = m->data.l[1] >= 0 ? m->data.l[1]: c->x;
+					int y = m->data.l[2] >= 0 ? m->data.l[2]: c->y;
+					int w = (m->data.l[3] >= 1 ? m->data.l[3]: c->w) + (c->border_width * 2);
+					int h = (m->data.l[4] >= 1 ? m->data.l[4]: c->h) + (c->border_width * 2);
+					client_moveresize(c, 0, x, y, w, h);
 				}
 				else
 				if (m->message_type == netatoms[_NET_WM_STATE])
@@ -856,10 +855,15 @@ void handle_clientmessage(XEvent *ev)
 				rule_execute(msg);
 			if (msg && m->message_type == gatoms[GOOMWWM_FIND_OR_START])
 				client_find_or_start(msg);
-			if (msg && m->message_type == gatoms[GOOMWWM_NOTICE])
-				notice(msg);
 			if (m->message_type == gatoms[GOOMWWM_QUIT])
 				exit(EXIT_SUCCESS);
+			if (msg && m->message_type == gatoms[GOOMWWM_NOTICE])
+			{
+				char *notice = msg;
+				// delay in milliseconds is prefixed
+				int delay = strtol(notice, &notice, 10) * 1000;
+				notification(delay ? delay: SAYMS, strtrim(notice));
+			}
 			free(msg);
 		}
 	}

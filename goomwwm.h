@@ -68,6 +68,10 @@ typedef unsigned long long bitmap;
 #define TOPRIGHT 2
 #define BOTTOMLEFT 3
 #define BOTTOMRIGHT 4
+#define CENTERLEFT 5
+#define CENTERRIGHT 6
+#define CENTERTOP 7
+#define CENTERBOTTOM 8
 #define HORIZONTAL 1
 #define VERTICAL 2
 #define SNAPLEFT 1

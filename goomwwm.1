@@ -1371,6 +1371,14 @@ When run with \f[B]-cli\f[] (command line interface) goomwwm may be used
 to dispatch commands to another running instance of goomwwm.
 Valid arguments are:
 .TP
+.B -duration
+A time delay in seconds.
+Currently used only for \f[B]-notice\f[].
+.RS
+.PP
+goomwwm -cli -notice "Hello World" -duration 5
+.RE
+.TP
 .B -exec
 Switch to another window manager in place (without restarting X).
 .RS
@@ -1390,7 +1398,7 @@ goomwwm -cli -findstart class:xterm
 Instruct goomwwm to display something via the popup message box.
 .RS
 .PP
-goomwwm -cli -notice "Hello World!"
+goomwwm -cli -notice "Hello World"
 .RE
 .TP
 .B -quit
