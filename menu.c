@@ -24,6 +24,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
+static void perform_menu_action(struct localmenu *my);
+
 // redraw the popup menu window
 void menu_draw(struct localmenu *my)
 {
@@ -114,7 +116,7 @@ void menu_key(struct localmenu *my, XEvent *ev)
 }
 
 // menu
-int menu(char **lines, char *manual, int firstsel)
+int menu(char **lines, char *manual, int firstsel, enum MENU_TYPE type)
 {
 	int i, l;
 	struct localmenu _my, *my = &_my;
@@ -147,6 +149,7 @@ int menu(char **lines, char *manual, int firstsel)
 	my->xbg         = color_get(config_menu_bg);
 	my->selected    = NULL;
 	my->manual      = manual;
+	my->type	= type;
 
 	int x = mon.x + ((mon.w - my->width)/2);
 	int y = mon.y + (mon.h/2) - (my->height/2);
@@ -195,6 +198,14 @@ int menu(char **lines, char *manual, int firstsel)
 	XftFontClose(display, my->font);
 	XDestroyWindow(display, my->window);
 	release_keyboard();
+
+	/*
+	 * Check to see if we're performing an action instead; this implies a
+	 * non-selected item.
+	 */
+	if ((my->manual == NULL && my->selected == NULL) && my->input)
+		perform_menu_action(my);
+
 	free(my->input);
 
 	if (my->selected)
@@ -202,4 +213,20 @@ int menu(char **lines, char *manual, int firstsel)
 			if (my->lines[i] == my->selected)
 				return i;
 	return -1;
+}
+
+void perform_menu_action(struct localmenu *my)
+{
+	switch (my->type)
+	{
+	case MENU_CLIENT_LIST:
+		execsh(my->input);
+	case MENU_TAG_LIST:
+		/* FALLTHROUGH */
+	case MENU_RULE_LIST:
+		/* Not implemented yet. */
+		return;
+	default:
+		return;
+	}
 }
