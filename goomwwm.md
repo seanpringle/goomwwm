@@ -656,6 +656,9 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	left right top bottom
 	:	Align a window with a screen edge. May be combined. Top trumps bottom. Left trumps right.
 
+	center pointer
+	:	Place a window center-screen or centered under the mouse pointer.
+
 	small medium large cover expand contract
 	:	Set a window's initial size (same increments as PageUp/Down). May be combined.
 

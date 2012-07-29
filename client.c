@@ -1981,10 +1981,23 @@ void client_rules_moveresize(client *c)
 		mr = 1;
 	}
 	//  if a placement rule exists, it trumps everything
-	if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM))
+	if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM|RULE_CENTER|RULE_POINTER))
 	{
 		c->x = MAX(c->monitor.x, c->monitor.x + ((c->monitor.w - c->sw) / 2));
 		c->y = MAX(c->monitor.y, c->monitor.y + ((c->monitor.h - c->sh) / 2));
+		// center first, so others can combine with it
+		if (client_rule(c, RULE_CENTER))
+		{
+			c->x = c->monitor.x + (c->monitor.w - c->sw)/2;
+			c->y = c->monitor.y + (c->monitor.h - c->sh)/2;
+		}
+		if (client_rule(c, RULE_POINTER))
+		{
+			int x, y; pointer_get(&x, &y);
+			workarea a; monitor_dimensions_struts(x, y, &a);
+			c->x = MAX(a.x, x-(c->sw/2));
+			c->y = MAX(a.y, y-(c->sh/2));
+		}
 		if (client_rule(c, RULE_BOTTOM)) c->y = c->monitor.y + c->monitor.h - c->sh;
 		if (client_rule(c, RULE_RIGHT))  c->x = c->monitor.x + c->monitor.w - c->sw;
 		if (client_rule(c, RULE_TOP))    c->y = c->monitor.y;
