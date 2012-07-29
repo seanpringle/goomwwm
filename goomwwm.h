@@ -202,6 +202,8 @@ typedef unsigned long long bitmap;
 #define RESIZEINC 1
 #define NORESIZEINC 0
 #define SMARTRESIZEINC 2
+#define LARGELEFT 1
+#define LARGERIGHT 2
 
 #define SMARTRESIZEINC_IGNORE "^(xterm|urxvt)$"
 

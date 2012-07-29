@@ -858,6 +858,47 @@ void client_snapto(client *c, int direction)
 	winlist_free(visible);
 }
 
+// make a window take up 2/3 of a monitor
+void client_toggle_large(client *c, int side)
+{
+	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
+	int width3  = c->monitor.w - c->monitor.w/3;
+	int height4 = c->monitor.h;
+
+	int is_largeleft  = c->is_left  && c->is_maxv && NEAR(width3, vague, c->sw) ?1:0;
+	int is_largeright = c->is_right && c->is_maxv && NEAR(width3, vague, c->sw) ?1:0;
+
+	c->cache->hlock = 0; c->cache->vlock = 0;
+	client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+
+	if (side == LARGELEFT)
+	{
+		// act like a toggle
+		if (is_largeleft)
+			client_rollback(c);
+		else {
+			client_commit(c);
+			client_moveresize(c, 0, c->monitor.x, c->monitor.y, width3, height4);
+		}
+	}
+	else
+	if (side == LARGERIGHT)
+	{
+		// act like a toggle
+		if (is_largeright)
+			client_rollback(c);
+		else {
+			client_commit(c);
+			client_moveresize(c, 0, c->monitor.x + c->monitor.w - width3, c->monitor.y, width3, height4);
+		}
+	}
+	if (!is_largeleft && !is_largeright)
+	{
+		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
+		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
+	}
+}
+
 // visually highlight a client to attract attention
 // for now, four coloured squares in the corners. could get fancier?
 void client_flash(client *c, unsigned int color, int delay, int title)

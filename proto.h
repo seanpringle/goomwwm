@@ -31,6 +31,7 @@ winlist* clients_partly_visible(workarea *zone, unsigned int tag, Window ignore)
 void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, int mx, int my, int mw, int mh);
 void client_contract(client *c, int directions);
 void client_snapto(client *c, int direction);
+void client_toggle_large(client *c, int side);
 void client_flash(client *c, unsigned int color, int delay, int title);
 void client_stack_family(client *c, winlist *stack);
 void client_raise(client *c, int priority);
