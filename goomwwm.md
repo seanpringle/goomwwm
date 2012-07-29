@@ -164,6 +164,12 @@ Mod-. (period)
 Mod-/ (slash)
 :	Minimize a window.
 
+Mod-[ (left square brancket)
+:	Move and resize a window to cover the left 2/3 of a monitor.
+
+Mod-] (right square brancket)
+:	Move and resize a window to cover the right 2/3 of a monitor.
+
 Mod-o
 :	Show only windows in the current tag. Hide everything else.
 
@@ -292,6 +298,16 @@ Note that this would capture F12 globally, making it unusable for anything else.
 :	Set an X11 key name to expand the active window to fill adjacent space without obscuring any other fully visible window in the current tag (default: XK_Return). Opposite of -contract.
 
 	goomwwm -expand Return
+
+-largeleft
+:	Set an X11 key to move and resize the active window to cover the left 2/3 of a monitor (default: XK_bracketleft).
+
+	goomwwm -largeleft bracketleft
+
+-largeright
+:	Set an X11 key to move and resize the active window to cover the right 2/3 of a monitor (default: XK_bracketright).
+
+	goomwwm -largeleft bracketleft
 
 -launch
 :	Set an X11 key to run the application launcher (default: XK_x).

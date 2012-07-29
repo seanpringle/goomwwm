@@ -290,6 +290,27 @@ void handle_keypress(XEvent *ev)
 			}
 		}
 
+		else
+		if (ISKEY(KEY_LARGELEFT))
+		{
+			// act like a toggle
+			if (c->is_left && c->is_maxv && NEAR(width3, vague, c->sw))
+				client_rollback(c);
+			else {
+				fx = screen_x; fy = screen_y; fw = width3; fh = height4;
+			}
+		}
+		else
+		if (ISKEY(KEY_LARGERIGHT))
+		{
+			// act like a toggle
+			if (c->is_right && c->is_maxv && NEAR(width3, vague, c->sw))
+				client_rollback(c);
+			else {
+				fx = screen_x + screen_width - width3; fy = screen_y; fw = width3; fh = height4;
+			}
+		}
+
 		// no matching key combo found
 		else reset_prefix = 0;
 

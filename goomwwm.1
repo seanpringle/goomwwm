@@ -296,6 +296,16 @@ Minimize a window.
 .RS
 .RE
 .TP
+.B Mod-[ (left square brancket)
+Move and resize a window to cover the left 2/3 of a monitor.
+.RS
+.RE
+.TP
+.B Mod-] (right square brancket)
+Move and resize a window to cover the right 2/3 of a monitor.
+.RS
+.RE
+.TP
 .B Mod-o
 Show only windows in the current tag.
 Hide everything else.
@@ -517,6 +527,22 @@ Opposite of -contract.
 .RS
 .PP
 goomwwm -expand Return
+.RE
+.TP
+.B -largeleft
+Set an X11 key to move and resize the active window to cover the left
+2/3 of a monitor (default: XK_bracketleft).
+.RS
+.PP
+goomwwm -largeleft bracketleft
+.RE
+.TP
+.B -largeright
+Set an X11 key to move and resize the active window to cover the right
+2/3 of a monitor (default: XK_bracketright).
+.RS
+.PP
+goomwwm -largeleft bracketleft
 .RE
 .TP
 .B -launch
