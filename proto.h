@@ -67,6 +67,7 @@ void client_vuntile(client *c);
 client* client_over_there_ish(client *c, int direction);
 void client_focusto(client *c, int direction);
 void client_swapto(client *c, int direction);
+void client_replace(client *c);
 void client_duplicate(client *c);
 void client_minimize(client *c);
 void client_restore(client *c);

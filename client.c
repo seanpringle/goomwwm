@@ -1679,6 +1679,17 @@ void client_swapto(client *c, int direction)
 	}
 }
 
+// place a window over the active window
+void client_replace(client *c)
+{
+	client *a = client_active(0);
+	if (a)
+	{
+		client_commit(c);
+		client_moveresize(c, 0, a->x, a->y, a->sw, a->sh);
+	}
+}
+
 // resize window to match the one underneath
 void client_duplicate(client *c)
 {
@@ -2014,6 +2025,7 @@ void client_rules_moveresize_post(client *c)
 	// yes, can do both contract and expand in one rule. it makes sense...
 	if (client_rule(c, RULE_CONTRACT))  client_contract(c, HORIZONTAL|VERTICAL);
 	if (client_rule(c, RULE_EXPAND))    client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+	if (client_rule(c, RULE_REPLACE))   client_replace(c);
 	if (client_rule(c, RULE_DUPLICATE)) client_duplicate(c);
 	// tiling
 	if (client_rule(c, RULE_HUNTILE)) client_huntile(c);

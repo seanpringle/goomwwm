@@ -143,6 +143,7 @@ typedef unsigned long long bitmap;
 #define RULE_VUNTILE 1LL<<49
 #define RULE_RESET 1LL<<50
 #define RULE_AUTOMINI 1LL<<51
+#define RULE_REPLACE 1LL<<52
 
 #define RULESDEF 0
 #define RULESRESET 1
@@ -305,6 +306,7 @@ winrulemap rulemap[] = {
 	{ "medium", RULE_MEDIUM },
 	{ "large",  RULE_LARGE },
 	{ "cover", RULE_COVER },
+	{ "replace", RULE_REPLACE },
 	{ "steal", RULE_STEAL },
 	{ "block", RULE_BLOCK },
 	{ "hlock", RULE_HLOCK },

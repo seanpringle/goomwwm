@@ -626,8 +626,8 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	ignore
 	:	Do not manage a window. Effectively makes a window behave as it the override_redirect flag is set.
 
-	block
-	:	Do not immediately focus the window when it first maps.
+	steal block
+	:	Allow or prevent a new widow taking focus.
 
 	reset
 	:	Remove all EWMH states and H/V locks (useful for -ruleset).
@@ -667,6 +667,12 @@ Note that this would capture F12 globally, making it unusable for anything else.
 
 	snap_left snap_right snap_up snap_down
 	:	Immediately snap a window to another's edge.
+
+	replace
+	:	Place a window in the same position as the active window.
+
+	duplicate
+	:	Size a window to match the one beneath it.
 
 	NxN N%xN%
 	:	Apply a specific size in pixels or percent of monitor size.
