@@ -410,6 +410,7 @@ int wm_main(int argc, char *argv[])
 
 	// be polite
 	notice("Get out of my way, Window Manager!");
+	reset_lazy_caches();
 
 	// main event loop
 	for(;;)

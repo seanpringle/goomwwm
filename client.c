@@ -2103,6 +2103,8 @@ void event_client_dump(client *c)
 			(c->xsize.flags & PAspect ? c->xsize.min_aspect.y: 0),
 			(c->xsize.flags & PAspect ? c->xsize.max_aspect.x: 0),
 			(c->xsize.flags & PAspect ? c->xsize.max_aspect.y: 0));
+	event_note("monitor: %d %d %d %d %d %d %d %d",
+		c->monitor.x, c->monitor.y, c->monitor.w, c->monitor.h, c->monitor.l, c->monitor.r, c->monitor.t, c->monitor.b);
 	int i, j;
 	for (i = 0; i < NETATOMS; i++) if (c->type == netatoms[i]) event_note("type:%s", netatom_names[i]);
 	for (i = 0; i < NETATOMS; i++) for (j = 0; j < c->states; j++) if (c->state[j] == netatoms[i]) event_note("state:%s", netatom_names[i]);
