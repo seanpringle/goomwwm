@@ -164,6 +164,12 @@ Mod-. (period)
 Mod-/ (slash)
 :	Minimize a window.
 
+Mod-[ (left square brancket)
+:	Move and resize a window to cover the left 2/3 of a monitor.
+
+Mod-] (right square brancket)
+:	Move and resize a window to cover the right 2/3 of a monitor.
+
 Mod-o
 :	Show only windows in the current tag. Hide everything else.
 
@@ -292,6 +298,16 @@ Note that this would capture F12 globally, making it unusable for anything else.
 :	Set an X11 key name to expand the active window to fill adjacent space without obscuring any other fully visible window in the current tag (default: XK_Return). Opposite of -contract.
 
 	goomwwm -expand Return
+
+-largeleft
+:	Set an X11 key to move and resize the active window to cover the left 2/3 of a monitor (default: XK_bracketleft).
+
+	goomwwm -largeleft bracketleft
+
+-largeright
+:	Set an X11 key to move and resize the active window to cover the right 2/3 of a monitor (default: XK_bracketright).
+
+	goomwwm -largeleft bracketleft
 
 -launch
 :	Set an X11 key to run the application launcher (default: XK_x).
@@ -564,6 +580,25 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	click
 	:	Window is raised on Mod-AnyButton click (default for -focusmode sloppy[tag]).
 
+-resizehints
+:	How to handle windows that specify resize-increment hints (Default: smart). These are what can sometimes cause tiled terminals to have gaps around the edges.
+
+	goomwwm -resizehints smart
+
+	Valid settings are:
+
+	all
+	:	All window hints are respected.
+
+	none
+	:	No window hints are respected. Note that this does not prevent windows from sending a follow-up request to be resized to respect their hints. gnome-terminal and lxterminal both do this and may always show gaps.
+
+	smart
+	:	Most window hints are respected, except for a few apps we know can handle having their hints ignored. At present, this is **xterm** and **urxvt**.
+
+	(posix regex)
+	:	Implies smart mode. A regular expression to match the WM_CLASS of windows to ignore **smart** mode. By default this is "^(xterm|urxvt)$". Regex is case-insensitive using POSIX extended syntax.
+
 -right
 :	Set an X11 key name to move the active window to the right in a 3x3 grid (default: XK_Right).
 
@@ -591,8 +626,8 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	ignore
 	:	Do not manage a window. Effectively makes a window behave as it the override_redirect flag is set.
 
-	block
-	:	Do not immediately focus the window when it first maps.
+	steal block
+	:	Allow or prevent a new widow taking focus.
 
 	reset
 	:	Remove all EWMH states and H/V locks (useful for -ruleset).
@@ -621,6 +656,9 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	left right top bottom
 	:	Align a window with a screen edge. May be combined. Top trumps bottom. Left trumps right.
 
+	center pointer
+	:	Place a window center-screen or centered under the mouse pointer.
+
 	small medium large cover expand contract
 	:	Set a window's initial size (same increments as PageUp/Down). May be combined.
 
@@ -632,6 +670,12 @@ Note that this would capture F12 globally, making it unusable for anything else.
 
 	snap_left snap_right snap_up snap_down
 	:	Immediately snap a window to another's edge.
+
+	replace
+	:	Place a window in the same position as the active window.
+
+	duplicate
+	:	Size a window to match the one beneath it.
 
 	NxN N%xN%
 	:	Apply a specific size in pixels or percent of monitor size.

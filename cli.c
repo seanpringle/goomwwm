@@ -68,6 +68,6 @@ int cli_main(int argc, char *argv[])
 	}
 
 	//TODO: make this a two-way event exchange
-	usleep(300000); // 0.3s
+	usleep(500000); // 0.5s
 	return EXIT_SUCCESS;
 }
