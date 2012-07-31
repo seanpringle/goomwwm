@@ -291,6 +291,9 @@ void handle_keypress(XEvent *ev)
 			}
 		}
 
+		else if (ISKEY(KEY_LARGELEFT))  client_toggle_large(c, LARGELEFT);
+		else if (ISKEY(KEY_LARGERIGHT)) client_toggle_large(c, LARGERIGHT);
+
 		// no matching key combo found
 		else reset_prefix = 0;
 

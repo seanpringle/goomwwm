@@ -118,9 +118,13 @@ int find_arg_int(int argc, char *argv[], char *key, int def)
 // once-off regex match. don't use for repeat matching; compile instead
 int regquick(char *pat, char *str)
 {
-	regex_t re; regcomp(&re, pat, REG_EXTENDED|REG_ICASE|REG_NOSUB);
-	int r = regexec(&re, str, 0, NULL, 0) == 0 ?1:0;
-	regfree(&re); return r;
+	regex_t re; int r = 0;
+	if (regcomp(&re, pat, REG_EXTENDED|REG_ICASE|REG_NOSUB) == 0)
+	{
+		r = regexec(&re, str, 0, NULL, 0) == 0 ?1:0;
+		regfree(&re);
+	}
+	return r;
 }
 
 // true if keysym exists in array

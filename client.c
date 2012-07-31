@@ -374,13 +374,18 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 		fw = MIN(fw, c->xsize.max_width  + bw);
 		fh = MIN(fh, c->xsize.max_height + bw);
 	}
-	if (c->xsize.flags & PResizeInc)
+	if (config_resize_inc && c->xsize.flags & PResizeInc)
 	{
-		// fw/fh still include borders here
-		fw -= basew + bw; fh -= baseh + bw;
-		fw -= fw % c->xsize.width_inc;
-		fh -= fh % c->xsize.height_inc;
-		fw += basew + bw; fh += baseh + bw;
+		client_descriptive_data(c);
+		if (config_resize_inc == RESIZEINC
+			|| (config_resize_inc == SMARTRESIZEINC && !regquick(SMARTRESIZEINC_IGNORE, c->class)))
+		{
+			// fw/fh still include borders here
+			fw -= basew + bw; fh -= baseh + bw;
+			fw -= fw % c->xsize.width_inc;
+			fh -= fh % c->xsize.height_inc;
+			fw += basew + bw; fh += baseh + bw;
+		}
 	}
 	if (c->xsize.flags & PAspect)
 	{
@@ -858,6 +863,47 @@ void client_snapto(client *c, int direction)
 	client_moveresize(c, 0, x, y, w, h);
 	free(regions);
 	winlist_free(visible);
+}
+
+// make a window take up 2/3 of a monitor
+void client_toggle_large(client *c, int side)
+{
+	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
+	int width3  = c->monitor.w - c->monitor.w/3;
+	int height4 = c->monitor.h;
+
+	int is_largeleft  = c->is_left  && c->is_maxv && NEAR(width3, vague, c->sw) ?1:0;
+	int is_largeright = c->is_right && c->is_maxv && NEAR(width3, vague, c->sw) ?1:0;
+
+	c->cache->hlock = 0; c->cache->vlock = 0;
+	client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
+
+	if (side == LARGELEFT)
+	{
+		// act like a toggle
+		if (is_largeleft)
+			client_rollback(c);
+		else {
+			client_commit(c);
+			client_moveresize(c, 0, c->monitor.x, c->monitor.y, width3, height4);
+		}
+	}
+	else
+	if (side == LARGERIGHT)
+	{
+		// act like a toggle
+		if (is_largeright)
+			client_rollback(c);
+		else {
+			client_commit(c);
+			client_moveresize(c, 0, c->monitor.x + c->monitor.w - width3, c->monitor.y, width3, height4);
+		}
+	}
+	if (!is_largeleft && !is_largeright)
+	{
+		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
+		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
+	}
 }
 
 // visually highlight a client to attract attention
@@ -1640,6 +1686,17 @@ void client_swapto(client *c, int direction)
 	}
 }
 
+// place a window over the active window
+void client_replace(client *c)
+{
+	client *a = client_active(0);
+	if (a)
+	{
+		client_commit(c);
+		client_moveresize(c, 0, a->x, a->y, a->sw, a->sh);
+	}
+}
+
 // resize window to match the one underneath
 void client_duplicate(client *c)
 {
@@ -1931,10 +1988,23 @@ void client_rules_moveresize(client *c)
 		mr = 1;
 	}
 	//  if a placement rule exists, it trumps everything
-	if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM))
+	if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM|RULE_CENTER|RULE_POINTER))
 	{
 		c->x = MAX(c->monitor.x, c->monitor.x + ((c->monitor.w - c->sw) / 2));
 		c->y = MAX(c->monitor.y, c->monitor.y + ((c->monitor.h - c->sh) / 2));
+		// center first, so others can combine with it
+		if (client_rule(c, RULE_CENTER))
+		{
+			c->x = c->monitor.x + (c->monitor.w - c->sw)/2;
+			c->y = c->monitor.y + (c->monitor.h - c->sh)/2;
+		}
+		if (client_rule(c, RULE_POINTER))
+		{
+			int x, y; pointer_get(&x, &y);
+			workarea a; monitor_dimensions_struts(x, y, &a);
+			c->x = MAX(a.x, x-(c->sw/2));
+			c->y = MAX(a.y, y-(c->sh/2));
+		}
 		if (client_rule(c, RULE_BOTTOM)) c->y = c->monitor.y + c->monitor.h - c->sh;
 		if (client_rule(c, RULE_RIGHT))  c->x = c->monitor.x + c->monitor.w - c->sw;
 		if (client_rule(c, RULE_TOP))    c->y = c->monitor.y;
@@ -1975,6 +2045,7 @@ void client_rules_moveresize_post(client *c)
 	// yes, can do both contract and expand in one rule. it makes sense...
 	if (client_rule(c, RULE_CONTRACT))  client_contract(c, HORIZONTAL|VERTICAL);
 	if (client_rule(c, RULE_EXPAND))    client_expand(c, HORIZONTAL|VERTICAL, 0, 0, 0, 0, 0, 0, 0, 0);
+	if (client_rule(c, RULE_REPLACE))   client_replace(c);
 	if (client_rule(c, RULE_DUPLICATE)) client_duplicate(c);
 	// tiling
 	if (client_rule(c, RULE_HUNTILE)) client_huntile(c);
@@ -2039,6 +2110,8 @@ void event_client_dump(client *c)
 			(c->xsize.flags & PAspect ? c->xsize.min_aspect.y: 0),
 			(c->xsize.flags & PAspect ? c->xsize.max_aspect.x: 0),
 			(c->xsize.flags & PAspect ? c->xsize.max_aspect.y: 0));
+	event_note("monitor: %d %d %d %d %d %d %d %d",
+		c->monitor.x, c->monitor.y, c->monitor.w, c->monitor.h, c->monitor.l, c->monitor.r, c->monitor.t, c->monitor.b);
 	int i, j;
 	for (i = 0; i < NETATOMS; i++) if (c->type == netatoms[i]) event_note("type:%s", netatom_names[i]);
 	for (i = 0; i < NETATOMS; i++) for (j = 0; j < c->states; j++) if (c->state[j] == netatoms[i]) event_note("state:%s", netatom_names[i]);

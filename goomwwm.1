@@ -296,6 +296,16 @@ Minimize a window.
 .RS
 .RE
 .TP
+.B Mod-[ (left square brancket)
+Move and resize a window to cover the left 2/3 of a monitor.
+.RS
+.RE
+.TP
+.B Mod-] (right square brancket)
+Move and resize a window to cover the right 2/3 of a monitor.
+.RS
+.RE
+.TP
 .B Mod-o
 Show only windows in the current tag.
 Hide everything else.
@@ -517,6 +527,22 @@ Opposite of -contract.
 .RS
 .PP
 goomwwm -expand Return
+.RE
+.TP
+.B -largeleft
+Set an X11 key to move and resize the active window to cover the left
+2/3 of a monitor (default: XK_bracketleft).
+.RS
+.PP
+goomwwm -largeleft bracketleft
+.RE
+.TP
+.B -largeright
+Set an X11 key to move and resize the active window to cover the right
+2/3 of a monitor (default: XK_bracketright).
+.RS
+.PP
+goomwwm -largeleft bracketleft
 .RE
 .TP
 .B -launch
@@ -944,6 +970,47 @@ sloppy[tag]).
 .RE
 .RE
 .TP
+.B -resizehints
+How to handle windows that specify resize-increment hints (Default:
+smart).
+These are what can sometimes cause tiled terminals to have gaps around
+the edges.
+.RS
+.PP
+goomwwm -resizehints smart
+.PP
+Valid settings are:
+.TP
+.B all
+All window hints are respected.
+.RS
+.RE
+.TP
+.B none
+No window hints are respected.
+Note that this does not prevent windows from sending a follow-up request
+to be resized to respect their hints.
+gnome-terminal and lxterminal both do this and may always show gaps.
+.RS
+.RE
+.TP
+.B smart
+Most window hints are respected, except for a few apps we know can
+handle having their hints ignored.
+At present, this is \f[B]xterm\f[] and \f[B]urxvt\f[].
+.RS
+.RE
+.TP
+.B (posix regex)
+Implies smart mode.
+A regular expression to match the WM_CLASS of windows to ignore
+\f[B]smart\f[] mode.
+By default this is "^(xterm|urxvt)$".
+Regex is case-insensitive using POSIX extended syntax.
+.RS
+.RE
+.RE
+.TP
 .B -right
 Set an X11 key name to move the active window to the right in a 3x3 grid
 (default: XK_Right).
@@ -999,8 +1066,8 @@ set.
 .RS
 .RE
 .TP
-.B block
-Do not immediately focus the window when it first maps.
+.B steal block
+Allow or prevent a new widow taking focus.
 .RS
 .RE
 .TP
@@ -1059,6 +1126,11 @@ Left trumps right.
 .RS
 .RE
 .TP
+.B center pointer
+Place a window center-screen or centered under the mouse pointer.
+.RS
+.RE
+.TP
 .B small medium large cover expand contract
 Set a window\[aq]s initial size (same increments as PageUp/Down).
 May be combined.
@@ -1077,6 +1149,16 @@ Tile or untile a window with its fellows.
 .TP
 .B snap_left snap_right snap_up snap_down
 Immediately snap a window to another\[aq]s edge.
+.RS
+.RE
+.TP
+.B replace
+Place a window in the same position as the active window.
+.RS
+.RE
+.TP
+.B duplicate
+Size a window to match the one beneath it.
 .RS
 .RE
 .TP

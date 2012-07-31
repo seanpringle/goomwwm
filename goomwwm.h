@@ -143,6 +143,9 @@ typedef unsigned long long bitmap;
 #define RULE_VUNTILE 1LL<<49
 #define RULE_RESET 1LL<<50
 #define RULE_AUTOMINI 1LL<<51
+#define RULE_REPLACE 1LL<<52
+#define RULE_CENTER 1LL<<53
+#define RULE_POINTER 1LL<<54
 
 #define RULESDEF 0
 #define RULESRESET 1
@@ -199,7 +202,13 @@ typedef unsigned long long bitmap;
 #define MENUMODUP 2
 #define PREFIX 1
 #define NOPREFIX 0
+#define RESIZEINC 1
+#define NORESIZEINC 0
+#define SMARTRESIZEINC 2
+#define LARGELEFT 1
+#define LARGERIGHT 2
 
+#define SMARTRESIZEINC_IGNORE "^(xterm|urxvt)$"
 
 #define winlist_ascend(l,i,w) for ((i) = 0; (i) < (l)->len && (((w) = (l)->array[i]) || 1); (i)++)
 #define winlist_descend(l,i,w) for ((i) = (l)->len-1; (i) >= 0 && (((w) = (l)->array[i]) || 1); (i)--)
@@ -296,10 +305,13 @@ winrulemap rulemap[] = {
 	{ "bottom", RULE_BOTTOM },
 	{ "left",   RULE_LEFT },
 	{ "right",  RULE_RIGHT },
+	{ "center", RULE_CENTER },
+	{ "pointer", RULE_POINTER },
 	{ "small",  RULE_SMALL },
 	{ "medium", RULE_MEDIUM },
 	{ "large",  RULE_LARGE },
 	{ "cover", RULE_COVER },
+	{ "replace", RULE_REPLACE },
 	{ "steal", RULE_STEAL },
 	{ "block", RULE_BLOCK },
 	{ "hlock", RULE_HLOCK },
@@ -381,12 +393,12 @@ unsigned int config_modkey, config_prefix_mode, config_border_focus,
 	config_border_width, config_flash_width, config_flash_ms,
 	config_map_mode, config_menu_select, config_menu_width,
 	config_menu_lines, config_focus_mode, config_raise_mode,
-	config_window_placement, config_only_auto;
+	config_window_placement, config_only_auto, config_resize_inc;
 
 char *config_menu_font, *config_menu_fg, *config_menu_bg,
 	*config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,
 	*config_title_font, *config_title_fg, *config_title_bg,
-	*config_menu_bc, *config_title_bc;
+	*config_menu_bc, *config_title_bc, *config_resizeinc_ignore;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
 KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };
@@ -454,6 +466,8 @@ unsigned int config_modkeycodes[MAXMODCODES+1];
 	X(KEY_RULE,               0, XK_comma,      -runrule   ),\
 	X(KEY_RULESET,            0, XK_period,     -runruleset),\
 	X(KEY_TAGONLY,            0, XK_o,          -only      ),\
+	X(KEY_LARGELEFT,          0, XK_bracketleft,  -largeleft ),\
+	X(KEY_LARGERIGHT,         0, XK_bracketright, -largeright),\
 	X(KEY_LAUNCH,             0, XK_x,          -launch    )
 
 enum { KEYLIST(KEY_ENUM) };
