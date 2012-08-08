@@ -94,10 +94,11 @@ void monitor_dimensions_struts(int x, int y, workarea *mon)
 			}
 		}
 	}
-	mon->l = MAX(0, left-mon->x);
-	mon->r = MAX(0, (mon->x+mon->w)-(rattr->width-right));
-	mon->t = MAX(0, top-mon->y);
-	mon->b = MAX(0, (mon->y+mon->h)-(rattr->height-bottom));
+	// limit struts on any side to 1/3 monitor size
+	mon->l = MIN(mon->w/3, MAX(0, left-mon->x));
+	mon->r = MIN(mon->w/3, MAX(0, (mon->x+mon->w)-(rattr->width-right)));
+	mon->t = MIN(mon->h/3, MAX(0, top-mon->y));
+	mon->b = MIN(mon->h/3, MAX(0, (mon->y+mon->h)-(rattr->height-bottom)));
 	mon->x += mon->l; mon->y += mon->t;
 	mon->w -= (mon->l+mon->r);
 	mon->h -= (mon->t+mon->b);
