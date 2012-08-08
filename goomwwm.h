@@ -251,6 +251,8 @@ typedef struct {
 	unsigned int tags; // desktop tags
 	winundo *ewmh;     // undo size/pos for EWMH FULLSCREEN/MAXIMIZE_HORZ/MAXIMIZE_VERT toggles
 	winundo *undo;     // general size/pos undo LIFO linked list
+	Window frame;      // titlebar & border, but NOT reparented!
+	bool is_ours;      // set for any windows goomwwm creates
 } wincache;
 
 // rule for controlling window size/pos/behaviour
@@ -350,7 +352,7 @@ typedef struct {
 	XWindowAttributes xattr; // copy of cache_xattr data
 	XSizeHints xsize;        // only loaded after client_extended_data()
 	short x, y, w, h;        // size/pos pulled from xattr
-	short sx, sy, sw, sh;    // size/pos relative to monitor and including border
+	short sx, sy;            // pos relative to monitor
 	short states;            // number of EWMH states set
 	short initial_state;     // pulled from wm hints
 	short border_width;      // pulled from xwindowattributes
