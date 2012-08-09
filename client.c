@@ -313,8 +313,13 @@ int client_protocol_event(client *c, Atom protocol)
 // close a window politely if possible, else kill it
 void client_close(client *c)
 {
+	// prevent frame flash
+	if (c->decorate)
+		XUnmapWindow(display, c->cache->frame);
+
 	if (c->cache->have_closed || !client_protocol_event(c, atoms[WM_DELETE_WINDOW]))
 		XKillClient(display, c->window);
+
 	c->cache->have_closed = 1;
 }
 
@@ -1026,7 +1031,6 @@ void client_raise(client *c, int priority)
 		return;
 
 	winlist *stack = winlist_new();
-	winlist *inplay = windows_in_play();
 
 	// priority gets us raised without anyone above us, regardless. eg _NET_WM_STATE_FULLSCREEN+focus
 	if (!priority)
@@ -1037,20 +1041,18 @@ void client_raise(client *c, int priority)
 			client_stack_family(c, stack);
 
 		// locate windows with both _NET_WM_STATE_STICKY and _NET_WM_STATE_ABOVE
-		clients_descend(inplay, i, w, o)
+		managed_descend(i, w, o)
 			if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
 				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
 				&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
 					client_stack_family(o, stack);
 		// locate windows in the current_tag with _NET_WM_STATE_ABOVE
-		// untagged windows with _NET_WM_STATE_ABOVE are effectively sticky
-		clients_descend(inplay, i, w, o)
+		tag_descend(i, w, o, current_tag)
 			if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
-				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
-				&& (!o->cache->tags || current_tag & o->cache->tags))
+				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE]))
 					client_stack_family(o, stack);
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
-		clients_descend(inplay, i, w, o)
+		managed_descend(i, w, o)
 			if (winlist_find(stack, w) < 0 && o->visible && c->trans == None
 				&& o->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 					client_stack_family(o, stack);
@@ -1091,35 +1093,14 @@ void client_lower(client *c, int priority)
 	if (!priority && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
 		return;
 
-	winlist *stack = winlist_new();
-	winlist *inplay = windows_in_play();
-
-	client_stack_family(c, stack);
-
-	// locate windows in the current_tag with _NET_WM_STATE_BELOW
-	// untagged windows with _NET_WM_STATE_BELOW are effectively sticky
-	clients_descend(inplay, i, w, o)
-		if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
-			&& client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
-			&& (!o->cache->tags || current_tag & o->cache->tags))
-				client_stack_family(o, stack);
-	// locate windows with both _NET_WM_STATE_STICKY and _NET_WM_STATE_BELOW
-	clients_descend(inplay, i, w, o)
-		if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
-			&& client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
-			&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
-				client_stack_family(o, stack);
-
 	// locate the lowest window in the tag
 	client *under = NULL;
 	tag_descend(i, w, o, current_tag)
-		if (o->trans == None && winlist_find(stack, o->window) < 0)
-			under = o;
+		if (o->trans == None && o->window != c->window
+			&& !client_has_state(o, netatoms[_NET_WM_STATE_BELOW]))
+				under = o;
 
-	if (under) winlist_prepend(stack, under->window, NULL);
-	XRestackWindows(display, stack->array, stack->len);
-
-	winlist_free(stack);
+	if (under) client_raise_under(c, under);
 }
 
 // set border width approriate to position and size

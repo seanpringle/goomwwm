@@ -224,8 +224,8 @@ typedef unsigned long long bitmap;
 #define managed_ascend(i,w,c) clients_ascend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
 #define managed_descend(i,w,c) clients_descend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
 
-#define tag_ascend(i,w,c,t) managed_ascend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
-#define tag_descend(i,w,c,t) managed_descend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
+#define tag_ascend(i,w,c,t) managed_ascend(i, w, c) if (!t || (c)->cache->tags & (t))
+#define tag_descend(i,w,c,t) managed_descend(i, w, c) if (!t || (c)->cache->tags & (t))
 
 // window lists
 typedef struct {
