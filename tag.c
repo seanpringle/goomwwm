@@ -76,7 +76,7 @@ void tag_raise(unsigned int tag)
 			&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
 				{ client_stack_family(c, stack); found++; }
 	// locate _NET_WM_WINDOW_TYPE_DOCK windows
-	managed_descend(i, w, c)
+	clients_descend(windows_in_play(), i, w, c)
 		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
 			&& c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 				client_stack_family(c, stack);

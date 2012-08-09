@@ -1052,7 +1052,7 @@ void client_raise(client *c, int priority)
 				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE]))
 					client_stack_family(o, stack);
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
-		managed_descend(i, w, o)
+		clients_descend(windows_in_play(), i, w, o)
 			if (winlist_find(stack, w) < 0 && o->visible && c->trans == None
 				&& o->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 					client_stack_family(o, stack);
