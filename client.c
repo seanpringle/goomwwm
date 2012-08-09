@@ -502,7 +502,7 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		// snap to window edges
 		if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
 		{
-			client_extended_data(o);
+			//client_extended_data(o);
 			if (!xsnap && NEAR(o->x, vague, fx)) { fx = o->x; xsnap = 1; }
 			if (!ysnap && NEAR(o->y, vague, fy)) { fy = o->y; ysnap = 1; }
 			if (!xsnap && NEAR(o->x+o->w, vague, fx)) { fx = o->x+o->w; xsnap = 1; }
@@ -525,7 +525,7 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		// snap to window edges
 		if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
 		{
-			client_extended_data(o);
+			//client_extended_data(o);
 			if (!xsnap && NEAR(o->x, vague, fx+fw)) { fw = o->x-fx; xsnap = 1; }
 			if (!ysnap && NEAR(o->y, vague, fy+fh)) { fh = o->y-fy; ysnap = 1; }
 			if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fw = o->x+o->w-fx; xsnap = 1; }
