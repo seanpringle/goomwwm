@@ -346,7 +346,8 @@ void handle_buttonpress(XEvent *ev)
 			memcpy(&mouse_attr, &c->xattr, sizeof(c->xattr));
 			memcpy(&mouse_button, &ev->xbutton, sizeof(ev->xbutton));
 			mouse_dragging = 1;
-		} else
+		}
+		else
 		{
 			// events we havn't snaffled for move/resize may be relevant to the subwindow. replay them
 			XAllowEvents(display, ReplayPointer, CurrentTime);
@@ -414,7 +415,7 @@ void handle_motionnotify(XEvent *ev)
 			x -= c->border_width;
 			y -= c->border_width;
 			w += c->border_width*2;
-			y += c->border_width*2;
+			h += c->border_width*2;
 		}
 
 		// Button1 = move

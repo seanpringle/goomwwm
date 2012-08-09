@@ -414,10 +414,9 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 {
 	client_extended_data(c);
-	fx = MAX(0, fx); fy = MAX(0, fy);
 
 	// this many be different to the client's current c->monitor...
-	workarea monitor; monitor_dimensions_struts(fx, fy, &monitor);
+	workarea monitor; monitor_dimensions_struts(MAX(fx, 0), MAX(fy, 0), &monitor);
 
 	// horz/vert size locks
 	if (c->cache->vlock) { fy = c->y; fh = c->h; }
@@ -436,7 +435,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 			{ fy = monitor.y; fh = monitor.h; }
 
-		// bump onto screen. shrink if necessary
+		// shrink onto screen
 		fw = MAX(MINWINDOW, MIN(fw, monitor.w));
 		fh = MAX(MINWINDOW, MIN(fh, monitor.h));
 
