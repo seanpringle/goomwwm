@@ -55,7 +55,6 @@ void client_nws_below(client *c, int action);
 void client_nws_sticky(client *c, int action);
 void client_nws_maxvert(client *c, int action);
 void client_nws_maxhorz(client *c, int action);
-void client_nws_review(client *c);
 winlist* clients_tiled_horz_with(client *c);
 winlist* clients_tiled_vert_with(client *c);
 winlist* clients_tiled_with(client *c);

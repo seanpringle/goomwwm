@@ -1197,7 +1197,6 @@ void client_deactivate(client *c, client *a)
 {
 	if (c->decorate)
 	{
-		//XSetWindowBorder(display, c->window, c->urgent ? config_border_attention: config_border_blur);
 		XSetWindowAttributes attr; attr.background_pixel = c->urgent ? config_border_attention: config_border_blur;
 		XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
 		XClearWindow(display, c->cache->frame);
@@ -1437,24 +1436,6 @@ void client_nws_maxhorz(client *c, int action)
 		client_restore_position_horz(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.w/2);
 		client_flash(c, config_flash_off, config_flash_ms, FLASHTITLEDEF);
 	}
-}
-
-// review client's position and size when the environmetn has changed (eg, STRUT changes)
-void client_nws_review(client *c)
-{
-	client_extended_data(c);
-	int commit = 0;
-	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
-	{
-		client_moveresize(c, MR_SMART, c->x, c->y, c->monitor.w, c->h);
-		commit = 1;
-	}
-	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
-	{
-		client_moveresize(c, MR_SMART, c->x, c->y, c->w, c->monitor.h);
-		commit = 1;
-	}
-	if (commit) client_commit(c);
 }
 
 // look for windows tiled horizontally with *c
