@@ -1332,15 +1332,16 @@ void client_nws_fullscreen(client *c, int action)
 		client_commit(c);
 		client_save_position(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
+		c->border_width = 0;
 		// _NET_WM_STATE_FULLSCREEN will override size
 		client_moveresize(c, 0, c->x, c->y, c->w, c->h);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
-		client_extended_data(c);
 		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
+		if (c->decorate) c->border_width = config_border_width;
 		client_restore_position(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.y + (c->monitor.h/4), c->monitor.w/2, c->monitor.h/2);
 	}
 	// fullscreen may need to hide above windows
