@@ -88,6 +88,11 @@ typedef unsigned long long bitmap;
 #define SWAPDOWN 4
 #define CLIENTSTATE 7
 
+// client_moveresize() flags
+#define MR_SMART 1<<1
+#define MR_SNAP 1<<2
+#define MR_SNAPWH 1<<3
+
 #define TAG1 1
 #define TAG2 (1<<1)
 #define TAG3 (1<<2)

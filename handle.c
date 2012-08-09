@@ -108,8 +108,8 @@ void handle_keypress(XEvent *ev)
 		int width3 = screen_width-width1; int height3 = screen_height-height1;
 		int width4 = screen_width;        int height4 = screen_height;
 
-		// final resize/move params. smart = intelligently bump / center / shrink
-		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
+		// final resize/move params. flags = intelligently bump / center / shrink
+		int fx = 0, fy = 0, fw = 0, fh = 0; unsigned int flags = 0;
 
 		     if (ISKEY(KEY_CLOSE))      client_close(c);
 		else if (ISKEY(KEY_CYCLE))      client_cycle(c);
@@ -167,7 +167,7 @@ void handle_keypress(XEvent *ev)
 		// Page Up/Down rapidly moves the active window through 4 sizes
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_GROW) || ISKEY(KEY_SHRINK)))
 		{
-			smart = 1; fx = c->x; fy = c->y;
+			flags |= MR_SMART; fx = c->x; fy = c->y;
 
 			// for windows with resize increments, be a little looser detecting their zone
 			if (c->xsize.flags & PResizeInc)
@@ -221,7 +221,7 @@ void handle_keypress(XEvent *ev)
 		// Shift+ Page Up/Down makes the focused window larger and smaller respectively
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_INC) || ISKEY(KEY_DEC)))
 		{
-			smart = 1; fx = c->x; fy = c->y; fw = c->w; fh = c->h;
+			flags |= MR_SMART; fx = c->x; fy = c->y; fw = c->w; fh = c->h;
 			int dx = screen_width/16; int dy = screen_height/16;
 			if (ISKEY(KEY_INC)) { fw += dx; fh += dy; }
 			if (ISKEY(KEY_DEC)) { fw -= dx; fh -= dy; }
@@ -302,7 +302,7 @@ void handle_keypress(XEvent *ev)
 		if (fw > 0 && fh > 0)
 		{
 			client_commit(c);
-			client_moveresize(c, smart, fx, fy, fw, fh);
+			client_moveresize(c, flags, fx, fy, fw, fh);
 		}
 	}
 	// deactivate prefix mode if necessary. only one operation at a time
@@ -405,9 +405,6 @@ void handle_motionnotify(XEvent *ev)
 		int y  = mouse_attr.y + (mouse_button.button == Button1 ? yd : 0);
 		int w  = MAX(1, mouse_attr.width  + (mouse_button.button == Button3 ? xd : 0));
 		int h  = MAX(1, mouse_attr.height + (mouse_button.button == Button3 ? yd : 0));
-		int vague = MAX(c->monitor.w/100, c->monitor.h/100);
-		int i; Window win; client *o;
-		int xsnap = 0, ysnap = 0;
 
 		// client_moveresize() expects borders included, and we want that for nice, neat edge-snapping too
 		if (c->decorate)
@@ -418,48 +415,12 @@ void handle_motionnotify(XEvent *ev)
 			h += c->border_width*2;
 		}
 
-		// Button1 = move
-		if (mouse_button.button == Button1)
-		{
-			// snap to monitor edges
-			if (NEAR(c->monitor.x, vague, x)) { x = c->monitor.x; xsnap = 1; }
-			if (NEAR(c->monitor.y, vague, y)) { y = c->monitor.y; ysnap = 1; }
-			if (!xsnap && NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { x = c->monitor.x+c->monitor.w-w; xsnap = 1; }
-			if (!ysnap && NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { y = c->monitor.y+c->monitor.h-h; ysnap = 1; }
-			// snap to window edges
-			if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
-			{
-				client_extended_data(o);
-				if (!xsnap && NEAR(o->x, vague, x)) { x = o->x; xsnap = 1; }
-				if (!ysnap && NEAR(o->y, vague, y)) { y = o->y; ysnap = 1; }
-				if (!xsnap && NEAR(o->x+o->w, vague, x)) { x = o->x+o->w; xsnap = 1; }
-				if (!ysnap && NEAR(o->y+o->h, vague, y)) { y = o->y+o->h; ysnap = 1; }
-				if (!xsnap && NEAR(o->x, vague, x+w)) { x = o->x+-w; xsnap = 1; }
-				if (!ysnap && NEAR(o->y, vague, y+h)) { y = o->y+-h; ysnap = 1; }
-				if (!xsnap && NEAR(o->x+o->w, vague, x+w)) { x = o->x+o->w-w; xsnap = 1; }
-				if (!ysnap && NEAR(o->y+o->h, vague, y+h)) { y = o->y+o->h-h; ysnap = 1; }
-				if (xsnap && ysnap) break;
-			}
-		}
-		else
-		// Button3 = resize
-		if (mouse_button.button == Button3)
-		{
-			// snap to monitor edges
-			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { w = c->monitor.x+c->monitor.w-x; xsnap = 1; }
-			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { h = c->monitor.y+c->monitor.h-y; ysnap = 1; }
-			// snap to window edges
-			if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
-			{
-				client_extended_data(o);
-				if (!xsnap && NEAR(o->x, vague, x+w)) { w = o->x-x; xsnap = 1; }
-				if (!ysnap && NEAR(o->y, vague, y+h)) { h = o->y-y; ysnap = 1; }
-				if (!xsnap && NEAR(o->x+o->w, vague, x+w)) { w = o->x+o->w-x; xsnap = 1; }
-				if (!ysnap && NEAR(o->y+o->h, vague, y+h)) { h = o->y+o->h-y; ysnap = 1; }
-				if (xsnap && ysnap) break;
-			}
-		}
-		client_moveresize(c, 0, x, y, w, h);
+		unsigned int flags = 0;
+		// snap all edges by moving window
+		if (mouse_button.button == Button1) flags |= MR_SNAP;
+		// snap right and bottom edges by resizing window
+		if (mouse_button.button == Button3) flags |= MR_SNAPWH;
+		client_moveresize(c, flags, x, y, w, h);
 	}
 }
 

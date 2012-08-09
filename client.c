@@ -411,9 +411,12 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 }
 
 // move & resize a window nicely, respecting hints and EWMH states
-void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
+void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, int fh)
 {
 	client_extended_data(c);
+	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
+	int i; Window win; client *o;
+	int xsnap = 0, ysnap = 0;
 
 	// this many be different to the client's current c->monitor...
 	workarea monitor; monitor_dimensions_struts(MAX(fx, 0), MAX(fy, 0), &monitor);
@@ -447,7 +450,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	}
 
 	// put the window in same general position it was before
-	if (smart)
+	if (flags & MR_SMART)
 	{
 		// shrinking w. check if we were once in a corner previous-to-last
 		// expanding w is already covered by bumping above
@@ -480,6 +483,48 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		else if (c->is_ycenter) fy = monitor.y + ((monitor.h - fh) / 2);
 		else if (c->is_top) fy = monitor.y;
 		else if (c->is_bottom) fy = monitor.y + monitor.h - fh;
+	}
+
+	// built for MotionNotify Button1
+	if (flags & MR_SNAP)
+	{
+		// snap to monitor edges
+		if (NEAR(c->monitor.x, vague, fx)) { fx = c->monitor.x; xsnap = 1; }
+		if (NEAR(c->monitor.y, vague, fy)) { fy = c->monitor.y; ysnap = 1; }
+		if (!xsnap && NEAR(c->monitor.x+c->monitor.w, vague, fx+fw)) { fx = c->monitor.x+c->monitor.w-fw; xsnap = 1; }
+		if (!ysnap && NEAR(c->monitor.y+c->monitor.h, vague, fy+fh)) { fy = c->monitor.y+c->monitor.h-fh; ysnap = 1; }
+		// snap to window edges
+		if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
+		{
+			client_extended_data(o);
+			if (!xsnap && NEAR(o->x, vague, fx)) { fx = o->x; xsnap = 1; }
+			if (!ysnap && NEAR(o->y, vague, fy)) { fy = o->y; ysnap = 1; }
+			if (!xsnap && NEAR(o->x+o->w, vague, fx)) { fx = o->x+o->w; xsnap = 1; }
+			if (!ysnap && NEAR(o->y+o->h, vague, fy)) { fy = o->y+o->h; ysnap = 1; }
+			if (!xsnap && NEAR(o->x, vague, fx+fw)) { fx = o->x+-fw; xsnap = 1; }
+			if (!ysnap && NEAR(o->y, vague, fy+fh)) { fy = o->y+-fh; ysnap = 1; }
+			if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fx = o->x+o->w-fw; xsnap = 1; }
+			if (!ysnap && NEAR(o->y+o->h, vague, fy+fh)) { fy = o->y+o->h-fh; ysnap = 1; }
+			if (xsnap && ysnap) break;
+		}
+	}
+	else
+	// built for MotionNotify Button3
+	if (flags & MR_SNAPWH)
+	{
+		// snap to monitor edges
+		if (NEAR(c->monitor.x+c->monitor.w, vague, fx+fw)) { fw = c->monitor.x+c->monitor.w-fx; xsnap = 1; }
+		if (NEAR(c->monitor.y+c->monitor.h, vague, fy+fh)) { fh = c->monitor.y+c->monitor.h-fy; ysnap = 1; }
+		// snap to window edges
+		if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
+		{
+			client_extended_data(o);
+			if (!xsnap && NEAR(o->x, vague, fx+fw)) { fw = o->x-fx; xsnap = 1; }
+			if (!ysnap && NEAR(o->y, vague, fy+fh)) { fh = o->y-fy; ysnap = 1; }
+			if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fw = o->x+o->w-fx; xsnap = 1; }
+			if (!ysnap && NEAR(o->y+o->h, vague, fy+fh)) { fh = o->y+o->h-fy; ysnap = 1; }
+			if (xsnap && ysnap) break;
+		}
 	}
 
 	// update window co-ords for subsequent operations before caches are reset
@@ -583,7 +628,7 @@ void client_save_position_vert(client *c)
 }
 
 // revert to saved co-ords
-void client_restore_position(client *c, int smart, int x, int y, int w, int h)
+void client_restore_position(client *c, unsigned int smart, int x, int y, int w, int h)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
@@ -594,7 +639,7 @@ void client_restore_position(client *c, int smart, int x, int y, int w, int h)
 }
 
 // revert to saved co-ords
-void client_restore_position_horz(client *c, int smart, int x, int w)
+void client_restore_position_horz(client *c, unsigned int smart, int x, int w)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
@@ -603,7 +648,7 @@ void client_restore_position_horz(client *c, int smart, int x, int w)
 }
 
 // revert to saved co-ords
-void client_restore_position_vert(client *c, int smart, int y, int h)
+void client_restore_position_vert(client *c, unsigned int smart, int y, int h)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
@@ -1371,7 +1416,7 @@ void client_nws_maxvert(client *c, int action)
 		client_commit(c);
 		client_save_position_vert(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
-		client_moveresize(c, 1, c->x, c->y, c->w, c->monitor.h);
+		client_moveresize(c, MR_SMART, c->x, c->y, c->w, c->monitor.h);
 		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
@@ -1396,7 +1441,7 @@ void client_nws_maxhorz(client *c, int action)
 		client_commit(c);
 		client_save_position_horz(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->h);
+		client_moveresize(c, MR_SMART, c->x, c->y, c->monitor.w, c->h);
 		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
@@ -1416,12 +1461,12 @@ void client_nws_review(client *c)
 	int commit = 0;
 	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
 	{
-		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->h);
+		client_moveresize(c, MR_SMART, c->x, c->y, c->monitor.w, c->h);
 		commit = 1;
 	}
 	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 	{
-		client_moveresize(c, 1, c->x, c->y, c->w, c->monitor.h);
+		client_moveresize(c, MR_SMART, c->x, c->y, c->w, c->monitor.h);
 		commit = 1;
 	}
 	if (commit) client_commit(c);
