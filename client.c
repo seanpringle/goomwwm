@@ -485,6 +485,7 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		else if (c->is_bottom) fy = monitor.y + monitor.h - fh;
 	}
 
+	// snap all edges by moving window
 	// built for MotionNotify Button1
 	if (flags & MR_SNAP)
 	{
@@ -509,6 +510,7 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		}
 	}
 	else
+	// snap right and bottom edges by resizing window
 	// built for MotionNotify Button3
 	if (flags & MR_SNAPWH)
 	{

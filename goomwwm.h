@@ -356,7 +356,7 @@ typedef struct {
 	Window trans;            // our transient_for
 	XWindowAttributes xattr; // copy of cache_xattr data
 	XSizeHints xsize;        // only loaded after client_extended_data()
-	short x, y, w, h;        // size/pos pulled from xattr
+	short x, y, w, h;        // size/pos pulled from xattr + borders
 	short states;            // number of EWMH states set
 	short initial_state;     // pulled from wm hints
 	short border_width;      // pulled from xwindowattributes
