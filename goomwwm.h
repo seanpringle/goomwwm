@@ -236,7 +236,7 @@ typedef struct {
 
 // snapshot a window's size/pos and EWMH state
 typedef struct _winundo {
-	short x, y, w, h, sx, sy, sw, sh, states;
+	short x, y, w, h, states;
 	Atom state[CLIENTSTATE];
 	struct _winundo *next;
 } winundo;
@@ -352,7 +352,6 @@ typedef struct {
 	XWindowAttributes xattr; // copy of cache_xattr data
 	XSizeHints xsize;        // only loaded after client_extended_data()
 	short x, y, w, h;        // size/pos pulled from xattr
-	short sx, sy;            // pos relative to monitor
 	short states;            // number of EWMH states set
 	short initial_state;     // pulled from wm hints
 	short border_width;      // pulled from xwindowattributes

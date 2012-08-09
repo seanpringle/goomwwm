@@ -111,8 +111,9 @@ void client_extended_data(client *c)
 	int w = c->xattr.width  + c->border_width*2;
 	int h = c->xattr.height + c->border_width*2;
 
-	c->x = screen_x + x; c->y = screen_y + y;
-	c->sx = x; c->sy = y; c->w = w; c->h = h;
+	c->x = screen_x + x;
+	c->y = screen_y + y;
+	c->w = w; c->h = h;
 
 	// gather info on the current window position, so we can try and resize and move nicely
 	c->is_full    = (x < 1 && y < 1 && w >= screen_width && h >= screen_height) ? 1:0;
@@ -259,9 +260,9 @@ client* client_create(Window win)
 
 	// co-ords include borders
 	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
-	c->border_width = c->manage && c->decorate ? config_border_width: c->xattr.border_width;
+	c->border_width = c->decorate && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) ? config_border_width: 0;
 	// compenstate for borders on non-fullscreen windows
-	if (c->decorate && c->border_width && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
+	if (c->decorate)
 	{
 		c->x -= c->border_width;
 		c->y -= c->border_width;
@@ -365,7 +366,7 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 {
 	// fw/fh still include borders here
 	int fx = *x, fy = *y, fw = *w, fh = *h;
-	int bw = c->border_width ? config_border_width*2: 0;
+	int bw = c->border_width*2;
 	int basew = 0, baseh = 0;
 
 	if (c->xsize.flags & PBaseSize)
@@ -418,16 +419,16 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 	// this many be different to the client's current c->monitor...
 	workarea monitor; monitor_dimensions_struts(fx, fy, &monitor);
 
-	fx = MIN(monitor.x+monitor.w+monitor.l+monitor.r-1, fx);
-	fy = MIN(monitor.y+monitor.h+monitor.t+monitor.b-1, fy);
-
 	// horz/vert size locks
 	if (c->cache->vlock) { fy = c->y; fh = c->h; }
 	if (c->cache->hlock) { fx = c->x; fw = c->w; }
 
 	// ensure we match fullscreen/maxv/maxh mode. these override above locks!
 	if (client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
-		{ fx = monitor.x-monitor.l; fy = monitor.y-monitor.t; fw = monitor.w+monitor.l+monitor.r; fh = monitor.h+monitor.t+monitor.b; }
+	{
+		fx = monitor.x-monitor.l; fy = monitor.y-monitor.t;
+		fw = monitor.w+monitor.l+monitor.r; fh = monitor.h+monitor.t+monitor.b;
+	}
 	else
 	{
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
@@ -435,14 +436,13 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 			{ fy = monitor.y; fh = monitor.h; }
 
+		// bump onto screen. shrink if necessary
 		fw = MAX(MINWINDOW, MIN(fw, monitor.w));
 		fh = MAX(MINWINDOW, MIN(fh, monitor.h));
 
 		client_process_size_hints(c, &fx, &fy, &fw, &fh);
 
-		// bump onto screen. shrink if necessary
-		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
-			{ fw = MAX(MINWINDOW, MIN(fw, monitor.w)); fh = MAX(MINWINDOW, MIN(fh, monitor.h)); }
+		// bump onto screen
 		fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
 		fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
 	}
@@ -485,11 +485,10 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 
 	// update window co-ords for subsequent operations before caches are reset
 	c->x = fx; c->y = fy; c->w = fw; c->h = fh;
-	c->sx = fx - monitor.x; c->sy = fy - monitor.y;
 	memmove(&c->monitor, &monitor, sizeof(workarea));
 
 	// compensate for border on non-fullscreen windows
-	if (c->decorate && c->border_width && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
+	if (c->decorate && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 	{
 		fx += c->border_width;
 		fy += c->border_width;
@@ -526,8 +525,7 @@ void client_commit(client *c)
 	undo = allocate_clear(sizeof(winundo));
 	undo->next = c->cache->undo; c->cache->undo = undo;
 	// do the actual snapshot
-	undo->x  = c->x;  undo->y  = c->y;  undo->w  = c->w;  undo->h  = c->h;
-	undo->sx = c->sx; undo->sy = c->sy; undo->w = c->w; undo->h = c->h;
+	undo->x = c->x; undo->y = c->y; undo->w = c->w; undo->h = c->h;
 	for (undo->states = 0; undo->states < c->states; undo->states++)
 		undo->state[undo->states] = c->state[undo->states];
 }
@@ -561,10 +559,8 @@ void client_save_position(client *c)
 
 	winundo *undo = c->cache->ewmh;
 
-	undo->x = c->x; undo->sx = c->sx;
-	undo->y = c->y; undo->sy = c->sy;
-	undo->w = c->w; undo->w = c->w;
-	undo->h = c->h; undo->h = c->h;
+	undo->x = c->x; undo->y = c->y;
+	undo->w = c->w; undo->h = c->h;
 }
 
 // save co-ords for later flip-back
@@ -574,8 +570,7 @@ void client_save_position_horz(client *c)
 	if (!c->cache->ewmh) client_save_position(c);
 
 	winundo *undo = c->cache->ewmh;
-	undo->x = c->x; undo->sx = c->sx;
-	undo->w = c->w; undo->w = c->w;
+	undo->x = c->x; undo->w = c->w;
 }
 
 // save co-ords for later flip-back
@@ -585,8 +580,7 @@ void client_save_position_vert(client *c)
 	if (!c->cache->ewmh) client_save_position(c);
 
 	winundo *undo = c->cache->ewmh;
-	undo->y = c->y; undo->sy = c->sy;
-	undo->h = c->h; undo->h = c->h;
+	undo->y = c->y; undo->h = c->h;
 }
 
 // revert to saved co-ords
@@ -1092,10 +1086,9 @@ void client_review_border(client *c)
 		XRestackWindows(display, wins, 2);
 		if (c->visible) XMapWindow(display, c->cache->frame);
 	}
-	unsigned long width = c->is_full || !c->manage || !c->decorate ? 0: config_border_width;
+	unsigned long width = c->border_width;
 	unsigned long extents[4] = { width, width, width, width };
 	window_set_cardinal_prop(c->window, netatoms[_NET_FRAME_EXTENTS], extents, 4);
-	c->border_width = width;
 }
 
 // set allowed _NET_WM_STATE_* client messages

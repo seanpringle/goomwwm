@@ -98,7 +98,9 @@ void handle_keypress(XEvent *ev)
 		int vague = MAX(screen_width/100, screen_height/100);
 
 		// window co-ords translated to 0-based on screen
-		int x = c->sx; int y = c->sy; int w = c->w; int h = c->h;
+		int x = c->x - screen_x;
+		int y = c->y - screen_y;
+		int w = c->w; int h = c->h;
 
 		// four basic window sizes
 		int width1 = screen_width/3;      int height1 = screen_height/3;
@@ -165,7 +167,7 @@ void handle_keypress(XEvent *ev)
 		// Page Up/Down rapidly moves the active window through 4 sizes
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_GROW) || ISKEY(KEY_SHRINK)))
 		{
-			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy;
+			smart = 1; fx = c->x; fy = c->y;
 
 			// for windows with resize increments, be a little looser detecting their zone
 			if (c->xsize.flags & PResizeInc)
@@ -219,7 +221,7 @@ void handle_keypress(XEvent *ev)
 		// Shift+ Page Up/Down makes the focused window larger and smaller respectively
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_INC) || ISKEY(KEY_DEC)))
 		{
-			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy; fw = c->w; fh = c->h;
+			smart = 1; fx = c->x; fy = c->y; fw = c->w; fh = c->h;
 			int dx = screen_width/16; int dy = screen_height/16;
 			if (ISKEY(KEY_INC)) { fw += dx; fh += dy; }
 			if (ISKEY(KEY_DEC)) { fw -= dx; fh -= dy; }
