@@ -1094,7 +1094,7 @@ void client_lower(client *c, int priority)
 	winlist *stack = winlist_new();
 	winlist *inplay = windows_in_play();
 
-	if (priority) client_stack_family(c, stack);
+	client_stack_family(c, stack);
 
 	// locate windows in the current_tag with _NET_WM_STATE_BELOW
 	// untagged windows with _NET_WM_STATE_BELOW are effectively sticky
@@ -1110,13 +1110,14 @@ void client_lower(client *c, int priority)
 			&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
 				client_stack_family(o, stack);
 
-	if (winlist_find(stack, c->window) < 0)
-		client_stack_family(c, stack);
+	// locate the lowest window in the tag
+	client *under = NULL;
+	tag_descend(i, w, o, current_tag)
+		if (o->trans == None && winlist_find(stack, o->window) < 0)
+			under = o;
 
-	// raise the top window in the stack
-	XLowerWindow(display, stack->array[stack->len-1]);
-	// stack everything else, in order, underneath top window
-	if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
+	if (under) winlist_prepend(stack, under->window, NULL);
+	XRestackWindows(display, stack->array, stack->len);
 
 	winlist_free(stack);
 }

@@ -372,6 +372,8 @@ void handle_buttonrelease(XEvent *ev)
 
 	if (ev->xbutton.window != None && (c = client_create(ev->xbutton.window)) && c && c->manage)
 	{
+		event_client_dump(c);
+
 		int xd = ev->xbutton.x_root - mouse_button.x_root;
 		int yd = ev->xbutton.y_root - mouse_button.y_root;
 
