@@ -480,19 +480,40 @@ void handle_configurerequest(XEvent *ev)
 		event_client_dump(c);
 		window_select(c->window);
 		client_extended_data(c);
-		// only move/resize requests go through. never stacking
+
 		XConfigureRequestEvent *e = &ev->xconfigurerequest;
+		event_note("xconfigurerequest x:%d(%d) y:%d(%d) w:%d(%d) h:%d(%d)",
+			e->value_mask & CWX ? 1:0, e->value_mask & CWX ? e->x: 0,
+			e->value_mask & CWY ? 1:0, e->value_mask & CWY ? e->y: 0,
+			e->value_mask & CWWidth  ? 1:0, e->value_mask & CWWidth  ? e->width : 0,
+			e->value_mask & CWHeight ? 1:0, e->value_mask & CWHeight ? e->height: 0);
+
+		// only move/resize requests go through. never stacking
 		if (c->manage)
 		{
-			// client_moveresize() assumes co-ords include any border.
-			// adjust the initial size to compensate
-			int x = e->value_mask & CWX ? (e->x - c->border_width): c->x;
-			int y = e->value_mask & CWY ? (e->y - c->border_width): c->y;
-			int w = e->value_mask & CWWidth  ? (e->width  + c->border_width*2) : c->w;
-			int h = e->value_mask & CWHeight ? (e->height + c->border_width*2) : c->h;
-			// managed windows need to conform to a few rules
-			client_moveresize(c, 0, x, y, w, h);
-			client_review_border(c);
+			bool ignore = 0;
+			// special case :-(
+			// Some apps seem to handle _NET_FRAME_EXTENTS oddly in that they detect it sometime after mapping,
+			// then use co-ords that include extents in subsequent ConfigureRequests, making them jump around in
+			// multiples of the border width. My understanding of ConfigureRequest is that co-ords should never
+			// include frame extents...? An example is Chromium which sends an x/y ConfigureRequest including
+			// frame extents when it's using system borders and I click on the tab-bar background. Why?
+			// So, anyway, here we check for an already-visible app requesting a small move to match it's frame.
+			if (c->visible && e->value_mask & CWX && e->x == c->x && e->value_mask & CWY && e->y == c->y) ignore = 1;
+
+			if (ignore)
+				event_note("ignored!");
+			else {
+				// client_moveresize() assumes co-ords include any border.
+				// adjust the initial size to compensate
+				int x = e->value_mask & CWX ? (e->x - c->border_width): c->x;
+				int y = e->value_mask & CWY ? (e->y - c->border_width): c->y;
+				int w = e->value_mask & CWWidth  ? (e->width  + c->border_width*2) : c->w;
+				int h = e->value_mask & CWHeight ? (e->height + c->border_width*2) : c->h;
+				// managed windows need to conform to a few rules
+				client_moveresize(c, 0, x, y, w, h);
+				client_review_border(c);
+			}
 		}
 		else
 		{
