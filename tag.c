@@ -62,36 +62,34 @@ void tag_raise(unsigned int tag)
 		reset_cache_inplay();
 	}
 
-	winlist *inplay = windows_in_play();
 	stack = winlist_new();
 
 	// locate windows with _NET_WM_STATE_ABOVE and _NET_WM_STATE_STICKY
-	clients_descend(inplay, i, w, c)
+	managed_descend(i, w, c)
 		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
 			&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])
 			&& client_has_state(c, netatoms[_NET_WM_STATE_STICKY]))
 				client_stack_family(c, stack);
 	// locate windows with _NET_WM_STATE_ABOVE in this tag
-	clients_descend(inplay, i, w, c)
+	tag_descend(i, w, c, tag)
 		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
-			&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]) && c->cache->tags & tag)
+			&& client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
 				{ client_stack_family(c, stack); found++; }
 	// locate _NET_WM_WINDOW_TYPE_DOCK windows
-	clients_descend(inplay, i, w, c)
+	clients_descend(windows_in_play(), i, w, c)
 		if (winlist_find(stack, w) < 0 && c->visible && c->trans == None
 			&& c->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 				client_stack_family(c, stack);
 	// locate all other windows in the tag
-	managed_descend(i, w, c)
-		if (winlist_find(stack, w) < 0 && c->trans == None && c->cache->tags & tag)
+	tag_descend(i, w, c, tag)
+		if (winlist_find(stack, w) < 0 && c->trans == None)
 			{ client_stack_family(c, stack); found++; }
-	if (stack->len)
-	{
-		// raise the top window in the stack
-		XRaiseWindow(display, stack->array[0]);
-		// stack everything else, in order, underneath top window
-		if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
-	}
+
+	// raise the top window in the stack
+	if (stack->len) XRaiseWindow(display, stack->array[0]);
+	// stack everything else, in order, underneath top window
+	if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
+
 	winlist_free(stack);
 	tag_set_current(tag);
 	if (config_only_auto) tag_only(tag);

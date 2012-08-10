@@ -105,16 +105,15 @@ void client_extended_data(client *c)
 	int vague = MAX(screen_width/100, screen_height/100);
 
 	// window co-ords translated to 0-based on screen
-	int x = c->xattr.x - screen_x; int y = c->xattr.y - screen_y;
-	int w = c->xattr.width; int h = c->xattr.height;
-
 	// co-ords are x,y upper left outsize border, w,h inside border
-	// correct to include border in w,h for non-fullscreen windows to simplify calculations
-	if (c->border_width && (w < screen_width || h < screen_height))
-		{ w += config_border_width*2; h += config_border_width*2; }
+	int x = c->xattr.x - screen_x - c->border_width;
+	int y = c->xattr.y - screen_y - c->border_width;
+	int w = c->xattr.width  + c->border_width*2;
+	int h = c->xattr.height + c->border_width*2;
 
-	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
-	c->sx = x; c->sy = y; c->sw = w; c->sh = h;
+	c->x = screen_x + x;
+	c->y = screen_y + y;
+	c->w = w; c->h = h;
 
 	// gather info on the current window position, so we can try and resize and move nicely
 	c->is_full    = (x < 1 && y < 1 && w >= screen_width && h >= screen_height) ? 1:0;
@@ -220,7 +219,9 @@ client* client_create(Window win)
 	c->minimized = winlist_find(windows_minimized, c->window) >= 0 ? 1:0;
 	c->shaded    = winlist_find(windows_shaded, c->window) >= 0 ? 1:0;
 	c->urgent    = c->manage && client_has_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]) ? 1:0;
-	c->decorate  = c->manage;
+
+	// extra checks for managed windows
+	if (c->manage && client_rule(c, RULE_IGNORE)) c->manage = 0;
 
 	// focus seems a really dodgy way to determine the "active" window, but in some
 	// cases checking both ->active and ->focus is necessary to bahave logically
@@ -237,6 +238,7 @@ client* client_create(Window win)
 		XFree(hints);
 	}
 
+	c->decorate = c->manage;
 	// can't get away with ignoring old motif stuff, as some apps use it
 	Atom motif_type; int motif_items; motif_hints mhints;
 	if (window_get_prop(c->window, atoms[_MOTIF_WM_HINTS], &motif_type, &motif_items, &mhints, sizeof(mhints)) && motif_items)
@@ -252,18 +254,28 @@ client* client_create(Window win)
 	}
 	// the cache is not tightly linked to the window at all
 	// if it's populated, it gets used to make behaviour appear logically
-	// if it's empty, nothing cares that much
+	// if it's empty, nothing cares that much, or it gets initialized
 	c->cache = windows->data[idx];
-
 	winlist_append(cache_client, c->window, c);
 
-	// co-ords are x,y upper left outsize border, w,h inside border
+	// co-ords include borders
 	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
-	c->border_width = c->manage && c->decorate ? config_border_width: c->xattr.border_width;
-
-	// extra checks for managed windows
-	if (c->manage && client_rule(c, RULE_IGNORE)) c->manage = 0;
-
+	c->border_width = c->decorate && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) ? config_border_width: 0;
+	// compenstate for borders on non-fullscreen windows
+	if (c->decorate)
+	{
+		c->x -= c->border_width;
+		c->y -= c->border_width;
+		c->w += c->border_width*2;
+		c->h += c->border_width*2;
+	}
+	// check whether the frame should be created
+	if (c->decorate && c->cache->frame == None)
+	{
+		c->cache->frame = window_create_override(c->x, c->y, c->w, c->h, config_border_blur);
+		Window wins[2] = { c->window, c->cache->frame };
+		XRestackWindows(display, wins, 2);
+	}
 	return c;
 }
 
@@ -281,7 +293,7 @@ void client_free(client *c)
 int clients_intersect(client *a, client *b)
 {
 	client_extended_data(a); client_extended_data(b);
-	return INTERSECT(a->x, a->y, a->sw, a->sh, b->x, b->y, b->sw, b->sh) ?1:0;
+	return INTERSECT(a->x, a->y, a->w, a->h, b->x, b->y, b->w, b->h) ?1:0;
 }
 
 // if a client supports a WM_PROTOCOLS type atom, dispatch an event
@@ -301,8 +313,13 @@ int client_protocol_event(client *c, Atom protocol)
 // close a window politely if possible, else kill it
 void client_close(client *c)
 {
+	// prevent frame flash
+	if (c->decorate)
+		XUnmapWindow(display, c->cache->frame);
+
 	if (c->cache->have_closed || !client_protocol_event(c, atoms[WM_DELETE_WINDOW]))
 		XKillClient(display, c->window);
+
 	c->cache->have_closed = 1;
 }
 
@@ -354,7 +371,7 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 {
 	// fw/fh still include borders here
 	int fx = *x, fy = *y, fw = *w, fh = *h;
-	int bw = c->border_width ? config_border_width*2: 0;
+	int bw = c->border_width*2;
 	int basew = 0, baseh = 0;
 
 	if (c->xsize.flags & PBaseSize)
@@ -399,25 +416,26 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 }
 
 // move & resize a window nicely, respecting hints and EWMH states
-void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
+void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, int fh)
 {
 	client_extended_data(c);
-	fx = MAX(0, fx); fy = MAX(0, fy);
-	int bw = c->border_width ? config_border_width*2: 0;
+	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
+	int i; Window win; client *o;
+	int xsnap = 0, ysnap = 0;
 
 	// this many be different to the client's current c->monitor...
-	workarea monitor; monitor_dimensions_struts(fx, fy, &monitor);
-
-	fx = MIN(monitor.x+monitor.w+monitor.l+monitor.r-1, fx);
-	fy = MIN(monitor.y+monitor.h+monitor.t+monitor.b-1, fy);
+	workarea monitor; monitor_dimensions_struts(MAX(fx, 0), MAX(fy, 0), &monitor);
 
 	// horz/vert size locks
-	if (c->cache->vlock) { fy = c->y; fh = c->sh; }
-	if (c->cache->hlock) { fx = c->x; fw = c->sw; }
+	if (c->cache->vlock) { fy = c->y; fh = c->h; }
+	if (c->cache->hlock) { fx = c->x; fw = c->w; }
 
 	// ensure we match fullscreen/maxv/maxh mode. these override above locks!
 	if (client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
-		{ fx = monitor.x-monitor.l; fy = monitor.y-monitor.t; fw = monitor.w+monitor.l+monitor.r; fh = monitor.h+monitor.t+monitor.b; }
+	{
+		fx = monitor.x-monitor.l; fy = monitor.y-monitor.t;
+		fw = monitor.w+monitor.l+monitor.r; fh = monitor.h+monitor.t+monitor.b;
+	}
 	else
 	{
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
@@ -425,24 +443,23 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
 			{ fy = monitor.y; fh = monitor.h; }
 
+		// shrink onto screen
 		fw = MAX(MINWINDOW, MIN(fw, monitor.w));
 		fh = MAX(MINWINDOW, MIN(fh, monitor.h));
 
 		client_process_size_hints(c, &fx, &fy, &fw, &fh);
 
-		// bump onto screen. shrink if necessary
-		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
-			{ fw = MAX(MINWINDOW, MIN(fw, monitor.w)); fh = MAX(MINWINDOW, MIN(fh, monitor.h)); }
+		// bump onto screen
 		fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
 		fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
 	}
 
 	// put the window in same general position it was before
-	if (smart)
+	if (flags & MR_SMART)
 	{
 		// shrinking w. check if we were once in a corner previous-to-last
 		// expanding w is already covered by bumping above
-		if (c->cache && c->cache->last_corner && c->sw > fw)
+		if (c->cache && c->cache->last_corner && c->w > fw)
 		{
 			if (c->cache->last_corner == TOPLEFT || c->cache->last_corner == BOTTOMLEFT || c->cache->last_corner == CENTERLEFT)
 				fx = monitor.x;
@@ -458,7 +475,7 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 
 		// shrinking h. check if we were once in a corner previous-to-last
 		// expanding h is already covered by bumping above
-		if (c->cache && c->cache->last_corner && c->sh > fh)
+		if (c->cache && c->cache->last_corner && c->h > fh)
 		{
 			if (c->cache->last_corner == TOPLEFT || c->cache->last_corner == TOPRIGHT || c->cache->last_corner == CENTERTOP)
 				fy = monitor.y;
@@ -473,19 +490,64 @@ void client_moveresize(client *c, int smart, int fx, int fy, int fw, int fh)
 		else if (c->is_bottom) fy = monitor.y + monitor.h - fh;
 	}
 
+	// snap all edges by moving window
+	// built for MotionNotify Button1
+	if (flags & MR_SNAP)
+	{
+		// snap to monitor edges
+		if (NEAR(c->monitor.x, vague, fx)) { fx = c->monitor.x; xsnap = 1; }
+		if (NEAR(c->monitor.y, vague, fy)) { fy = c->monitor.y; ysnap = 1; }
+		if (!xsnap && NEAR(c->monitor.x+c->monitor.w, vague, fx+fw)) { fx = c->monitor.x+c->monitor.w-fw; xsnap = 1; }
+		if (!ysnap && NEAR(c->monitor.y+c->monitor.h, vague, fy+fh)) { fy = c->monitor.y+c->monitor.h-fh; ysnap = 1; }
+		// snap to window edges
+		if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
+		{
+			//client_extended_data(o);
+			if (!xsnap && NEAR(o->x, vague, fx)) { fx = o->x; xsnap = 1; }
+			if (!ysnap && NEAR(o->y, vague, fy)) { fy = o->y; ysnap = 1; }
+			if (!xsnap && NEAR(o->x+o->w, vague, fx)) { fx = o->x+o->w; xsnap = 1; }
+			if (!ysnap && NEAR(o->y+o->h, vague, fy)) { fy = o->y+o->h; ysnap = 1; }
+			if (!xsnap && NEAR(o->x, vague, fx+fw)) { fx = o->x+-fw; xsnap = 1; }
+			if (!ysnap && NEAR(o->y, vague, fy+fh)) { fy = o->y+-fh; ysnap = 1; }
+			if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fx = o->x+o->w-fw; xsnap = 1; }
+			if (!ysnap && NEAR(o->y+o->h, vague, fy+fh)) { fy = o->y+o->h-fh; ysnap = 1; }
+			if (xsnap && ysnap) break;
+		}
+	}
+	else
+	// snap right and bottom edges by resizing window
+	// built for MotionNotify Button3
+	if (flags & MR_SNAPWH)
+	{
+		// snap to monitor edges
+		if (NEAR(c->monitor.x+c->monitor.w, vague, fx+fw)) { fw = c->monitor.x+c->monitor.w-fx; xsnap = 1; }
+		if (NEAR(c->monitor.y+c->monitor.h, vague, fy+fh)) { fh = c->monitor.y+c->monitor.h-fy; ysnap = 1; }
+		// snap to window edges
+		if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
+		{
+			//client_extended_data(o);
+			if (!xsnap && NEAR(o->x, vague, fx+fw)) { fw = o->x-fx; xsnap = 1; }
+			if (!ysnap && NEAR(o->y, vague, fy+fh)) { fh = o->y-fy; ysnap = 1; }
+			if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fw = o->x+o->w-fx; xsnap = 1; }
+			if (!ysnap && NEAR(o->y+o->h, vague, fy+fh)) { fh = o->y+o->h-fy; ysnap = 1; }
+			if (xsnap && ysnap) break;
+		}
+	}
+
 	// update window co-ords for subsequent operations before caches are reset
-	c->x = fx; c->y = fy; c->w = c->sw = fw; c->h = c->sh = fh;
-	c->sx = fx - monitor.x; c->sy = fy - monitor.y;
+	c->x = fx; c->y = fy; c->w = fw; c->h = fh;
 	memmove(&c->monitor, &monitor, sizeof(workarea));
 
 	// compensate for border on non-fullscreen windows
-	if (fw < monitor.w || fh < monitor.h)
+	if (c->decorate && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 	{
-		fw = MAX(1, fw-bw);
-		fh = MAX(1, fh-bw);
-		c->w = fw; c->h = fh;
+		fx += c->border_width;
+		fy += c->border_width;
+		fw = MAX(1, fw - c->border_width*2);
+		fh = MAX(1, fh - c->border_width*2);
 	}
 	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
+	if (c->decorate) XMoveResizeWindow(display, c->cache->frame, c->x, c->y, c->w, c->h);
 }
 
 // record a window's size and position in the undo log
@@ -514,8 +576,7 @@ void client_commit(client *c)
 	undo = allocate_clear(sizeof(winundo));
 	undo->next = c->cache->undo; c->cache->undo = undo;
 	// do the actual snapshot
-	undo->x  = c->x;  undo->y  = c->y;  undo->w  = c->w;  undo->h  = c->h;
-	undo->sx = c->sx; undo->sy = c->sy; undo->sw = c->sw; undo->sh = c->sh;
+	undo->x = c->x; undo->y = c->y; undo->w = c->w; undo->h = c->h;
 	for (undo->states = 0; undo->states < c->states; undo->states++)
 		undo->state[undo->states] = c->state[undo->states];
 }
@@ -531,7 +592,7 @@ void client_rollback(client *c)
 		for (c->states = 0; c->states < undo->states; c->states++)
 			c->state[c->states] = undo->state[c->states];
 		client_flush_state(c);
-		client_moveresize(c, 0, undo->x, undo->y, undo->sw, undo->sh);
+		client_moveresize(c, 0, undo->x, undo->y, undo->w, undo->h);
 		free(undo);
 	}
 }
@@ -549,10 +610,8 @@ void client_save_position(client *c)
 
 	winundo *undo = c->cache->ewmh;
 
-	undo->x = c->x; undo->sx = c->sx;
-	undo->y = c->y; undo->sy = c->sy;
-	undo->w = c->w; undo->sw = c->sw;
-	undo->h = c->h; undo->sh = c->sh;
+	undo->x = c->x; undo->y = c->y;
+	undo->w = c->w; undo->h = c->h;
 }
 
 // save co-ords for later flip-back
@@ -562,8 +621,7 @@ void client_save_position_horz(client *c)
 	if (!c->cache->ewmh) client_save_position(c);
 
 	winundo *undo = c->cache->ewmh;
-	undo->x = c->x; undo->sx = c->sx;
-	undo->w = c->w; undo->sw = c->sw;
+	undo->x = c->x; undo->w = c->w;
 }
 
 // save co-ords for later flip-back
@@ -573,37 +631,36 @@ void client_save_position_vert(client *c)
 	if (!c->cache->ewmh) client_save_position(c);
 
 	winundo *undo = c->cache->ewmh;
-	undo->y = c->y; undo->sy = c->sy;
-	undo->h = c->h; undo->sh = c->sh;
+	undo->y = c->y; undo->h = c->h;
 }
 
 // revert to saved co-ords
-void client_restore_position(client *c, int smart, int x, int y, int w, int h)
+void client_restore_position(client *c, unsigned int smart, int x, int y, int w, int h)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
 		c->cache && c->cache->ewmh ? c->cache->ewmh->x: x,
 		c->cache && c->cache->ewmh ? c->cache->ewmh->y: y,
-		c->cache && c->cache->ewmh ? c->cache->ewmh->sw: w,
-		c->cache && c->cache->ewmh ? c->cache->ewmh->sh: h);
+		c->cache && c->cache->ewmh ? c->cache->ewmh->w: w,
+		c->cache && c->cache->ewmh ? c->cache->ewmh->h: h);
 }
 
 // revert to saved co-ords
-void client_restore_position_horz(client *c, int smart, int x, int w)
+void client_restore_position_horz(client *c, unsigned int smart, int x, int w)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
 		c->cache && c->cache->ewmh ? c->cache->ewmh->x: x, c->y,
-		c->cache && c->cache->ewmh ? c->cache->ewmh->sw: w, c->sh);
+		c->cache && c->cache->ewmh ? c->cache->ewmh->w: w, c->h);
 }
 
 // revert to saved co-ords
-void client_restore_position_vert(client *c, int smart, int y, int h)
+void client_restore_position_vert(client *c, unsigned int smart, int y, int h)
 {
 	client_extended_data(c);
 	client_moveresize(c, smart,
 		c->x,  c->cache && c->cache->ewmh ? c->cache->ewmh->y: y,
-		c->sw, c->cache && c->cache->ewmh ? c->cache->ewmh->sh: h);
+		c->w, c->cache && c->cache->ewmh ? c->cache->ewmh->h: h);
 }
 
 // build list of unobscured windows within a workarea
@@ -619,21 +676,21 @@ winlist* clients_fully_visible(workarea *zone, unsigned int tag, Window ignore)
 	{
 		client_extended_data(o);
 		// only concerned about windows in the zone
-		if (ignore != o->window && INTERSECT(o->x, o->y, o->sw, o->sh, zone->x, zone->y, zone->w, zone->h))
+		if (ignore != o->window && INTERSECT(o->x, o->y, o->w, o->h, zone->x, zone->y, zone->w, zone->h))
 		{
 			int j, obscured = 0;
 			for (j = inplay->len-1; j > i; j--)
 			{
 				// if the window intersects with any other window higher in the stack order, it must be at least partially obscured
-				if (allregions[j].w && INTERSECT(o->x, o->y, o->sw, o->sh,
+				if (allregions[j].w && INTERSECT(o->x, o->y, o->w, o->h,
 					allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h))
 						{ obscured = 1; break; }
 			}
 			// record a full visible window
-			if (!obscured && o->x >= zone->x && o->y >= zone->y && (o->x + o->sw) <= (zone->x + zone->w) && (o->y + o->sh) <= (zone->y + zone->h))
+			if (!obscured && o->x >= zone->x && o->y >= zone->y && (o->x + o->w) <= (zone->x + zone->w) && (o->y + o->h) <= (zone->y + zone->h))
 				winlist_append(hits, o->window, NULL);
 			allregions[i].x = o->x; allregions[i].y = o->y;
-			allregions[i].w = o->sw; allregions[i].h = o->sh;
+			allregions[i].w = o->w; allregions[i].h = o->h;
 		}
 	}
 	// return it in stacking order, bottom to top
@@ -655,7 +712,7 @@ winlist* clients_partly_visible(workarea *zone, unsigned int tag, Window ignore)
 	{
 		client_extended_data(o);
 		// only concerned about windows in the zone
-		if (ignore != o->window && INTERSECT(o->x, o->y, o->sw, o->sh, zone->x, zone->y, zone->w, zone->h))
+		if (ignore != o->window && INTERSECT(o->x, o->y, o->w, o->h, zone->x, zone->y, zone->w, zone->h))
 		{
 			int j, c1 = 0, c2 = 0, c3 = 0, c4 = 0;
 			for (j = inplay->len-1; j > i; j--)
@@ -663,16 +720,16 @@ winlist* clients_partly_visible(workarea *zone, unsigned int tag, Window ignore)
 				if (!allregions[j].w) continue;
 				// if the window's corners intersects with any other window higher in the stack order, assume it is covered
 				if (INTERSECT(o->x, o->y, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c1 = 1;
-				if (INTERSECT(o->x, o->y+o->sh-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c2 = 1;
-				if (INTERSECT(o->x+o->sw-1, o->y, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c3 = 1;
-				if (INTERSECT(o->x+o->sw-1, o->y+o->sh-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c4 = 1;
+				if (INTERSECT(o->x, o->y+o->h-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c2 = 1;
+				if (INTERSECT(o->x+o->w-1, o->y, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c3 = 1;
+				if (INTERSECT(o->x+o->w-1, o->y+o->h-1, 1, 1, allregions[j].x, allregions[j].y, allregions[j].w, allregions[j].h)) c4 = 1;
 				if (c1 && c2 && c3 && c4) break;
 			}
 			// record a full visible window
-			if ((!c1 || !c2 || !c3 || !c4) && o->x >= zone->x && o->y >= zone->y && (o->x + o->sw) <= (zone->x + zone->w) && (o->y + o->sh) <= (zone->y + zone->h))
+			if ((!c1 || !c2 || !c3 || !c4) && o->x >= zone->x && o->y >= zone->y && (o->x + o->w) <= (zone->x + zone->w) && (o->y + o->h) <= (zone->y + zone->h))
 				winlist_append(hits, o->window, NULL);
 			allregions[i].x = o->x; allregions[i].y = o->y;
-			allregions[i].w = o->sw; allregions[i].h = o->sh;
+			allregions[i].w = o->w; allregions[i].h = o->h;
 		}
 	}
 	// return it in stacking order, bottom to top
@@ -688,8 +745,8 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	client_extended_data(c);
 
 	// hlock/vlock reduce the area we should look at
-	if (c->cache->hlock) { mx = c->x; mw = c->sw; if (!mh) { my = c->monitor.y; mh = c->monitor.h; } }
-	if (c->cache->vlock) { my = c->y; mh = c->sh; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
+	if (c->cache->hlock) { mx = c->x; mw = c->w; if (!mh) { my = c->monitor.y; mh = c->monitor.h; } }
+	if (c->cache->vlock) { my = c->y; mh = c->h; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
 	winlist *visible = clients_fully_visible(&c->monitor, current_tag, c->window);
@@ -701,13 +758,13 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	clients_descend(visible, i, win, o)
 	{
 		client_extended_data(o);
-		if ((mw || mh) && !INTERSECT(o->x, o->y, o->sw, o->sh, mx, my, mw, mh)) continue;
+		if ((mw || mh) && !INTERSECT(o->x, o->y, o->w, o->h, mx, my, mw, mh)) continue;
 		regions[n].x = o->x; regions[n].y = o->y;
-		regions[n].w = o->sw; regions[n].h = o->sh;
+		regions[n].w = o->w; regions[n].h = o->h;
 		n++;
 	}
 
-	int x = c->x, y = c->y, w = c->sw, h = c->sh;
+	int x = c->x, y = c->y, w = c->w, h = c->h;
 	if (w1 || h1) { x = x1; y = y1; w = w1; h = h1; }
 
 	if (directions & VERTICAL)
@@ -765,13 +822,13 @@ void client_contract(client *c, int directions)
 	client_extended_data(c);
 	// cheat and shrink the window absurdly so it becomes just another expansion
 	if (directions & VERTICAL && directions & HORIZONTAL)
-		client_expand(c, directions, c->x+(c->sw/2), c->y+(c->sh/2), 5, 5, c->x, c->y, c->sw, c->sh);
+		client_expand(c, directions, c->x+(c->w/2), c->y+(c->h/2), 5, 5, c->x, c->y, c->w, c->h);
 	else
 	if (directions & VERTICAL)
-		client_expand(c, directions, c->x, c->y+(c->sh/2), c->sw, 5, c->x, c->y, c->sw, c->sh);
+		client_expand(c, directions, c->x, c->y+(c->h/2), c->w, 5, c->x, c->y, c->w, c->h);
 	else
 	if (directions & HORIZONTAL)
-		client_expand(c, directions, c->x+(c->sw/2), c->y, 5, c->sh, c->x, c->y, c->sw, c->sh);
+		client_expand(c, directions, c->x+(c->w/2), c->y, 5, c->h, c->x, c->y, c->w, c->h);
 }
 
 // move or resize a client window to snap to someone else's leading or trailing edge
@@ -794,18 +851,18 @@ void client_snapto(client *c, int direction)
 	{
 		client_extended_data(o);
 		regions[n].x = o->x; regions[n].y = o->y;
-		regions[n].w = o->sw; regions[n].h = o->sh;
+		regions[n].w = o->w; regions[n].h = o->h;
 		n++;
 	}
 
-	int x = c->x, y = c->y, w = c->sw, h = c->sh;
+	int x = c->x, y = c->y, w = c->w, h = c->h;
 
 	if (direction == SNAPUP)
 	{
 		y--;
 		for (n = c->monitor.y, i = 0; i < relevant; i++)
 		{
-			if (!OVERLAP(c->x-1, c->sw+2, regions[i].x, regions[i].w)) continue;
+			if (!OVERLAP(c->x-1, c->w+2, regions[i].x, regions[i].w)) continue;
 			if (regions[i].y + regions[i].h <= y) n = MAX(n, regions[i].y + regions[i].h);
 			if (regions[i].y <= y) n = MAX(n, regions[i].y);
 			if (regions[i].y + regions[i].h <= y+h) n = MAX(n, regions[i].y + regions[i].h - h);
@@ -818,7 +875,7 @@ void client_snapto(client *c, int direction)
 		y++;
 		for (n = c->monitor.y + c->monitor.h, i = 0; i < relevant; i++)
 		{
-			if (!OVERLAP(c->x-1, c->sw+2, regions[i].x, regions[i].w)) continue;
+			if (!OVERLAP(c->x-1, c->w+2, regions[i].x, regions[i].w)) continue;
 			if (regions[i].y + regions[i].h >= y+h) n = MIN(n, regions[i].y + regions[i].h);
 			if (regions[i].y >= y+h) n = MIN(n, regions[i].y);
 			if (regions[i].y + regions[i].h >= y) n = MIN(n, regions[i].y + regions[i].h + h);
@@ -831,7 +888,7 @@ void client_snapto(client *c, int direction)
 		x--;
 		for (n = c->monitor.x, i = 0; i < relevant; i++)
 		{
-			if (!OVERLAP(c->y-1, c->sh+2, regions[i].y, regions[i].h)) continue;
+			if (!OVERLAP(c->y-1, c->h+2, regions[i].y, regions[i].h)) continue;
 			if (regions[i].x + regions[i].w <= x) n = MAX(n, regions[i].x + regions[i].w);
 			if (regions[i].x <= x) n = MAX(n, regions[i].x);
 			if (regions[i].x + regions[i].w <= x+w) n = MAX(n, regions[i].x + regions[i].w - w);
@@ -844,7 +901,7 @@ void client_snapto(client *c, int direction)
 		x++;
 		for (n = c->monitor.x + c->monitor.w, i = 0; i < relevant; i++)
 		{
-			if (!OVERLAP(c->y-1, c->sh+2, regions[i].y, regions[i].h)) continue;
+			if (!OVERLAP(c->y-1, c->h+2, regions[i].y, regions[i].h)) continue;
 			if (regions[i].x + regions[i].w >= x+w) n = MIN(n, regions[i].x + regions[i].w);
 			if (regions[i].x >= x+w) n = MIN(n, regions[i].x);
 			if (regions[i].x + regions[i].w >= x) n = MIN(n, regions[i].x + regions[i].w + w);
@@ -865,8 +922,8 @@ void client_toggle_large(client *c, int side)
 	int width3  = c->monitor.w - c->monitor.w/3;
 	int height4 = c->monitor.h;
 
-	int is_largeleft  = c->is_left  && c->is_maxv && NEAR(width3, vague, c->sw) ?1:0;
-	int is_largeright = c->is_right && c->is_maxv && NEAR(width3, vague, c->sw) ?1:0;
+	int is_largeleft  = c->is_left  && c->is_maxv && NEAR(width3, vague, c->w) ?1:0;
+	int is_largeright = c->is_right && c->is_maxv && NEAR(width3, vague, c->w) ?1:0;
 
 	c->cache->hlock = 0; c->cache->vlock = 0;
 	client_remove_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
@@ -917,24 +974,18 @@ void client_flash(client *c, unsigned int color, int delay, int title)
 		client_descriptive_data(c);
 		client_extended_data(c);
 
-		int x1 = c->x, x2 = c->x + c->sw - config_flash_width;
-		int y1 = c->y, y2 = c->y + c->sh - config_flash_width;
+		int x1 = c->x, x2 = c->x + c->w - config_flash_width;
+		int y1 = c->y, y2 = c->y + c->h - config_flash_width;
 
 		// use message_box for title
 		if (title || config_flash_title)
-			message_box(delay, c->x+c->sw/2, c->y+c->sh/2, config_title_fg, config_title_bg, config_title_bc, c->title);
+			message_box(delay, c->x+c->w/2, c->y+c->h/2, config_title_fg, config_title_bg, config_title_bc, c->title);
 
 		// four coloured squares in the window's corners
-		Window tl = XCreateSimpleWindow(display, root, x1, y1, config_flash_width, config_flash_width, 0, None, color);
-		Window tr = XCreateSimpleWindow(display, root, x2, y1, config_flash_width, config_flash_width, 0, None, color);
-		Window bl = XCreateSimpleWindow(display, root, x1, y2, config_flash_width, config_flash_width, 0, None, color);
-		Window br = XCreateSimpleWindow(display, root, x2, y2, config_flash_width, config_flash_width, 0, None, color);
-
-		XSetWindowAttributes attr; attr.override_redirect = True;
-		XChangeWindowAttributes(display, tl, CWOverrideRedirect, &attr);
-		XChangeWindowAttributes(display, tr, CWOverrideRedirect, &attr);
-		XChangeWindowAttributes(display, bl, CWOverrideRedirect, &attr);
-		XChangeWindowAttributes(display, br, CWOverrideRedirect, &attr);
+		Window tl = window_create_override(x1, y1, config_flash_width, config_flash_width, color);
+		Window tr = window_create_override(x2, y1, config_flash_width, config_flash_width, color);
+		Window bl = window_create_override(x1, y2, config_flash_width, config_flash_width, color);
+		Window br = window_create_override(x2, y2, config_flash_width, config_flash_width, color);
 
 		XMapRaised(display, tl); XMapRaised(display, tr);
 		XMapRaised(display, bl); XMapRaised(display, br);
@@ -968,6 +1019,7 @@ void client_stack_family(client *c, winlist *stack)
 	// move this window to end (bottom) of stack
 	winlist_forget(stack, c->window);
 	winlist_append(stack, c->window, NULL);
+	if (c->decorate) winlist_append(stack, c->cache->frame, NULL);
 }
 
 // raise a window and its transients
@@ -979,7 +1031,6 @@ void client_raise(client *c, int priority)
 		return;
 
 	winlist *stack = winlist_new();
-	winlist *inplay = windows_in_play();
 
 	// priority gets us raised without anyone above us, regardless. eg _NET_WM_STATE_FULLSCREEN+focus
 	if (!priority)
@@ -990,20 +1041,18 @@ void client_raise(client *c, int priority)
 			client_stack_family(c, stack);
 
 		// locate windows with both _NET_WM_STATE_STICKY and _NET_WM_STATE_ABOVE
-		clients_descend(inplay, i, w, o)
+		managed_descend(i, w, o)
 			if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
 				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
 				&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
 					client_stack_family(o, stack);
 		// locate windows in the current_tag with _NET_WM_STATE_ABOVE
-		// untagged windows with _NET_WM_STATE_ABOVE are effectively sticky
-		clients_descend(inplay, i, w, o)
+		tag_descend(i, w, o, current_tag)
 			if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
-				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE])
-				&& (!o->cache->tags || current_tag & o->cache->tags))
+				&& client_has_state(o, netatoms[_NET_WM_STATE_ABOVE]))
 					client_stack_family(o, stack);
 		// locate _NET_WM_WINDOW_TYPE_DOCK windows
-		clients_descend(inplay, i, w, o)
+		clients_descend(windows_in_play(), i, w, o)
 			if (winlist_find(stack, w) < 0 && o->visible && c->trans == None
 				&& o->type == netatoms[_NET_WM_WINDOW_TYPE_DOCK])
 					client_stack_family(o, stack);
@@ -1044,45 +1093,30 @@ void client_lower(client *c, int priority)
 	if (!priority && client_has_state(c, netatoms[_NET_WM_STATE_ABOVE]))
 		return;
 
-	winlist *stack = winlist_new();
-	winlist *inplay = windows_in_play();
+	// locate the lowest window in the tag
+	client *under = NULL;
+	tag_descend(i, w, o, current_tag)
+		if (o->trans == None && o->window != c->window
+			&& !client_has_state(o, netatoms[_NET_WM_STATE_BELOW]))
+				under = o;
 
-	if (priority) client_stack_family(c, stack);
-
-	// locate windows in the current_tag with _NET_WM_STATE_BELOW
-	// untagged windows with _NET_WM_STATE_BELOW are effectively sticky
-	clients_descend(inplay, i, w, o)
-		if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
-			&& client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
-			&& (!o->cache->tags || current_tag & o->cache->tags))
-				client_stack_family(o, stack);
-	// locate windows with both _NET_WM_STATE_STICKY and _NET_WM_STATE_BELOW
-	clients_descend(inplay, i, w, o)
-		if (winlist_find(stack, w) < 0 && o->visible && o->trans == None
-			&& client_has_state(o, netatoms[_NET_WM_STATE_BELOW])
-			&& client_has_state(o, netatoms[_NET_WM_STATE_STICKY]))
-				client_stack_family(o, stack);
-
-	if (winlist_find(stack, c->window) < 0)
-		client_stack_family(c, stack);
-
-	// raise the top window in the stack
-	XLowerWindow(display, stack->array[stack->len-1]);
-	// stack everything else, in order, underneath top window
-	if (stack->len > 1) XRestackWindows(display, stack->array, stack->len);
-
-	winlist_free(stack);
+	if (under) client_raise_under(c, under);
 }
 
 // set border width approriate to position and size
 void client_review_border(client *c)
 {
 	client_extended_data(c);
-	unsigned long width = c->is_full || !c->manage || !c->decorate ? 0: config_border_width;
-	XSetWindowBorderWidth(display, c->window, width);
+	XSetWindowBorderWidth(display, c->window, 0);
+	if (c->decorate)
+	{
+		Window wins[2] = { c->window, c->cache->frame };
+		XRestackWindows(display, wins, 2);
+		if (c->visible) XMapWindow(display, c->cache->frame);
+	}
+	unsigned long width = c->border_width;
 	unsigned long extents[4] = { width, width, width, width };
 	window_set_cardinal_prop(c->window, netatoms[_NET_FRAME_EXTENTS], extents, 4);
-	c->border_width = width;
 }
 
 // set allowed _NET_WM_STATE_* client messages
@@ -1161,7 +1195,12 @@ void client_full_review(client *c)
 // update client border to blurred
 void client_deactivate(client *c, client *a)
 {
-	XSetWindowBorder(display, c->window, c->urgent ? config_border_attention: config_border_blur);
+	if (c->decorate)
+	{
+		XSetWindowAttributes attr; attr.background_pixel = c->urgent ? config_border_attention: config_border_blur;
+		XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
+		XClearWindow(display, c->cache->frame);
+	}
 	if (c->visible && client_rule(c, RULE_AUTOMINI))
 	{
 		bool trans = 0;
@@ -1194,7 +1233,14 @@ void client_activate(client *c, int raise, int warp)
 	client_protocol_event(c, atoms[WM_TAKE_FOCUS]);
 	if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
 	else XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
-	XSetWindowBorder(display, c->window, config_border_focus);
+
+	// set focus border color
+	if (c->decorate)
+	{
+		XSetWindowAttributes attr; attr.background_pixel = config_border_focus;
+		XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
+		XClearWindow(display, c->cache->frame);
+	}
 
 	// we have recieved attention
 	client_remove_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]);
@@ -1267,15 +1313,16 @@ void client_nws_fullscreen(client *c, int action)
 		client_commit(c);
 		client_save_position(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
+		c->border_width = 0;
 		// _NET_WM_STATE_FULLSCREEN will override size
-		client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
+		client_moveresize(c, 0, c->x, c->y, c->w, c->h);
 	}
 	else
 	if (action == REMOVE || (action == TOGGLE && state))
 	{
-		client_extended_data(c);
 		client_commit(c);
 		client_remove_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]);
+		if (c->decorate) c->border_width = config_border_width;
 		client_restore_position(c, 0, c->monitor.x + (c->monitor.w/4), c->monitor.y + (c->monitor.h/4), c->monitor.w/2, c->monitor.h/2);
 	}
 	// fullscreen may need to hide above windows
@@ -1353,7 +1400,7 @@ void client_nws_maxvert(client *c, int action)
 		client_commit(c);
 		client_save_position_vert(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
-		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
+		client_moveresize(c, MR_SMART, c->x, c->y, c->w, c->monitor.h);
 		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
@@ -1378,7 +1425,7 @@ void client_nws_maxhorz(client *c, int action)
 		client_commit(c);
 		client_save_position_horz(c);
 		client_add_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->sh);
+		client_moveresize(c, MR_SMART, c->x, c->y, c->monitor.w, c->h);
 		client_flash(c, config_flash_on, config_flash_ms, FLASHTITLEDEF);
 	}
 	else
@@ -1391,24 +1438,6 @@ void client_nws_maxhorz(client *c, int action)
 	}
 }
 
-// review client's position and size when the environmetn has changed (eg, STRUT changes)
-void client_nws_review(client *c)
-{
-	client_extended_data(c);
-	int commit = 0;
-	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
-	{
-		client_moveresize(c, 1, c->x, c->y, c->monitor.w, c->sh);
-		commit = 1;
-	}
-	if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
-	{
-		client_moveresize(c, 1, c->x, c->y, c->sw, c->monitor.h);
-		commit = 1;
-	}
-	if (commit) client_commit(c);
-}
-
 // look for windows tiled horizontally with *c
 winlist* clients_tiled_horz_with(client *c)
 {
@@ -1417,7 +1446,7 @@ winlist* clients_tiled_horz_with(client *c)
 	winlist *tiles = winlist_new();
 	winlist_append(tiles, c->window, NULL);
 	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
-	int min_x = c->x, max_x = c->x + c->sw, tlen = 0;
+	int min_x = c->x, max_x = c->x + c->w, tlen = 0;
 	while (tlen != tiles->len)
 	{
 		tlen = tiles->len;
@@ -1441,7 +1470,7 @@ winlist* clients_tiled_vert_with(client *c)
 	winlist *tiles = winlist_new();
 	winlist_append(tiles, c->window, NULL);
 	int vague = MAX(c->monitor.w/100, c->monitor.h/100);
-	int min_y = c->y, max_y = c->y + c->sh, tlen = 0;
+	int min_y = c->y, max_y = c->y + c->h, tlen = 0;
 	// locate adjacent windows with the same tag, size, and vertical position
 	while (tlen != tiles->len)
 	{
@@ -1506,12 +1535,12 @@ void client_htile(client *c)
 			winlist_append(tiles, w, NULL);
 	if (tiles->len > 1)
 	{
-		int width = c->sw / tiles->len;
+		int width = c->w / tiles->len;
 		clients_ascend(tiles, i, w, o)
 		{
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-			client_moveresize(o, 0, c->x+(width*i), c->y, width, c->sh);
+			client_moveresize(o, 0, c->x+(width*i), c->y, width, c->h);
 		}
 	}
 	winlist_free(tiles);
@@ -1525,18 +1554,18 @@ void client_huntile(client *c)
 	winlist *tiles = clients_tiled_horz_with(c);
 	if (tiles->len > 1)
 	{
-		int min_x = c->x, max_x = c->x+c->sh;
+		int min_x = c->x, max_x = c->x+c->h;
 		clients_ascend(tiles, i, w, o)
 		{
 			client_extended_data(o);
 			min_x = MIN(min_x, o->x);
-			max_x = MAX(max_x, o->x+o->sw);
+			max_x = MAX(max_x, o->x+o->w);
 		}
 		clients_ascend(tiles, i, w, o)
 		{
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-			client_moveresize(o, 0, min_x, c->y, max_x-min_x, c->sh);
+			client_moveresize(o, 0, min_x, c->y, max_x-min_x, c->h);
 		}
 	}
 	winlist_free(tiles);
@@ -1555,12 +1584,12 @@ void client_vtile(client *c)
 			winlist_append(tiles, w, NULL);
 	if (tiles->len > 1)
 	{
-		int height = c->sh / tiles->len;
+		int height = c->h / tiles->len;
 		clients_ascend(tiles, i, w, o)
 		{
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]);
-			client_moveresize(o, 0, c->x, c->y+(height*i), c->sw, height);
+			client_moveresize(o, 0, c->x, c->y+(height*i), c->w, height);
 		}
 	}
 	winlist_free(tiles);
@@ -1574,18 +1603,18 @@ void client_vuntile(client *c)
 	winlist *tiles = clients_tiled_vert_with(c);
 	if (tiles->len > 1)
 	{
-		int min_y = c->y, max_y = c->y+c->sh;
+		int min_y = c->y, max_y = c->y+c->h;
 		clients_ascend(tiles, i, w, o)
 		{
 			client_extended_data(o);
 			min_y = MIN(min_y, o->y);
-			max_y = MAX(max_y, o->y+o->sh);
+			max_y = MAX(max_y, o->y+o->h);
 		}
 		clients_ascend(tiles, i, w, o)
 		{
 			client_commit(o);
 			client_remove_state(o, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]);
-			client_moveresize(o, 0, c->x, min_y, c->sw, max_y-min_y);
+			client_moveresize(o, 0, c->x, min_y, c->w, max_y-min_y);
 		}
 	}
 	winlist_free(tiles);
@@ -1599,13 +1628,13 @@ client* client_over_there_ish(client *c, int direction)
 
 	workarea zone; memset(&zone, 0, sizeof(workarea));
 	if (direction == FOCUSLEFT)
-		{ zone.x = 0-large; zone.y = 0-large; zone.w = large + c->x + c->sw/2; zone.h = large*2; }
+		{ zone.x = 0-large; zone.y = 0-large; zone.w = large + c->x + c->w/2; zone.h = large*2; }
 	if (direction == FOCUSRIGHT)
-		{ zone.x = c->x+c->sw/2; zone.y = 0-large; zone.w = c->sw/2 + large; zone.h = large*2; }
+		{ zone.x = c->x+c->w/2; zone.y = 0-large; zone.w = c->w/2 + large; zone.h = large*2; }
 	if (direction == FOCUSUP)
-		{ zone.x = 0-large; zone.y = 0-large; zone.w = large*2; zone.h = large + c->y + c->sh/2; }
+		{ zone.x = 0-large; zone.y = 0-large; zone.w = large*2; zone.h = large + c->y + c->h/2; }
 	if (direction == FOCUSDOWN)
-		{ zone.x = 0-large; zone.y = c->y+c->sh/2; zone.w = large*2; zone.h = c->sh/2 + large; }
+		{ zone.x = 0-large; zone.y = c->y+c->h/2; zone.w = large*2; zone.h = c->h/2 + large; }
 
 	winlist *consider = clients_partly_visible(&zone, current_tag, None);
 
@@ -1614,22 +1643,22 @@ client* client_over_there_ish(client *c, int direction)
 	clients_descend(consider, i, w, o) if (w != c->window && o->manage)
 	{
 		client_extended_data(o);
-		int overlap_x = OVERLAP(c->y, c->sh, o->y, o->sh);
-		int overlap_y = OVERLAP(c->x, c->sw, o->x, o->sw);
-		if (direction == FOCUSLEFT  && overlap_x && (!m || o->x+o->sw/2 > m->x+m->sw/2)) m = o;
-		if (direction == FOCUSRIGHT && overlap_x && (!m || o->x+o->sw/2 < m->x+m->sw/2)) m = o;
-		if (direction == FOCUSUP    && overlap_y && (!m || o->y+o->sh/2 > m->y+m->sh/2)) m = o;
-		if (direction == FOCUSDOWN  && overlap_y && (!m || o->y+o->sh/2 < m->y+m->sh/2)) m = o;
+		int overlap_x = OVERLAP(c->y, c->h, o->y, o->h);
+		int overlap_y = OVERLAP(c->x, c->w, o->x, o->w);
+		if (direction == FOCUSLEFT  && overlap_x && (!m || o->x+o->w/2 > m->x+m->w/2)) m = o;
+		if (direction == FOCUSRIGHT && overlap_x && (!m || o->x+o->w/2 < m->x+m->w/2)) m = o;
+		if (direction == FOCUSUP    && overlap_y && (!m || o->y+o->h/2 > m->y+m->h/2)) m = o;
+		if (direction == FOCUSDOWN  && overlap_y && (!m || o->y+o->h/2 < m->y+m->h/2)) m = o;
 	}
 	// otherwise, the closest one
 	if (!m) clients_descend(consider, i, w, o) if (w != c->window && o->manage)
 	{
 		client_extended_data(o);
 		if (!m) m = o;
-		if (direction == FOCUSLEFT  && o->x+o->sw/2 > m->x+m->sw/2) m = o;
-		if (direction == FOCUSRIGHT && o->x+o->sw/2 < m->x+m->sw/2) m = o;
-		if (direction == FOCUSUP    && o->y+o->sh/2 > m->y+m->sh/2) m = o;
-		if (direction == FOCUSDOWN  && o->y+o->sh/2 < m->y+m->sh/2) m = o;
+		if (direction == FOCUSLEFT  && o->x+o->w/2 > m->x+m->w/2) m = o;
+		if (direction == FOCUSRIGHT && o->x+o->w/2 < m->x+m->w/2) m = o;
+		if (direction == FOCUSUP    && o->y+o->h/2 > m->y+m->h/2) m = o;
+		if (direction == FOCUSDOWN  && o->y+o->h/2 < m->y+m->h/2) m = o;
 	}
 	winlist_free(consider);
 	return m;
@@ -1651,7 +1680,7 @@ void client_swapto(client *c, int direction)
 	if (m && c->monitor.x == m->monitor.x && c->monitor.y == m->monitor.y)
 	{
 		client_extended_data(m);
-		int cx = c->x, cy = c->y, cw = c->sw, ch = c->sh, mx = m->x, my = m->y, mw = m->sw, mh = m->sh;
+		int cx = c->x, cy = c->y, cw = c->w, ch = c->h, mx = m->x, my = m->y, mw = m->w, mh = m->h;
 		int overlap_x = OVERLAP(c->y, c->h, m->y, m->h);
 		int overlap_y = OVERLAP(c->x, c->w, m->x, m->w);
 
@@ -1686,7 +1715,7 @@ void client_replace(client *c)
 	if (a)
 	{
 		client_commit(c);
-		client_moveresize(c, 0, a->x, a->y, a->sw, a->sh);
+		client_moveresize(c, 0, a->x, a->y, a->w, a->h);
 	}
 }
 
@@ -1696,7 +1725,7 @@ void client_duplicate(client *c)
 	int i; Window w; client *o; client_commit(c);
 	tag_descend(i, w, o, 0)
 		if (c->window != w && clients_intersect(c, o))
-			{ client_moveresize(c, 0, o->x, o->y, o->sw, o->sh); return; }
+			{ client_moveresize(c, 0, o->x, o->y, o->w, o->h); return; }
 }
 
 void client_minimize(client *c)
@@ -1718,6 +1747,7 @@ void client_minimize(client *c)
 void client_restore(client *c)
 {
 	XMapWindow(display, c->window);
+	if (c->decorate) XMapWindow(display, c->cache->frame);
 	// no update fo windows_minimized yet. see handle_mapnotify()
 	winlist_forget(windows_activated, c->window);
 	winlist_prepend(windows_activated, c->window, NULL);
@@ -1732,6 +1762,7 @@ void client_restore(client *c)
 void client_shade(client *c)
 {
 	XUnmapWindow(display, c->window);
+	if (c->decorate) XUnmapWindow(display, c->cache->frame);
 	// no update fo windows_activated yet. see handle_unmapnotify()
 	winlist_forget(windows_shaded, c->window);
 	winlist_append(windows_shaded, c->window, NULL);
@@ -1957,8 +1988,8 @@ void client_rules_monitor(client *c)
 		if (mon.w && (mon.x != c->monitor.x || mon.y != c->monitor.y))
 		{
 			memmove(&c->monitor, &mon, sizeof(workarea));
-			client_moveresize(c, 0, MAX(mon.x, mon.x + ((mon.w - c->sw) / 2)),
-				MAX(mon.y, mon.y + ((mon.h - c->sh) / 2)), c->sw, c->sh);
+			client_moveresize(c, 0, MAX(mon.x, mon.x + ((mon.w - c->w) / 2)),
+				MAX(mon.y, mon.y + ((mon.h - c->h) / 2)), c->w, c->h);
 		}
 	}
 }
@@ -1972,42 +2003,42 @@ void client_rules_moveresize(client *c)
 	if (client_rule(c, RULE_SMALL|RULE_MEDIUM|RULE_LARGE|RULE_COVER|RULE_SIZE))
 	{
 		int w_small = c->monitor.w/3, h_small = c->monitor.h/3;
-		if (client_rule(c, RULE_SMALL))  { c->sw = w_small; c->sh = h_small; }
-		if (client_rule(c, RULE_MEDIUM)) { c->sw = c->monitor.w/2; c->sh = c->monitor.h/2; }
-		if (client_rule(c, RULE_LARGE))  { c->sw = c->monitor.w-w_small; c->sh = c->monitor.h-h_small; }
-		if (client_rule(c, RULE_COVER))  { c->sw = c->monitor.w; c->sh = c->monitor.h; }
+		if (client_rule(c, RULE_SMALL))  { c->w = w_small; c->h = h_small; }
+		if (client_rule(c, RULE_MEDIUM)) { c->w = c->monitor.w/2; c->h = c->monitor.h/2; }
+		if (client_rule(c, RULE_LARGE))  { c->w = c->monitor.w-w_small; c->h = c->monitor.h-h_small; }
+		if (client_rule(c, RULE_COVER))  { c->w = c->monitor.w; c->h = c->monitor.h; }
 		if (client_rule(c, RULE_SIZE))
 		{
-			c->sw = c->rule->w_is_pct ? c->monitor.w/100*c->rule->w: c->rule->w;
-			c->sh = c->rule->h_is_pct ? c->monitor.h/100*c->rule->h: c->rule->h;
+			c->w = c->rule->w_is_pct ? c->monitor.w/100*c->rule->w: c->rule->w;
+			c->h = c->rule->h_is_pct ? c->monitor.h/100*c->rule->h: c->rule->h;
 		}
 		mr = 1;
 	}
 	//  if a placement rule exists, it trumps everything
 	if (client_rule(c, RULE_TOP|RULE_LEFT|RULE_RIGHT|RULE_BOTTOM|RULE_CENTER|RULE_POINTER))
 	{
-		c->x = MAX(c->monitor.x, c->monitor.x + ((c->monitor.w - c->sw) / 2));
-		c->y = MAX(c->monitor.y, c->monitor.y + ((c->monitor.h - c->sh) / 2));
+		c->x = MAX(c->monitor.x, c->monitor.x + ((c->monitor.w - c->w) / 2));
+		c->y = MAX(c->monitor.y, c->monitor.y + ((c->monitor.h - c->h) / 2));
 		// center first, so others can combine with it
 		if (client_rule(c, RULE_CENTER))
 		{
-			c->x = c->monitor.x + (c->monitor.w - c->sw)/2;
-			c->y = c->monitor.y + (c->monitor.h - c->sh)/2;
+			c->x = c->monitor.x + (c->monitor.w - c->w)/2;
+			c->y = c->monitor.y + (c->monitor.h - c->h)/2;
 		}
 		if (client_rule(c, RULE_POINTER))
 		{
 			int x, y; pointer_get(&x, &y);
 			workarea a; monitor_dimensions_struts(x, y, &a);
-			c->x = MAX(a.x, x-(c->sw/2));
-			c->y = MAX(a.y, y-(c->sh/2));
+			c->x = MAX(a.x, x-(c->w/2));
+			c->y = MAX(a.y, y-(c->h/2));
 		}
-		if (client_rule(c, RULE_BOTTOM)) c->y = c->monitor.y + c->monitor.h - c->sh;
-		if (client_rule(c, RULE_RIGHT))  c->x = c->monitor.x + c->monitor.w - c->sw;
+		if (client_rule(c, RULE_BOTTOM)) c->y = c->monitor.y + c->monitor.h - c->h;
+		if (client_rule(c, RULE_RIGHT))  c->x = c->monitor.x + c->monitor.w - c->w;
 		if (client_rule(c, RULE_TOP))    c->y = c->monitor.y;
 		if (client_rule(c, RULE_LEFT))   c->x = c->monitor.x;
 		mr = 1;
 	}
-	if (mr) client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
+	if (mr) client_moveresize(c, 0, c->x, c->y, c->w, c->h);
 }
 
 // h/v lock must occur after the first client_moveresize

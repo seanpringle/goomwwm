@@ -88,6 +88,11 @@ typedef unsigned long long bitmap;
 #define SWAPDOWN 4
 #define CLIENTSTATE 7
 
+// client_moveresize() flags
+#define MR_SMART 1<<1
+#define MR_SNAP 1<<2
+#define MR_SNAPWH 1<<3
+
 #define TAG1 1
 #define TAG2 (1<<1)
 #define TAG3 (1<<2)
@@ -219,8 +224,8 @@ typedef unsigned long long bitmap;
 #define managed_ascend(i,w,c) clients_ascend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
 #define managed_descend(i,w,c) clients_descend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
 
-#define tag_ascend(i,w,c,t) managed_ascend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
-#define tag_descend(i,w,c,t) managed_descend(i, w, c) if (!(c)->cache->tags || !t || (c)->cache->tags & (t))
+#define tag_ascend(i,w,c,t) managed_ascend(i, w, c) if (!t || (c)->cache->tags & (t))
+#define tag_descend(i,w,c,t) managed_descend(i, w, c) if (!t || (c)->cache->tags & (t))
 
 // window lists
 typedef struct {
@@ -236,7 +241,7 @@ typedef struct {
 
 // snapshot a window's size/pos and EWMH state
 typedef struct _winundo {
-	short x, y, w, h, sx, sy, sw, sh, states;
+	short x, y, w, h, states;
 	Atom state[CLIENTSTATE];
 	struct _winundo *next;
 } winundo;
@@ -251,6 +256,8 @@ typedef struct {
 	unsigned int tags; // desktop tags
 	winundo *ewmh;     // undo size/pos for EWMH FULLSCREEN/MAXIMIZE_HORZ/MAXIMIZE_VERT toggles
 	winundo *undo;     // general size/pos undo LIFO linked list
+	Window frame;      // titlebar & border, but NOT reparented!
+	bool is_ours;      // set for any windows goomwwm creates
 } wincache;
 
 // rule for controlling window size/pos/behaviour
@@ -349,8 +356,7 @@ typedef struct {
 	Window trans;            // our transient_for
 	XWindowAttributes xattr; // copy of cache_xattr data
 	XSizeHints xsize;        // only loaded after client_extended_data()
-	short x, y, w, h;        // size/pos pulled from xattr
-	short sx, sy, sw, sh;    // size/pos relative to monitor and including border
+	short x, y, w, h;        // size/pos pulled from xattr + borders
 	short states;            // number of EWMH states set
 	short initial_state;     // pulled from wm hints
 	short border_width;      // pulled from xwindowattributes
