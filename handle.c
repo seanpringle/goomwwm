@@ -590,6 +590,9 @@ void handle_maprequest(XEvent *ev)
 #endif
 	if (c && c->manage)
 	{
+		// this reset mainly for -auto apps, which may fire before docks/panels have set
+		// their struts, or (apparently?) before nvidia's xinerama stuff reports all monitors
+		reset_lazy_caches();
 		window_select(c->window);
 		client_extended_data(c);
 		monitor_active(&c->monitor);
