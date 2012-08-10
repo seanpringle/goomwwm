@@ -109,7 +109,7 @@ void ruleset_switcher()
 	{
 		display = XOpenDisplay(0);
 		XSync(display, True);
-		int n = menu(list, NULL, 0);
+		int n = menu(list, NULL, "> ", 0);
 		if (n >= 0 && list[n])
 		{
 			cli_message(gatoms[GOOMWWM_RULESET], list[n]);

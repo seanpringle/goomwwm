@@ -272,6 +272,19 @@ void message_box(int delay, int x, int y, char *fgc, char *bgc, char *bc, char *
 	exit(EXIT_SUCCESS);
 }
 
+// wrapper for XCreateSimpleWindow so we can track our own windows
+Window window_create_override(int x, int y, int w, int h, unsigned int color)
+{
+	Window win = XCreateSimpleWindow(display, root, x, y, w, h, 0, None, color);
+	XSetWindowAttributes attr; attr.override_redirect = True;
+	XChangeWindowAttributes(display, win, CWOverrideRedirect, &attr);
+	// pre-create window's cache, so we know it's ours later
+	wincache *cache = allocate_clear(sizeof(wincache));
+	winlist_append(windows, win, cache);
+	cache->is_ours = 1;
+	return win;
+}
+
 // bottom right of screen
 void notice(const char *fmt, ...)
 {

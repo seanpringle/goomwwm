@@ -64,6 +64,15 @@ void handle_keypress(XEvent *ev)
 	if (ISKEY(KEY_LAUNCH)) exec_cmd(config_launcher);
 
 	else
+	// simple run dialog
+	if (ISKEY(KEY_COMMAND))
+	{
+		char *cmd = prompt("$ ");
+		if (cmd && *cmd) exec_cmd(cmd);
+		free(cmd);
+	}
+
+	else
 	// exec goomwwm. press twice
 	if (ISKEY(KEY_QUIT))
 	{
@@ -99,7 +108,9 @@ void handle_keypress(XEvent *ev)
 		int vague = MAX(screen_width/100, screen_height/100);
 
 		// window co-ords translated to 0-based on screen
-		int x = c->sx; int y = c->sy; int w = c->sw; int h = c->sh;
+		int x = c->x - screen_x;
+		int y = c->y - screen_y;
+		int w = c->w; int h = c->h;
 
 		// four basic window sizes
 		int width1 = screen_width/3;      int height1 = screen_height/3;
@@ -107,8 +118,8 @@ void handle_keypress(XEvent *ev)
 		int width3 = screen_width-width1; int height3 = screen_height-height1;
 		int width4 = screen_width;        int height4 = screen_height;
 
-		// final resize/move params. smart = intelligently bump / center / shrink
-		int fx = 0, fy = 0, fw = 0, fh = 0, smart = 0;
+		// final resize/move params. flags = intelligently bump / center / shrink
+		int fx = 0, fy = 0, fw = 0, fh = 0; unsigned int flags = 0;
 
 		     if (ISKEY(KEY_CLOSE))      client_close(c);
 		else if (ISKEY(KEY_CYCLE))      client_cycle(c);
@@ -166,7 +177,7 @@ void handle_keypress(XEvent *ev)
 		// Page Up/Down rapidly moves the active window through 4 sizes
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_GROW) || ISKEY(KEY_SHRINK)))
 		{
-			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy;
+			flags |= MR_SMART; fx = c->x; fy = c->y;
 
 			// for windows with resize increments, be a little looser detecting their zone
 			if (c->xsize.flags & PResizeInc)
@@ -220,7 +231,7 @@ void handle_keypress(XEvent *ev)
 		// Shift+ Page Up/Down makes the focused window larger and smaller respectively
 		if (!client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) && (ISKEY(KEY_INC) || ISKEY(KEY_DEC)))
 		{
-			smart = 1; fx = screen_x + c->sx; fy = screen_y + c->sy; fw = c->sw; fh = c->sh;
+			flags |= MR_SMART; fx = c->x; fy = c->y; fw = c->w; fh = c->h;
 			int dx = screen_width/16; int dy = screen_height/16;
 			if (ISKEY(KEY_INC)) { fw += dx; fh += dy; }
 			if (ISKEY(KEY_DEC)) { fw -= dx; fh -= dy; }
@@ -301,7 +312,7 @@ void handle_keypress(XEvent *ev)
 		if (fw > 0 && fh > 0)
 		{
 			client_commit(c);
-			client_moveresize(c, smart, fx, fy, fw, fh);
+			client_moveresize(c, flags, fx, fy, fw, fh);
 		}
 	}
 	// deactivate prefix mode if necessary. only one operation at a time
@@ -345,7 +356,8 @@ void handle_buttonpress(XEvent *ev)
 			memcpy(&mouse_attr, &c->xattr, sizeof(c->xattr));
 			memcpy(&mouse_button, &ev->xbutton, sizeof(ev->xbutton));
 			mouse_dragging = 1;
-		} else
+		}
+		else
 		{
 			// events we havn't snaffled for move/resize may be relevant to the subwindow. replay them
 			XAllowEvents(display, ReplayPointer, CurrentTime);
@@ -370,6 +382,8 @@ void handle_buttonrelease(XEvent *ev)
 
 	if (ev->xbutton.window != None && (c = client_create(ev->xbutton.window)) && c && c->manage)
 	{
+		event_client_dump(c);
+
 		int xd = ev->xbutton.x_root - mouse_button.x_root;
 		int yd = ev->xbutton.y_root - mouse_button.y_root;
 
@@ -403,73 +417,22 @@ void handle_motionnotify(XEvent *ev)
 		int y  = mouse_attr.y + (mouse_button.button == Button1 ? yd : 0);
 		int w  = MAX(1, mouse_attr.width  + (mouse_button.button == Button3 ? xd : 0));
 		int h  = MAX(1, mouse_attr.height + (mouse_button.button == Button3 ? yd : 0));
-		int vague = MAX(c->monitor.w/100, c->monitor.h/100);
-		int i; Window win; client *o;
-		int xsnap = 0, ysnap = 0, bw = config_border_width*2;
 
-		// horz/vert size locks
-		if (c->cache->hlock) { x = c->x; w = c->w; }
-		if (c->cache->vlock) { y = c->y; h = c->h; }
+		// client_moveresize() expects borders included, and we want that for nice, neat edge-snapping too
+		if (c->decorate)
+		{
+			x -= c->border_width;
+			y -= c->border_width;
+			w += c->border_width*2;
+			h += c->border_width*2;
+		}
 
-		// monitor_dimensions_struts() can be heavy work with mouse events. only do it if necessary
-		if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]) || client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
-		{
-			int px, py; pointer_get(&px, &py);
-			workarea mon; monitor_dimensions_struts(px, py, &mon);
-			// ensure we match maxv/maxh mode. these override above locks!
-			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_HORZ]))
-				{ x = mon.x; w = mon.w-bw; }
-			if (client_has_state(c, netatoms[_NET_WM_STATE_MAXIMIZED_VERT]))
-				{ y = mon.y; h = mon.h-bw; }
-		}
-		// Button1 = move
-		if (mouse_button.button == Button1)
-		{
-			// snap to monitor edges
-			if (NEAR(c->monitor.x, vague, x)) { x = c->monitor.x; xsnap = 1; }
-			if (NEAR(c->monitor.y, vague, y)) { y = c->monitor.y; ysnap = 1; }
-			if (!xsnap && NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { x = c->monitor.x+c->monitor.w-w-bw; xsnap = 1; }
-			if (!ysnap && NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { y = c->monitor.y+c->monitor.h-h-bw; ysnap = 1; }
-			// snap to window edges
-			if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
-			{
-				client_extended_data(o);
-				if (!xsnap && NEAR(o->x, vague, x)) { x = o->x; xsnap = 1; }
-				if (!ysnap && NEAR(o->y, vague, y)) { y = o->y; ysnap = 1; }
-				if (!xsnap && NEAR(o->x+o->sw, vague, x)) { x = o->x+o->sw; xsnap = 1; }
-				if (!ysnap && NEAR(o->y+o->sh, vague, y)) { y = o->y+o->sh; ysnap = 1; }
-				if (!xsnap && NEAR(o->x, vague, x+w)) { x = o->x+-w-bw; xsnap = 1; }
-				if (!ysnap && NEAR(o->y, vague, y+h)) { y = o->y+-h-bw; ysnap = 1; }
-				if (!xsnap && NEAR(o->x+o->sw, vague, x+w)) { x = o->x+o->sw-w-bw; xsnap = 1; }
-				if (!ysnap && NEAR(o->y+o->sh, vague, y+h)) { y = o->y+o->sh-h-bw; ysnap = 1; }
-				if (xsnap && ysnap) break;
-			}
-		}
-		else
-		// Button3 = resize
-		if (mouse_button.button == Button3)
-		{
-			// snap to monitor edges
-			if (NEAR(c->monitor.x+c->monitor.w, vague, x+w)) { w = c->monitor.x+c->monitor.w-x-bw; xsnap = 1; }
-			if (NEAR(c->monitor.y+c->monitor.h, vague, y+h)) { h = c->monitor.y+c->monitor.h-y-bw; ysnap = 1; }
-			// snap to window edges
-			if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
-			{
-				client_extended_data(o);
-				if (!xsnap && NEAR(o->x, vague, x+w)) { w = o->x-x-bw; xsnap = 1; }
-				if (!ysnap && NEAR(o->y, vague, y+h)) { h = o->y-y-bw; ysnap = 1; }
-				if (!xsnap && NEAR(o->x+o->sw, vague, x+w)) { w = o->x+o->sw-x-bw; xsnap = 1; }
-				if (!ysnap && NEAR(o->y+o->sh, vague, y+h)) { h = o->y+o->sh-y-bw; ysnap = 1; }
-				if (xsnap && ysnap) break;
-			}
-		}
-		//client_process_size_hints expects borders to be included
-		w += bw; h += bw;
-		client_process_size_hints(c, &x, &y, &w, &h);
-		w -= bw; h -= bw;
-
-		w = MAX(MINWINDOW, w); h = MAX(MINWINDOW, h);
-		XMoveResizeWindow(display, ev->xmotion.window, x, y, w, h);
+		unsigned int flags = 0;
+		// snap all edges by moving window
+		if (mouse_button.button == Button1) flags |= MR_SNAP;
+		// snap right and bottom edges by resizing window
+		if (mouse_button.button == Button3) flags |= MR_SNAPWH;
+		client_moveresize(c, flags, x, y, w, h);
 	}
 }
 
@@ -492,8 +455,15 @@ void handle_destroynotify(XEvent *ev)
 	if (idx >= 0)
 	{
 		wincache *cache = windows->data[idx];
+
+		// destroy titlebar/borders
+		if (cache->frame != None)
+			XDestroyWindow(display, cache->frame);
+
+		// free undo chain
 		winundo *next, *undo = cache->undo;
 		while (undo) { next = undo->next; free(undo); undo = next; }
+
 		free(cache->ewmh);
 	}
 	winlist_forget(windows, win);
@@ -513,17 +483,24 @@ void handle_configurerequest(XEvent *ev)
 		client_extended_data(c);
 		// only move/resize requests go through. never stacking
 		XConfigureRequestEvent *e = &ev->xconfigurerequest;
-		int x = e->value_mask & CWX ? e->x: c->x;
-		int y = e->value_mask & CWY ? e->y: c->y;
-		int w = (e->value_mask & CWWidth  ? e->width : c->w) + (c->border_width * 2);
-		int h = (e->value_mask & CWHeight ? e->height: c->h) + (c->border_width * 2);
 		if (c->manage)
 		{
+			// client_moveresize() assumes co-ords include any border.
+			// adjust the initial size to compensate
+			int x = e->value_mask & CWX ? (e->x - c->border_width): c->x;
+			int y = e->value_mask & CWY ? (e->y - c->border_width): c->y;
+			int w = e->value_mask & CWWidth  ? (e->width  + c->border_width*2) : c->w;
+			int h = e->value_mask & CWHeight ? (e->height + c->border_width*2) : c->h;
 			// managed windows need to conform to a few rules
 			client_moveresize(c, 0, x, y, w, h);
 			client_review_border(c);
-		} else
+		}
+		else
 		{
+			int x = e->value_mask & CWX ? e->x: c->x;
+			int y = e->value_mask & CWY ? e->y: c->y;
+			int w = e->value_mask & CWWidth  ? e->width : c->w;
+			int h = e->value_mask & CWHeight ? e->height: c->h;
 			// everything else can go through as it likes
 			XMoveResizeWindow(display, c->window, x, y, w, h);
 		}
@@ -554,7 +531,7 @@ void handle_configurenotify(XEvent *ev)
 			client_moveresize(c, 0,
 				MIN(attr->x+attr->width-1,  MAX(attr->x, c->x)),
 				MIN(attr->y+attr->height-1, MAX(attr->y, c->y)),
-				c->sw, c->sh);
+				c->w, c->h);
 		}
 	}
 	else
@@ -609,7 +586,7 @@ void handle_maprequest(XEvent *ev)
 			// figure out which monitor holds the pointer, so we can nicely keep the window on-screen
 			int x, y; pointer_get(&x, &y);
 			workarea a; monitor_dimensions_struts(x, y, &a);
-			client_moveresize(c, 0, MAX(a.x, x-(c->sw/2)), MAX(a.y, y-(c->sh/2)), c->sw, c->sh);
+			client_moveresize(c, 0, MAX(a.x, x-(c->w/2)), MAX(a.y, y-(c->h/2)), c->w, c->h);
 		}
 		else
 		// PLACEANY: windows which specify position hints are honored, all else gets centered on screen or their parent
@@ -621,21 +598,21 @@ void handle_maprequest(XEvent *ev)
 			if (c->trans != None && (p = client_create(c->trans)) && p)
 			{
 				client_extended_data(p);
-				client_moveresize(c, 0, p->x + (p->sw/2) - (c->sw/2),
-					p->y + (p->sh/2) - (c->sh/2), c->sw, c->sh);
+				client_moveresize(c, 0, p->x + (p->w/2) - (c->w/2),
+					p->y + (p->h/2) - (c->h/2), c->w, c->h);
 			}
 			else
 			// center everything else on current monitor
 			{
 				workarea *m = &c->monitor;
-				client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->sw) / 2)),
-					MAX(m->y, m->y + ((m->h - c->sh) / 2)), c->sw, c->sh);
+				client_moveresize(c, 0, MAX(m->x, m->x + ((m->w - c->w) / 2)),
+					MAX(m->y, m->y + ((m->h - c->h) / 2)), c->w, c->h);
 			}
 		} else
 		// let program or user specified positions go through, but require it to be neatly on-screen.
 		// client_moveresize() does the necessary nudging
 		if (c->xsize.flags & (PPosition|USPosition))
-			client_moveresize(c, 0, c->x, c->y, c->sw, c->sh);
+			client_moveresize(c, 0, c->x, c->y, c->w, c->h);
 
 		// default to current tag
 		client_rules_tags(c);
@@ -660,6 +637,9 @@ void handle_maprequest(XEvent *ev)
 			client_minimize(c);
 			return;
 		}
+
+		// map frame
+		if (c->decorate) XMapWindow(display, c->cache->frame);
 
 		if (c->trans == None) client_lower(c, 0);
 		XSync(display, False);
@@ -729,8 +709,11 @@ void handle_mapnotify(XEvent *ev)
 
 	// special hack for fullscreen override_redirect windows (like SDL apps) that are stupid.
 	// ensure they get raised above the focused window once. after that they're on their own.
-	if (c && c->xattr.override_redirect && c->w >= c->monitor.w && c->h >= c->monitor.h)
-		XRaiseWindow(display, c->window);
+	if (c && c->xattr.override_redirect && !c->cache->is_ours)
+	{
+		client_extended_data(c);
+		if (c->is_full) XRaiseWindow(display, c->window);
+	}
 }
 
 // unmapping could indicate the focus window has closed
@@ -757,6 +740,9 @@ void handle_unmapnotify(XEvent *ev)
 			winlist_forget(windows_minimized, c->window);
 			winlist_forget(windows_shaded,    c->window);
 		}
+		// hide border
+		if (c->decorate)
+			XUnmapWindow(display, c->cache->frame);
 	}
 	// if window has already been destroyed, above client_create() may have failed
 	// see if this was the active window, and if so, find someone else to take the job
