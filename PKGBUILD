@@ -1,7 +1,7 @@
 # Contributor: Sean Pringle <sean.pringle@gmail.com>
 
 pkgname=goomwwm
-pkgver=1.0_rc2
+pkgver=_VER_
 pkgrel=1
 pkgdesc="Get out of my way, Window Manager!"
 arch=('i686' 'x86_64')
@@ -13,7 +13,7 @@ makedepends=()
 provides=('goomwwm')
 conflicts=('goomwwm-git')
 source=("http://aerosuidae.net/goomwwm/$pkgname-$pkgver.tar.gz")
-md5sums=('d4b30d3c23932a6f91d8afc2231a2300')
+md5sums=('_MD5_')
 
 build() {
   cd "${srcdir}/$pkgname-$pkgver"
