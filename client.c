@@ -939,7 +939,7 @@ void client_toggle_large(client *c, int side)
 	{
 		// act like a toggle
 		if (is_largeleft)
-			client_rollback(c);
+			client_rollback(c, 0);
 		else {
 			client_commit(c);
 			client_moveresize(c, 0, c->monitor.x, c->monitor.y, width3, height4);
@@ -950,7 +950,7 @@ void client_toggle_large(client *c, int side)
 	{
 		// act like a toggle
 		if (is_largeright)
-			client_rollback(c);
+			client_rollback(c, 0);
 		else {
 			client_commit(c);
 			client_moveresize(c, 0, c->monitor.x + c->monitor.w - width3, c->monitor.y, width3, height4);
