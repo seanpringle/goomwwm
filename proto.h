@@ -150,6 +150,7 @@ void release_keyboard();
 void release_pointer();
 void message_box(int delay, int x, int y, char *fgc, char *bgc, char *bc, char *txt);
 Window window_create_override(int x, int y, int w, int h, unsigned int color);
+Window window_create(int x, int y, int w, int h, unsigned int color);
 void notice(const char *fmt, ...);
 void notification(int delay, const char *fmt, ...);
 void event_log(const char *e, Window w);

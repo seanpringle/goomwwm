@@ -199,6 +199,19 @@ client* client_create(Window win)
 	memmove(&c->xattr, attr, sizeof(XWindowAttributes));
 	XGetTransientForHint(display, win, &c->trans);
 
+	// find last known state
+	idx = winlist_find(windows, c->window);
+	if (idx < 0)
+	{
+		wincache *cache = allocate_clear(sizeof(wincache));
+		winlist_append(windows, c->window, cache);
+		idx = windows->len-1;
+	}
+	// the cache is not tightly linked to the window at all
+	// if it's populated, it gets used to make behaviour appear logically
+	// if it's empty, nothing cares that much, or it gets initialized
+	c->cache = windows->data[idx];
+
 	c->visible = c->xattr.map_state == IsViewable ?1:0;
 	c->states  = window_get_atom_prop(win, netatoms[_NET_WM_STATE], c->state, CLIENTSTATE);
 	window_get_atom_prop(win, netatoms[_NET_WM_WINDOW_TYPE], &c->type, 1);
@@ -209,7 +222,7 @@ client* client_create(Window win)
 		// non-transients default to normal
 		: netatoms[_NET_WM_WINDOW_TYPE_NORMAL];
 
-	c->manage = c->xattr.override_redirect == False
+	c->manage = c->xattr.override_redirect == False && !c->cache->is_ours
 		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DESKTOP]
 		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DOCK]
 		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_SPLASH]
@@ -244,20 +257,6 @@ client* client_create(Window win)
 	if (window_get_prop(c->window, atoms[_MOTIF_WM_HINTS], &motif_type, &motif_items, &mhints, sizeof(mhints)) && motif_items)
 		if (mhints.flags & 2 && mhints.decorations == 0) c->decorate = 0;
 
-	// find last known state
-	idx = winlist_find(windows, c->window);
-	if (idx < 0)
-	{
-		wincache *cache = allocate_clear(sizeof(wincache));
-		winlist_append(windows, c->window, cache);
-		idx = windows->len-1;
-	}
-	// the cache is not tightly linked to the window at all
-	// if it's populated, it gets used to make behaviour appear logically
-	// if it's empty, nothing cares that much, or it gets initialized
-	c->cache = windows->data[idx];
-	winlist_append(cache_client, c->window, c);
-
 	// co-ords include borders
 	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
 	c->border_width = c->decorate && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) ? config_border_width: 0;
@@ -272,10 +271,12 @@ client* client_create(Window win)
 	// check whether the frame should be created
 	if (c->decorate && c->cache->frame == None)
 	{
-		c->cache->frame = window_create_override(c->x, c->y, c->w, c->h, config_border_blur);
+		c->cache->frame = window_create(c->x, c->y, c->w, c->h, config_border_blur);
 		Window wins[2] = { c->window, c->cache->frame };
 		XRestackWindows(display, wins, 2);
 	}
+
+	winlist_append(cache_client, c->window, c);
 	return c;
 }
 
@@ -546,8 +547,8 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		fw = MAX(1, fw - c->border_width*2);
 		fh = MAX(1, fh - c->border_width*2);
 	}
-	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
 	if (c->decorate) XMoveResizeWindow(display, c->cache->frame, c->x, c->y, c->w, c->h);
+	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
 }
 
 // record a window's size and position in the undo log

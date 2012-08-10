@@ -285,6 +285,17 @@ Window window_create_override(int x, int y, int w, int h, unsigned int color)
 	return win;
 }
 
+// wrapper for XCreateSimpleWindow so we can track our own windows
+Window window_create(int x, int y, int w, int h, unsigned int color)
+{
+	Window win = XCreateSimpleWindow(display, root, x, y, w, h, 0, None, color);
+	// pre-create window's cache, so we know it's ours later
+	wincache *cache = allocate_clear(sizeof(wincache));
+	winlist_append(windows, win, cache);
+	cache->is_ours = 1;
+	return win;
+}
+
 // bottom right of screen
 void notice(const char *fmt, ...)
 {
