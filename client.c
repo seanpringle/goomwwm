@@ -1223,10 +1223,12 @@ void client_redecorate(client *c)
 // update client border to blurred
 void client_deactivate(client *c, client *a)
 {
+	int was_active = c->active;
+
 	c->active = 0;
 	client_redecorate(c);
 
-	if (c->visible && client_rule(c, (RULE_AUTOMINI|RULE_AUTOLOWER)))
+	if (was_active && c->visible && client_rule(c, (RULE_AUTOMINI|RULE_AUTOLOWER)))
 	{
 		bool trans = 0;
 		// check whether the active window is one of our family
@@ -1238,6 +1240,8 @@ void client_deactivate(client *c, client *a)
 		if (!trans)
 		{
 			client_lower(c, 0);
+			winlist_forget(windows_activated, c->window);
+			winlist_prepend(windows_activated, c->window, NULL);
 			if (client_rule(c, RULE_AUTOMINI)) client_minimize(c);
 		}
 	}
@@ -1526,24 +1530,30 @@ winlist* clients_tiled_with(client *c)
 	return tiles;
 }
 
+// extend client_acivate() behavior to work with groups of tiled windows
+void client_raise_activate(client *c)
+{
+	int i; Window w; client *o;
+
+	winlist *tiles = clients_tiled_with(c);
+
+	clients_ascend(tiles, i, w, o) if (o->window != c->window)
+		client_activate(o, RAISE, WARPDEF);
+
+	winlist_free(tiles);
+	client_activate(c, RAISE, WARPDEF);
+}
+
 // cycle through tag windows in roughly the same screen position and tag
 void client_cycle(client *c)
 {
-	int i, ii; Window w, ww; client *o, *oo;
-	tag_ascend(i, w, o, current_tag) if (w != c->window && clients_intersect(c, o))
-	{
-		// raise a client and any window tiled with it
-		winlist *tiles = clients_tiled_with(o);
-		clients_ascend(tiles, ii, ww, oo) if (oo->window != c->window)
-		{
-			winlist_forget(windows_activated, oo->window);
-			winlist_append(windows_activated, oo->window, NULL);
-			client_raise(oo, 0);
-		}
-		client_activate(o, RAISE, WARPDEF);
-		winlist_free(tiles);
-		return;
-	}
+	int i; Window w; client *o;
+
+	// find an intersecting client near the bottom of the stack to raise
+	tag_ascend(i, w, o, current_tag)
+		if (w != c->window && clients_intersect(c, o))
+			{ client_raise_activate(o); return; }
+
 	// nothing to cycle. do something visual to acknowledge key press
 	client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
 }
@@ -1964,7 +1974,7 @@ void client_find_or_start(char *pattern)
 {
 	if (!pattern) return;
 	client *c = client_find(pattern);
-	if (c) client_activate(c, RAISE, WARPDEF);
+	if (c) client_raise_activate(c);
 	else client_start(pattern);
 }
 

@@ -59,6 +59,7 @@ void client_nws_maxhorz(client *c, int action);
 winlist* clients_tiled_horz_with(client *c);
 winlist* clients_tiled_vert_with(client *c);
 winlist* clients_tiled_with(client *c);
+void client_raise_activate(client *c);
 void client_cycle(client *c);
 void client_htile(client *c);
 void client_huntile(client *c);

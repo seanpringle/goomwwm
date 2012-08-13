@@ -86,6 +86,10 @@ void handle_keypress(XEvent *ev)
 	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0 && state == config_modkey)
 		client_find_or_start(config_apps_patterns[i]);
 
+	// holding down shift forces a new launch
+	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0 && state == (config_modkey|ShiftMask))
+		client_start(config_apps_patterns[i]);
+
 	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && state == config_modkey)
 		tag_raise(1<<i);
 
