@@ -44,6 +44,7 @@ void handle_keypress(XEvent *ev)
 
 	client *c = NULL;
 	reset_lazy_caches();
+	reset_cache_client();
 
 	// by checking !prefix, we allow a second press to cancel prefix mode
 	if (ISKEY(KEY_PREFIX) && !prefix_mode_active)
@@ -341,6 +342,7 @@ void handle_buttonpress(XEvent *ev)
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
 	int is_mod = prefix_mode_active || state & config_modkey ? 1:0;
 	reset_lazy_caches();
+	reset_cache_client();
 
 	if (ev->xbutton.subwindow != None && (c = client_create(ev->xbutton.subwindow)) && c && c->manage
 		&& !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
@@ -356,9 +358,19 @@ void handle_buttonpress(XEvent *ev)
 		{
 			if (prefix_mode_active) release_pointer();
 			take_pointer(c->window, PointerMotionMask|ButtonReleaseMask, None);
-			memcpy(&mouse_attr, &c->xattr, sizeof(c->xattr));
-			memcpy(&mouse_button, &ev->xbutton, sizeof(ev->xbutton));
-			mouse_dragging = 1;
+
+			mouse_dragger = allocate_clear(sizeof(struct mouse_drag));
+			mouse_dragger->overlay = window_create(c->x, c->y, c->w, c->h, config_border_focus);
+			XMapRaised(display, mouse_dragger->overlay);
+
+			memcpy(&mouse_dragger->attr,   &c->xattr,    sizeof(c->xattr));
+			memcpy(&mouse_dragger->button, &ev->xbutton, sizeof(ev->xbutton));
+
+			mouse_dragger->flags = MR_UNCONSTRAIN;
+			// snap all edges by moving window
+			if (mouse_dragger->button.button == Button1) mouse_dragger->flags |= MR_SNAP;
+			// snap right and bottom edges by resizing window
+			if (mouse_dragger->button.button == Button3) mouse_dragger->flags |= MR_SNAPWH;
 		}
 		else
 		{
@@ -387,15 +399,24 @@ void handle_buttonrelease(XEvent *ev)
 	{
 		event_client_dump(c);
 
-		int xd = ev->xbutton.x_root - mouse_button.x_root;
-		int yd = ev->xbutton.y_root - mouse_button.y_root;
+		int xd = ev->xbutton.x_root - mouse_dragger->button.x_root;
+		int yd = ev->xbutton.y_root - mouse_dragger->button.y_root;
+
+		if ((xd || yd) && mouse_dragger->w > 0 && mouse_dragger->h > 0)
+		{
+			client_moveresize(c, mouse_dragger->flags,
+				mouse_dragger->x, mouse_dragger->y, mouse_dragger->w, mouse_dragger->h);
+		}
 
 		// if no resize or move has occurred, allow Mod+Button3 to lower a window
 		if (!xd && !yd && is_mod && ev->xbutton.button == Button3)
 			client_lower(c, 0);
 	}
+
 	release_pointer();
-	mouse_dragging = 0;
+	XDestroyWindow(display, mouse_dragger->overlay);
+	free(mouse_dragger);
+	mouse_dragger = NULL;
 
 	// deactivate prefix mode if necessary
 	if (prefix_mode_active)
@@ -411,15 +432,16 @@ void handle_motionnotify(XEvent *ev)
 	// compress events to reduce window jitter and CPU load
 	while(XCheckTypedEvent(display, MotionNotify, ev));
 	client *c = client_create(ev->xmotion.window);
-	if (c && c->manage)
+	if (c && c->manage && mouse_dragger)
 	{
 		client_extended_data(c);
-		int xd = ev->xbutton.x_root - mouse_button.x_root;
-		int yd = ev->xbutton.y_root - mouse_button.y_root;
-		int x  = mouse_attr.x + (mouse_button.button == Button1 ? xd : 0);
-		int y  = mouse_attr.y + (mouse_button.button == Button1 ? yd : 0);
-		int w  = MAX(1, mouse_attr.width  + (mouse_button.button == Button3 ? xd : 0));
-		int h  = MAX(1, mouse_attr.height + (mouse_button.button == Button3 ? yd : 0));
+		int xd = ev->xbutton.x_root - mouse_dragger->button.x_root;
+		int yd = ev->xbutton.y_root - mouse_dragger->button.y_root;
+
+		int x  = mouse_dragger->attr.x + (mouse_dragger->button.button == Button1 ? xd : 0);
+		int y  = mouse_dragger->attr.y + (mouse_dragger->button.button == Button1 ? yd : 0);
+		int w  = MAX(1, mouse_dragger->attr.width  + (mouse_dragger->button.button == Button3 ? xd : 0));
+		int h  = MAX(1, mouse_dragger->attr.height + (mouse_dragger->button.button == Button3 ? yd : 0));
 
 		// client_moveresize() expects borders included, and we want that for nice, neat edge-snapping too
 		if (c->decorate)
@@ -430,18 +452,20 @@ void handle_motionnotify(XEvent *ev)
 			h += c->border_width*2;
 		}
 
-		unsigned int flags = MR_UNCONSTRAIN;
-		// snap all edges by moving window
-		if (mouse_button.button == Button1) flags |= MR_SNAP;
-		// snap right and bottom edges by resizing window
-		if (mouse_button.button == Button3) flags |= MR_SNAPWH;
-		client_moveresize(c, flags, x, y, w, h);
+		mouse_dragger->x = x;
+		mouse_dragger->y = y;
+		mouse_dragger->w = w;
+		mouse_dragger->h = h;
+
+		//XMoveResizeWindow(display, mouse_dragger->overlay, x, y, w, h);
+		client_moveresize(client_create(mouse_dragger->overlay), mouse_dragger->flags, x, y, w, h);
 	}
 }
 
 // we dont really care until a window configures and maps, so just watch it
 void handle_createnotify(XEvent *ev)
 {
+	reset_cache_inplay();
 	if (winlist_find(windows, ev->xcreatewindow.window) < 0)
 	{
 		wincache *cache = allocate_clear(sizeof(wincache));
@@ -452,6 +476,8 @@ void handle_createnotify(XEvent *ev)
 // we don't track window state internally much, so this is just for info
 void handle_destroynotify(XEvent *ev)
 {
+	reset_cache_inplay();
+	reset_cache_client();
 	Window win = ev->xdestroywindow.window;
 	// remove any cached data on a window
 	int idx = winlist_find(windows, win);
@@ -477,7 +503,7 @@ void handle_destroynotify(XEvent *ev)
 // just let stuff go through mostly unchanged so apps can remember window positions/sizes
 void handle_configurerequest(XEvent *ev)
 {
-	client *c = client_create(ev->xconfigurerequest.window);
+	client *c = client_recreate(ev->xconfigurerequest.window);
 	if (c)
 	{
 		event_log("ConfigureRequest", c->window);
@@ -547,6 +573,7 @@ void handle_configurenotify(XEvent *ev)
 		event_log("ConfigureNotify", root);
 		event_note("root window change!");
 		reset_lazy_caches();
+		reset_cache_client();
 		ewmh_desktop_list();
 		XWindowAttributes *attr = window_get_attributes(root);
 		int i; Window w;
@@ -563,7 +590,7 @@ void handle_configurenotify(XEvent *ev)
 		}
 	}
 	else
-	if ((c = client_create(ev->xconfigure.window)))
+	if ((c = client_recreate(ev->xconfigure.window)))
 	{
 		event_log("ConfigureNotify", c->window);
 		event_client_dump(c);
@@ -571,7 +598,7 @@ void handle_configurenotify(XEvent *ev)
 		{
 			client_review_border(c);
 			client_review_position(c);
-			if (c->active && config_warp_mode == WARPFOCUS && !mouse_dragging)
+			if (c->active && config_warp_mode == WARPFOCUS && !mouse_dragger)
 			{
 				client_warp_pointer(c);
 				// dump any enterynotify events that have been generated
@@ -585,7 +612,7 @@ void handle_configurenotify(XEvent *ev)
 // map requests are when we get nasty about co-ords and size
 void handle_maprequest(XEvent *ev)
 {
-	client *c = client_create(ev->xmaprequest.window);
+	client *c = client_recreate(ev->xmaprequest.window);
 #ifdef DEBUG
 	if (c)
 	{
@@ -679,7 +706,8 @@ void handle_maprequest(XEvent *ev)
 // this could be configurable?
 void handle_mapnotify(XEvent *ev)
 {
-	client *c = client_create(ev->xmap.window), *a;
+	reset_cache_inplay();
+	client *c = client_recreate(ev->xmap.window), *a;
 #ifdef DEBUG
 	if (c)
 	{
@@ -748,6 +776,7 @@ void handle_mapnotify(XEvent *ev)
 // find a new one to focus if needed
 void handle_unmapnotify(XEvent *ev)
 {
+	reset_cache_inplay();
 	int was_active = window_is_active(ev->xunmap.window);
 	client *c = client_create(ev->xunmap.window);
 	// was it a top-level app window that closed?
@@ -801,7 +830,7 @@ void handle_clientmessage(XEvent *ev)
 		tag_raise(desktop_to_tag(MAX(0, MIN(TAGS, m->data.l[0]))));
 	else
 	{
-		client *c = client_create(m->window);
+		client *c = client_recreate(m->window);
 		if (c && c->manage)
 		{
 			event_client_dump(c);
@@ -894,7 +923,7 @@ void handle_propertynotify(XEvent *ev)
 {
 //	while (XCheckTypedWindowEvent(display, ev->xproperty.window, PropertyNotify, ev));
 	XPropertyEvent *p = &ev->xproperty;
-	client *c = client_create(p->window);
+	client *c = client_recreate(p->window);
 	if (c && c->visible && c->manage)
 	{
 		// urgency check only on inactive clients.
@@ -915,11 +944,11 @@ void handle_enternotify(XEvent *ev)
 	// ensure it's a proper enter event without keys or buttons down
 	if (ev->xcrossing.type != EnterNotify) return;
 	// if we're in the process of dragging something, bail out
-	if (mouse_dragging) return;
+	if (mouse_dragger) return;
 	// prevent focus flicker if mouse is moving through multiple windows fast
 	while(XCheckTypedEvent(display, EnterNotify, ev));
 
-	client *c = client_create(ev->xcrossing.window);
+	client *c = client_recreate(ev->xcrossing.window);
 	// FOCUSSLOPPY = any manageable window
 	// FOCUSSLOPPYTAG = any manageable window in current tag
 	if (c && c->visible && c->manage && !c->active && (config_focus_mode == FOCUSSLOPPY ||

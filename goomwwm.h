@@ -214,6 +214,8 @@ typedef unsigned long long bitmap;
 #define SMARTRESIZEINC 2
 #define LARGELEFT 1
 #define LARGERIGHT 2
+#define TILENONE 0
+#define TILESMART 1
 
 #define SMARTRESIZEINC_IGNORE "^(xterm|urxvt)$"
 
@@ -401,7 +403,8 @@ unsigned int config_modkey, config_prefix_mode, config_border_focus,
 	config_border_width, config_flash_width, config_flash_ms,
 	config_map_mode, config_menu_select, config_menu_width,
 	config_menu_lines, config_focus_mode, config_raise_mode,
-	config_window_placement, config_only_auto, config_resize_inc;
+	config_window_placement, config_only_auto, config_resize_inc,
+	config_tile_mode;
 
 char *config_menu_font, *config_menu_fg, *config_menu_bg,
 	*config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,
@@ -488,9 +491,16 @@ Display *display; Screen *screen; Window root; int screen_id;
 
 // mouse move/resize controls
 // see ButtonPress,MotionNotify
-bool mouse_dragging = 0;
-XButtonEvent mouse_button;
-XWindowAttributes mouse_attr;
+
+struct mouse_drag {
+	XButtonEvent button;
+	XWindowAttributes attr;
+	Window overlay;
+	short x, y, w, h;
+	unsigned int flags;
+};
+struct mouse_drag *mouse_dragger = NULL;
+
 bool quit_pressed_once = 0;
 bool prefix_mode_active = 0;
 Cursor prefix_cursor;

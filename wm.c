@@ -59,6 +59,7 @@ void reset_cache_inplay()
 {
 	winlist_empty(cache_inplay);
 }
+
 // an X screen. may have multiple monitors, xinerama, etc
 void setup_screen()
 {
@@ -250,6 +251,11 @@ void setup_general_options(int ac, char *av[])
 	mode = find_arg_str(ac, av, "-mapmode", "steal");
 	if (!strcasecmp(mode, "block")) config_map_mode = MAPBLOCK;
 
+	// activation mode
+	config_tile_mode = TILESMART;
+	mode = find_arg_str(ac, av, "-tilemode", "smart");
+	if (!strcasecmp(mode, "none")) config_tile_mode = TILENONE;
+
 	// new-window placement mode
 	config_window_placement = PLACEANY;
 	mode = find_arg_str(ac, av, "-placement", "any");
@@ -415,10 +421,7 @@ int wm_main(int argc, char *argv[])
 	// main event loop
 	for(;;)
 	{
-		// caches only live for a single event
 		reset_cache_xattr();
-		reset_cache_client();
-		reset_cache_inplay();
 
 		// block and wait for something
 		XNextEvent(display, &ev);

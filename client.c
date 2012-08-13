@@ -224,6 +224,7 @@ client* client_create(Window win)
 
 	c->manage = c->xattr.override_redirect == False && !c->cache->is_ours
 		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DESKTOP]
+		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_NOTIFICATION]
 		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_DOCK]
 		&& c->type != netatoms[_NET_WM_WINDOW_TYPE_SPLASH]
 		?1:0;
@@ -278,6 +279,19 @@ client* client_create(Window win)
 
 	winlist_append(cache_client, c->window, c);
 	return c;
+}
+
+// refresh client_cache
+client* client_recreate(Window w)
+{
+	int idx = winlist_find(cache_client, w);
+	if (idx >= 0)
+	{
+		client_free(cache_client->data[idx]);
+		cache_client->data[idx] = NULL;
+		winlist_forget(cache_client, w);
+	}
+	return client_create(w);
 }
 
 // release client memory. this should only be called during the global cache resets
@@ -762,7 +776,7 @@ void client_expand(client *c, int directions, int x1, int y1, int w1, int h1, in
 	if (c->cache->vlock) { my = c->y; mh = c->h; if (!mw) { mx = c->monitor.x; mw = c->monitor.w; } }
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
-	winlist *visible = clients_fully_visible(&c->monitor, current_tag, c->window);
+	winlist *visible = clients_fully_visible(&c->monitor, c->cache->tags, c->window);
 
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
@@ -854,7 +868,7 @@ void client_snapto(client *c, int direction)
 	if (c->cache->vlock && (direction == SNAPUP   || direction == SNAPDOWN )) return;
 
 	// expand only cares about fully visible windows. partially or full obscured windows == free space
-	winlist *visible = clients_partly_visible(&c->monitor, current_tag, c->window);
+	winlist *visible = clients_partly_visible(&c->monitor, c->cache->tags, c->window);
 
 	// list of coords/sizes for fully visible windows on this desktop
 	workarea *regions = allocate_clear(sizeof(workarea) * visible->len);
@@ -1480,7 +1494,7 @@ winlist* clients_tiled_horz_with(client *c)
 	while (tlen != tiles->len)
 	{
 		tlen = tiles->len;
-		tag_descend(i, w, o, current_tag)
+		tag_descend(i, w, o, c->cache->tags)
 		{
 			// window is not already found, and is on the same horizontal alignment
 			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->y, vague, o->y)
@@ -1505,7 +1519,7 @@ winlist* clients_tiled_vert_with(client *c)
 	while (tlen != tiles->len)
 	{
 		tlen = tiles->len;
-		tag_descend(i, w, o, current_tag)
+		tag_descend(i, w, o, c->cache->tags)
 			// window is not already found, and is on the same vertical alignment
 			if (c->window != w && winlist_find(tiles, w) < 0 && NEAR(c->x, vague, o->x)
 				// window has roughly the same width and height, and aligned with a known top/bottom edge
@@ -1531,16 +1545,19 @@ winlist* clients_tiled_with(client *c)
 }
 
 // extend client_acivate() behavior to work with groups of tiled windows
-void client_raise_activate(client *c)
+void client_switch_to(client *c)
 {
 	int i; Window w; client *o;
 
-	winlist *tiles = clients_tiled_with(c);
+	// smart tile mode detects windows tiled with the client and treats the whole group as one
+	if (config_tile_mode == TILESMART)
+	{
+		winlist *tiles = clients_tiled_with(c);
+		clients_ascend(tiles, i, w, o) if (o->window != c->window)
+			client_activate(o, RAISE, WARPDEF);
+		winlist_free(tiles);
+	}
 
-	clients_ascend(tiles, i, w, o) if (o->window != c->window)
-		client_activate(o, RAISE, WARPDEF);
-
-	winlist_free(tiles);
 	client_activate(c, RAISE, WARPDEF);
 }
 
@@ -1552,7 +1569,7 @@ void client_cycle(client *c)
 	// find an intersecting client near the bottom of the stack to raise
 	tag_ascend(i, w, o, current_tag)
 		if (w != c->window && clients_intersect(c, o))
-			{ client_raise_activate(o); return; }
+			{ client_switch_to(o); return; }
 
 	// nothing to cycle. do something visual to acknowledge key press
 	client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
@@ -1974,7 +1991,7 @@ void client_find_or_start(char *pattern)
 {
 	if (!pattern) return;
 	client *c = client_find(pattern);
-	if (c) client_raise_activate(c);
+	if (c) client_switch_to(c);
 	else client_start(pattern);
 }
 
