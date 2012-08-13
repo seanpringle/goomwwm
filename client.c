@@ -1226,7 +1226,7 @@ void client_deactivate(client *c, client *a)
 	c->active = 0;
 	client_redecorate(c);
 
-	if (c->visible && client_rule(c, RULE_AUTOMINI))
+	if (c->visible && client_rule(c, (RULE_AUTOMINI|RULE_AUTOLOWER)))
 	{
 		bool trans = 0;
 		// check whether the active window is one of our family
@@ -1235,7 +1235,11 @@ void client_deactivate(client *c, client *a)
 			if (a->trans == c->window) trans = 1;
 			a = client_create(a->trans);
 		}
-		if (!trans) client_minimize(c);
+		if (!trans)
+		{
+			client_lower(c, 0);
+			if (client_rule(c, RULE_AUTOMINI)) client_minimize(c);
+		}
 	}
 }
 

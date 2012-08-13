@@ -152,6 +152,7 @@ typedef unsigned long long bitmap;
 #define RULE_REPLACE 1LL<<52
 #define RULE_CENTER 1LL<<53
 #define RULE_POINTER 1LL<<54
+#define RULE_AUTOLOWER 1LL<<55
 
 #define RULESDEF 0
 #define RULESRESET 1
@@ -346,6 +347,7 @@ winrulemap rulemap[] = {
 	{ "vuntile", RULE_VUNTILE },
 	{ "reset", RULE_RESET },
 	{ "minimize_auto", RULE_AUTOMINI },
+	{ "lower_auto", RULE_AUTOLOWER },
 };
 
 // a placeholder
