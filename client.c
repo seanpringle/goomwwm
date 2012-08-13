@@ -561,6 +561,10 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		}
 	}
 
+	// this needs to occur despite MR_UNCONSTRAIN
+	fw = MAX(MINWINDOW, fw);
+	fh = MAX(MINWINDOW, fh);
+
 	// update window co-ords for subsequent operations before caches are reset
 	c->x = fx; c->y = fy; c->w = fw; c->h = fh;
 	memmove(&c->monitor, &monitor, sizeof(workarea));
