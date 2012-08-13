@@ -92,6 +92,7 @@ typedef unsigned long long bitmap;
 #define MR_SMART 1<<1
 #define MR_SNAP 1<<2
 #define MR_SNAPWH 1<<3
+#define MR_UNCONSTRAIN 1<<4
 
 #define TAG1 1
 #define TAG2 (1<<1)

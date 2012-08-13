@@ -426,7 +426,7 @@ void handle_motionnotify(XEvent *ev)
 			h += c->border_width*2;
 		}
 
-		unsigned int flags = 0;
+		unsigned int flags = MR_UNCONSTRAIN;
 		// snap all edges by moving window
 		if (mouse_button.button == Button1) flags |= MR_SNAP;
 		// snap right and bottom edges by resizing window

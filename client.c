@@ -436,6 +436,11 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 	{
 		fx = monitor.x-monitor.l; fy = monitor.y-monitor.t;
 		fw = monitor.w+monitor.l+monitor.r; fh = monitor.h+monitor.t+monitor.b;
+
+		// can't afford to ignore resize hints on full screen as some apps just freeze up.
+		// sometimes proper full-screen only works with apps' built-in toggle (eg, gnome-terminal,
+		// mplayer)... not much we can do?
+		client_process_size_hints(c, &fx, &fy, &fw, &fh);
 	}
 	else
 	{
@@ -445,14 +450,20 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 			{ fy = monitor.y; fh = monitor.h; }
 
 		// shrink onto screen
-		fw = MAX(MINWINDOW, MIN(fw, monitor.w));
-		fh = MAX(MINWINDOW, MIN(fh, monitor.h));
+		if (!(flags & MR_UNCONSTRAIN))
+		{
+			fw = MAX(MINWINDOW, MIN(fw, monitor.w));
+			fh = MAX(MINWINDOW, MIN(fh, monitor.h));
+		}
 
 		client_process_size_hints(c, &fx, &fy, &fw, &fh);
 
 		// bump onto screen
-		fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
-		fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
+		if (!(flags & MR_UNCONSTRAIN))
+		{
+			fx = MAX(MIN(fx, monitor.x + monitor.w - fw), monitor.x);
+			fy = MAX(MIN(fy, monitor.y + monitor.h - fh), monitor.y);
+		}
 	}
 
 	// put the window in same general position it was before
