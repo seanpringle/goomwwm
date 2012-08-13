@@ -517,12 +517,16 @@ void handle_configurerequest(XEvent *ev)
 		}
 		else
 		{
-			int x = e->value_mask & CWX ? e->x: c->x;
-			int y = e->value_mask & CWY ? e->y: c->y;
-			int w = e->value_mask & CWWidth  ? e->width : c->w;
-			int h = e->value_mask & CWHeight ? e->height: c->h;
 			// everything else can go through as it likes
-			XMoveResizeWindow(display, c->window, x, y, w, h);
+			XWindowChanges wc;
+			wc.x            = e->value_mask & CWX           ? e->x            : c->xattr.x;
+			wc.y            = e->value_mask & CWY           ? e->y            : c->xattr.y;
+			wc.width        = e->value_mask & CWWidth       ? e->width        : c->xattr.width;
+			wc.height       = e->value_mask & CWHeight      ? e->height       : c->xattr.height;
+			wc.sibling      = e->value_mask & CWSibling     ? e->above        : None;
+			wc.stack_mode   = e->value_mask & CWStackMode   ? e->detail       : None;
+			wc.border_width = e->value_mask & CWBorderWidth ? e->border_width : c->xattr.border_width;
+			XConfigureWindow(display, c->window, e->value_mask, &wc);
 		}
 	}
 }
