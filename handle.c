@@ -733,11 +733,11 @@ void handle_mapnotify(XEvent *ev)
 
 	// special hack for fullscreen override_redirect windows (like SDL apps) that are stupid.
 	// ensure they get raised above the focused window once. after that they're on their own.
-	if (c && c->xattr.override_redirect && !c->cache->is_ours)
+	/*if (c && c->xattr.override_redirect && !c->cache->is_ours)
 	{
 		client_extended_data(c);
 		if (c->is_full) XRaiseWindow(display, c->window);
-	}
+	}*/
 }
 
 // unmapping could indicate the focus window has closed
