@@ -41,6 +41,9 @@ Mod-Shift-[F1-F9]
 Mod-[1-9]
 :	Do a case-insensitive keyword search for window by WM_CLASS and title. If found, raise and focus. If not found, try to execute the keyword and start the app. See **-1** through **-9** args.
 
+Mod-Shift-[1-9]
+:	Force execution of keyword used in **Mod-[1-9]** even if a copy of the window already exists.
+
 Mod-Tab
 :	Switch between all windows by popup menu. This is partly based on **dmenu** but more tightly integrated with the window manager and centered on screen. Type text to filter the menu entries. Navigate with the arrow keys. Return to select.
 
