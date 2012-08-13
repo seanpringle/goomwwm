@@ -315,8 +315,9 @@ int client_protocol_event(client *c, Atom protocol)
 void client_close(client *c)
 {
 	// prevent frame flash
-	if (c->decorate)
-		XUnmapWindow(display, c->cache->frame);
+	c->active = 0;
+	client_redecorate(c);
+	XUnmapWindow(display, c->cache->frame);
 
 	if (c->cache->have_closed || !client_protocol_event(c, atoms[WM_DELETE_WINDOW]))
 		XKillClient(display, c->window);
@@ -1204,15 +1205,27 @@ void client_full_review(client *c)
 	client_review_desktop(c);
 }
 
+// configure a client's frame color
+void client_redecorate(client *c)
+{
+	if (!c->decorate) return;
+
+	XMapWindow(display, c->cache->frame);
+	XSetWindowAttributes attr;
+
+	attr.background_pixel = c->active ? config_border_focus:
+		(c->urgent ? config_border_attention: config_border_blur);
+
+	XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
+	XClearWindow(display, c->cache->frame);
+}
+
 // update client border to blurred
 void client_deactivate(client *c, client *a)
 {
-	if (c->decorate)
-	{
-		XSetWindowAttributes attr; attr.background_pixel = c->urgent ? config_border_attention: config_border_blur;
-		XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
-		XClearWindow(display, c->cache->frame);
-	}
+	c->active = 0;
+	client_redecorate(c);
+
 	if (c->visible && client_rule(c, RULE_AUTOMINI))
 	{
 		bool trans = 0;
@@ -1246,21 +1259,15 @@ void client_activate(client *c, int raise, int warp)
 	if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
 	else XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
 
-	// set focus border color
-	if (c->decorate)
-	{
-		XSetWindowAttributes attr; attr.background_pixel = config_border_focus;
-		XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
-		XClearWindow(display, c->cache->frame);
-	}
-
 	// we have recieved attention
 	client_remove_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]);
+	c->urgent = 0;
 
 	// update focus history order
 	winlist_forget(windows_activated, c->window);
 	winlist_append(windows_activated, c->window, NULL);
 	ewmh_active_window(c->window);
+	c->active = 1;
 
 	// tell the user something happened
 	if (!c->active && !c->trans) client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
@@ -1268,6 +1275,9 @@ void client_activate(client *c, int raise, int warp)
 	// must happen last, after all move/resize/focus/raise stuff is sent
 	if (config_warp_mode == WARPFOCUS || warp)
 		client_warp_pointer(c);
+
+	// set focus border color
+	client_redecorate(c);
 }
 
 // set WM_STATE
