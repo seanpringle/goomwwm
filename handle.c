@@ -361,6 +361,10 @@ void handle_buttonpress(XEvent *ev)
 
 			mouse_dragger = allocate_clear(sizeof(struct mouse_drag));
 			mouse_dragger->overlay = window_create(c->x, c->y, c->w, c->h, config_border_focus);
+
+			unsigned long opacity = 0xffffffff / 2;
+			window_set_cardinal_prop(mouse_dragger->overlay, netatoms[_NET_WM_WINDOW_OPACITY], &opacity, 1);
+
 			XMapRaised(display, mouse_dragger->overlay);
 
 			memcpy(&mouse_dragger->attr,   &c->xattr,    sizeof(c->xattr));
