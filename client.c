@@ -1228,7 +1228,7 @@ void client_redecorate(client *c)
 {
 	if (!c->decorate) return;
 
-	XMapWindow(display, c->cache->frame);
+	//XMapWindow(display, c->cache->frame);
 	XSetWindowAttributes attr;
 
 	attr.background_pixel = c->active ? config_border_focus:
@@ -1575,6 +1575,10 @@ void client_cycle(client *c)
 		if (w != c->window && clients_intersect(c, o))
 			{ client_switch_to(o); return; }
 
+	tag_ascend(i, w, o, c->cache->tags)
+		if (w != c->window && clients_intersect(c, o))
+			{ client_switch_to(o); return; }
+
 	// nothing to cycle. do something visual to acknowledge key press
 	client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
 }
@@ -1587,7 +1591,7 @@ void client_htile(client *c)
 	winlist_append(tiles, c->window, NULL);
 	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
 	// locate windows with same tag, size, and position
-	tag_descend(i, w, o, current_tag) if (c->window != w)
+	tag_descend(i, w, o, current_tag|c->cache->tags) if (c->window != w)
 		if (NEAR(c->x, vague, o->x) && NEAR(c->y, vague, o->y) && NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h))
 			winlist_append(tiles, w, NULL);
 	if (tiles->len > 1)
@@ -1636,7 +1640,7 @@ void client_vtile(client *c)
 	winlist_append(tiles, c->window, NULL);
 	int i, vague = MAX(c->monitor.w/100, c->monitor.h/100); Window w; client *o;
 	// locate windows with same tag, size, and position
-	tag_descend(i, w, o, current_tag) if (c->window != w)
+	tag_descend(i, w, o, current_tag|c->cache->tags) if (c->window != w)
 		if (NEAR(c->x, vague, o->x) && NEAR(c->y, vague, o->y) && NEAR(c->w, vague, o->w) && NEAR(c->h, vague, o->h))
 			winlist_append(tiles, w, NULL);
 	if (tiles->len > 1)
@@ -1693,7 +1697,7 @@ client* client_over_there_ish(client *c, int direction)
 	if (direction == FOCUSDOWN)
 		{ zone.x = 0-large; zone.y = c->y+c->h/2; zone.w = large*2; zone.h = c->h/2 + large; }
 
-	winlist *consider = clients_partly_visible(&zone, current_tag, None);
+	winlist *consider = clients_partly_visible(&zone, current_tag|c->cache->tags, None);
 
 	client *m = NULL;
 	// client that overlaps preferred

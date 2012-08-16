@@ -697,11 +697,11 @@ void handle_maprequest(XEvent *ev)
 			return;
 		}
 
-		// map frame
-		if (c->decorate) XMapWindow(display, c->cache->frame);
-
 		if (c->trans == None) client_lower(c, 0);
 		XSync(display, False);
+
+		// map frame
+		//if (c->decorate) XMapWindow(display, c->cache->frame);
 	}
 	XMapWindow(display, ev->xmaprequest.window);
 }
