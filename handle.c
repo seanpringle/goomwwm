@@ -363,9 +363,8 @@ void handle_buttonpress(XEvent *ev)
 			mouse_dragger->overlay = window_create(c->x, c->y, c->w, c->h, config_border_focus);
 
 			unsigned long opacity = 0xffffffff / 2;
+			// no map yet, see motionnotify
 			window_set_cardinal_prop(mouse_dragger->overlay, netatoms[_NET_WM_WINDOW_OPACITY], &opacity, 1);
-
-			XMapRaised(display, mouse_dragger->overlay);
 
 			memcpy(&mouse_dragger->attr,   &c->xattr,    sizeof(c->xattr));
 			memcpy(&mouse_dragger->button, &ev->xbutton, sizeof(ev->xbutton));
@@ -438,6 +437,7 @@ void handle_motionnotify(XEvent *ev)
 	client *c = client_create(ev->xmotion.window);
 	if (c && c->manage && mouse_dragger)
 	{
+		XMapRaised(display, mouse_dragger->overlay);
 		client_extended_data(c);
 		int xd = ev->xbutton.x_root - mouse_dragger->button.x_root;
 		int yd = ev->xbutton.y_root - mouse_dragger->button.y_root;
