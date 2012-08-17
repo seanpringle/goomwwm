@@ -368,7 +368,7 @@ void handle_buttonpress(XEvent *ev)
 			take_pointer(c->window, PointerMotionMask|ButtonReleaseMask, None);
 
 			mouse_dragger = allocate_clear(sizeof(struct mouse_drag));
-			mouse_dragger->overlay = window_create(c->x, c->y, c->w, c->h, config_border_focus);
+			mouse_dragger->overlay = window_create(c->x, c->y, c->w, c->h, config_border_blur);
 
 			unsigned long opacity = 0xffffffff / 2;
 			// no map yet, see motionnotify
