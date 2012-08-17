@@ -807,9 +807,29 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	goomwwm -titlefg "#222222"
 
 -titlefont
-:	Xft font name for use by window titles (default: sans-14).
+:	Xft font name for use by window popup titles (default: sans-14).
 
 	goomwwm -titlefont sans-14:medium
+
+-titlebar
+:	Height in pixels of a window title bar (default: 0).
+
+	goomwwm -titlebar 18
+
+-titlebarfont
+:	Xft font name for use by window title bars (default: sans-10).
+
+	goomwwm -titlebarfont sans-10:medium
+
+-titlebarfocus
+:	Set the text color of focused-window title bars (X11 named color or hex #rrggbb).
+
+	goomwwm -titlebarfocus "#eeeeee"
+
+-titlebarblur
+:	Set the text color of unfocused-window title bars (X11 named color or hex #rrggbb).
+
+	goomwwm -titlebarblur "#eeeeee"
 
 -up
 :	Set an X11 key name to move the active window upward in a 3x3 grid (default: XK_Up).

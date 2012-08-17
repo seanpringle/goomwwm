@@ -339,13 +339,21 @@ void handle_buttonpress(XEvent *ev)
 	event_log("ButtonPress", ev->xbutton.subwindow);
 	// all mouse button events except the wheel come here, so we can click-to-focus
 	// turn off caps and num locks bits. dont care about their states
-	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
+	int state = ev->xbutton.state & ~(LockMask|NumlockMask);
 	int is_mod = prefix_mode_active || state & config_modkey ? 1:0;
 	reset_lazy_caches();
 	reset_cache_client();
 
-	if (ev->xbutton.subwindow != None && (c = client_create(ev->xbutton.subwindow)) && c && c->manage
-		&& !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
+	client *c = ev->xbutton.subwindow != None ? client_create(ev->xbutton.subwindow): NULL;
+
+	// click was on a frame or title. switch to app window
+	if (c && c->cache->is_ours && c->cache->app)
+	{
+		c = client_create(c->cache->app);
+		is_mod = 1;
+	}
+
+	if (c && c->manage && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 	{
 		if (!c->focus || !c->active) client_activate(c, RAISEDEF, WARPDEF);
 
@@ -391,45 +399,46 @@ void handle_buttonpress(XEvent *ev)
 	event_client_dump(c);
 }
 
-// only get these if a window move/resize has been started in buttonpress
 void handle_buttonrelease(XEvent *ev)
 {
 	event_log("ButtonRelease", ev->xbutton.window);
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
 	int is_mod = prefix_mode_active || state & config_modkey ? 1:0;
 
-	if (ev->xbutton.window != None && (c = client_create(ev->xbutton.window)) && c && c->manage)
+	if (mouse_dragger)
 	{
-		event_client_dump(c);
-
-		int xd = ev->xbutton.x_root - mouse_dragger->button.x_root;
-		int yd = ev->xbutton.y_root - mouse_dragger->button.y_root;
-
-		if ((xd || yd) && mouse_dragger->w > 0 && mouse_dragger->h > 0)
+		if (ev->xbutton.window != None && (c = client_create(ev->xbutton.window)) && c && c->manage)
 		{
-			client_moveresize(c, mouse_dragger->flags,
-				mouse_dragger->x, mouse_dragger->y, mouse_dragger->w, mouse_dragger->h);
+			event_client_dump(c);
+
+			int xd = ev->xbutton.x_root - mouse_dragger->button.x_root;
+			int yd = ev->xbutton.y_root - mouse_dragger->button.y_root;
+
+			if ((xd || yd) && mouse_dragger->w > 0 && mouse_dragger->h > 0)
+			{
+				client_moveresize(c, mouse_dragger->flags,
+					mouse_dragger->x, mouse_dragger->y, mouse_dragger->w, mouse_dragger->h);
+			}
+
+			// if no resize or move has occurred, allow Mod+Button3 to lower a window
+			if (!xd && !yd && is_mod && ev->xbutton.button == Button3)
+				client_lower(c, 0);
 		}
 
-		// if no resize or move has occurred, allow Mod+Button3 to lower a window
-		if (!xd && !yd && is_mod && ev->xbutton.button == Button3)
-			client_lower(c, 0);
-	}
+		release_pointer();
+		XDestroyWindow(display, mouse_dragger->overlay);
+		free(mouse_dragger);
+		mouse_dragger = NULL;
 
-	release_pointer();
-	XDestroyWindow(display, mouse_dragger->overlay);
-	free(mouse_dragger);
-	mouse_dragger = NULL;
-
-	// deactivate prefix mode if necessary
-	if (prefix_mode_active)
-	{
-		release_keyboard();
-		prefix_mode_active = 0;
+		// deactivate prefix mode if necessary
+		if (prefix_mode_active)
+		{
+			release_keyboard();
+			prefix_mode_active = 0;
+		}
 	}
 }
 
-// only get these if a window move/resize has been started in buttonpress
 void handle_motionnotify(XEvent *ev)
 {
 	// compress events to reduce window jitter and CPU load
@@ -451,9 +460,9 @@ void handle_motionnotify(XEvent *ev)
 		if (c->decorate)
 		{
 			x -= c->border_width;
-			y -= c->border_width;
+			y -= c->border_width + c->titlebar_height;
 			w += c->border_width*2;
-			h += c->border_width*2;
+			h += c->border_width*2 + c->titlebar_height;
 		}
 
 		mouse_dragger->x = x;
@@ -490,8 +499,8 @@ void handle_destroynotify(XEvent *ev)
 		wincache *cache = windows->data[idx];
 
 		// destroy titlebar/borders
-		if (cache->frame != None)
-			XDestroyWindow(display, cache->frame);
+		if (cache->title != None) XDestroyWindow(display, cache->title);
+		if (cache->frame != None) XDestroyWindow(display, cache->frame);
 
 		// free undo chain
 		winundo *next, *undo = cache->undo;
@@ -925,11 +934,19 @@ void handle_clientmessage(XEvent *ev)
 // PropertyNotify
 void handle_propertynotify(XEvent *ev)
 {
-//	while (XCheckTypedWindowEvent(display, ev->xproperty.window, PropertyNotify, ev));
+	Atom atom = ev->xproperty.atom;
+	// clients that rapidly update stuff (eg, title) can spam events.
+	// consume as many as possible of the same window, type, and atom...
+	while (XCheckTypedWindowEvent(display, ev->xproperty.window, PropertyNotify, ev))
+		if (ev->xproperty.atom != atom) { XPutBackEvent(display, ev); break; }
+
 	XPropertyEvent *p = &ev->xproperty;
 	client *c = client_recreate(p->window);
 	if (c && c->visible && c->manage)
 	{
+		if (p->atom == atoms[WM_NAME] || p->atom == netatoms[_NET_WM_NAME])
+			client_redecorate(c);
+		else
 		// urgency check only on inactive clients.
 		// possible TODO: for active clients flash border or similar?
 		if (!c->active && c->urgent && (p->atom == XA_WM_HINTS || p->atom == netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]))
@@ -968,4 +985,16 @@ void handle_mappingnotify(XEvent *ev)
 	event_log("MappingNotify", ev->xany.window);
 	while(XCheckTypedEvent(display, MappingNotify, ev));
 	grab_keys_and_buttons();
+}
+
+
+// frame/title expose
+void handle_expose(XEvent *ev)
+{
+	event_log("Expose", ev->xany.window);
+	int i; Window w; client *c;
+
+	managed_ascend(i, w, c)
+		if (c->cache->title == ev->xany.window)
+			client_redecorate(c);
 }

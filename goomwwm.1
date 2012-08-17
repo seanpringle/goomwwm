@@ -1365,10 +1365,40 @@ goomwwm -titlefg "#222222"
 .RE
 .TP
 .B -titlefont
-Xft font name for use by window titles (default: sans-14).
+Xft font name for use by window popup titles (default: sans-14).
 .RS
 .PP
 goomwwm -titlefont sans-14:medium
+.RE
+.TP
+.B -titlebar
+Height in pixels of a window title bar (default: 0).
+.RS
+.PP
+goomwwm -titlebar 18
+.RE
+.TP
+.B -titlebarfont
+Xft font name for use by window title bars (default: sans-10).
+.RS
+.PP
+goomwwm -titlebarfont sans-10:medium
+.RE
+.TP
+.B -titlebarfocus
+Set the text color of focused-window title bars (X11 named color or hex
+#rrggbb).
+.RS
+.PP
+goomwwm -titlebarfocus "#eeeeee"
+.RE
+.TP
+.B -titlebarblur
+Set the text color of unfocused-window title bars (X11 named color or
+hex #rrggbb).
+.RS
+.PP
+goomwwm -titlebarblur "#eeeeee"
 .RE
 .TP
 .B -up

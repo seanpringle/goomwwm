@@ -107,9 +107,9 @@ void client_extended_data(client *c)
 	// window co-ords translated to 0-based on screen
 	// co-ords are x,y upper left outsize border, w,h inside border
 	int x = c->xattr.x - screen_x - c->border_width;
-	int y = c->xattr.y - screen_y - c->border_width;
+	int y = c->xattr.y - screen_y - c->border_width - c->titlebar_height;
 	int w = c->xattr.width  + c->border_width*2;
-	int h = c->xattr.height + c->border_width*2;
+	int h = c->xattr.height + c->border_width*2 + c->titlebar_height;
 
 	c->x = screen_x + x;
 	c->y = screen_y + y;
@@ -200,10 +200,11 @@ client* client_create(Window win)
 	XGetTransientForHint(display, win, &c->trans);
 
 	// find last known state
+	wincache *cache = NULL;
 	idx = winlist_find(windows, c->window);
 	if (idx < 0)
 	{
-		wincache *cache = allocate_clear(sizeof(wincache));
+		cache = allocate_clear(sizeof(wincache));
 		winlist_append(windows, c->window, cache);
 		idx = windows->len-1;
 	}
@@ -261,13 +262,14 @@ client* client_create(Window win)
 	// co-ords include borders
 	c->x = c->xattr.x; c->y = c->xattr.y; c->w = c->xattr.width; c->h = c->xattr.height;
 	c->border_width = c->decorate && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) ? config_border_width: 0;
+	c->titlebar_height = c->decorate && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]) ? config_titlebar_height: 0;
 	// compenstate for borders on non-fullscreen windows
 	if (c->decorate)
 	{
 		c->x -= c->border_width;
-		c->y -= c->border_width;
+		c->y -= c->border_width + c->titlebar_height;
 		c->w += c->border_width*2;
-		c->h += c->border_width*2;
+		c->h += c->border_width*2 + c->titlebar_height;
 	}
 	// check whether the frame should be created
 	if (c->decorate && c->cache->frame == None)
@@ -275,6 +277,20 @@ client* client_create(Window win)
 		c->cache->frame = window_create(c->x, c->y, c->w, c->h, config_border_blur);
 		Window wins[2] = { c->window, c->cache->frame };
 		XRestackWindows(display, wins, 2);
+
+		// associate with the window (see handle_buttonpress)
+		cache = windows->data[winlist_find(windows, c->cache->frame)];
+		cache->app = c->window;
+
+		// ...and same for titlebar
+		if (config_titlebar_height)
+		{
+			c->cache->title = XCreateSimpleWindow(display, c->cache->frame,
+				0, c->border_width, c->w, config_titlebar_height, 0, None, config_border_focus);
+
+			XMapWindow(display, c->cache->title);
+			XSelectInput(display, c->cache->title, ExposureMask);
+		}
 	}
 
 	winlist_append(cache_client, c->window, c);
@@ -387,7 +403,7 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 {
 	// fw/fh still include borders here
 	int fx = *x, fy = *y, fw = *w, fh = *h;
-	int bw = c->border_width*2;
+	int dec_w = c->border_width*2, dec_h = c->border_width*2+c->titlebar_height;
 	int basew = 0, baseh = 0;
 
 	if (c->xsize.flags & PBaseSize)
@@ -398,14 +414,14 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 	if (c->xsize.flags & PMinSize)
 	{
 		// fw/fh still include borders here
-		fw = MAX(fw, c->xsize.min_width  + bw);
-		fh = MAX(fh, c->xsize.min_height + bw);
+		fw = MAX(fw, c->xsize.min_width  + dec_w);
+		fh = MAX(fh, c->xsize.min_height + dec_h);
 	}
 	if (c->xsize.flags & PMaxSize)
 	{
 		// fw/fh still include borders here
-		fw = MIN(fw, c->xsize.max_width  + bw);
-		fh = MIN(fh, c->xsize.max_height + bw);
+		fw = MIN(fw, c->xsize.max_width  + dec_w);
+		fh = MIN(fh, c->xsize.max_height + dec_h);
 	}
 	if (config_resize_inc && c->xsize.flags & PResizeInc)
 	{
@@ -414,10 +430,10 @@ void client_process_size_hints(client *c, int *x, int *y, int *w, int *h)
 			|| (config_resize_inc == SMARTRESIZEINC && !regquick(SMARTRESIZEINC_IGNORE, c->class)))
 		{
 			// fw/fh still include borders here
-			fw -= basew + bw; fh -= baseh + bw;
+			fw -= basew + dec_w; fh -= baseh + dec_h;
 			fw -= fw % c->xsize.width_inc;
 			fh -= fh % c->xsize.height_inc;
-			fw += basew + bw; fh += baseh + bw;
+			fw += basew + dec_w; fh += baseh + dec_h;
 		}
 	}
 	if (c->xsize.flags & PAspect)
@@ -527,18 +543,22 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		if (!xsnap && NEAR(c->monitor.x+c->monitor.w, vague, fx+fw)) { fx = c->monitor.x+c->monitor.w-fw; xsnap = 1; }
 		if (!ysnap && NEAR(c->monitor.y+c->monitor.h, vague, fy+fh)) { fy = c->monitor.y+c->monitor.h-fh; ysnap = 1; }
 		// snap to window edges
-		if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
+		if (!xsnap || !ysnap)
 		{
-			//client_extended_data(o);
-			if (!xsnap && NEAR(o->x, vague, fx)) { fx = o->x; xsnap = 1; }
-			if (!ysnap && NEAR(o->y, vague, fy)) { fy = o->y; ysnap = 1; }
-			if (!xsnap && NEAR(o->x+o->w, vague, fx)) { fx = o->x+o->w; xsnap = 1; }
-			if (!ysnap && NEAR(o->y+o->h, vague, fy)) { fy = o->y+o->h; ysnap = 1; }
-			if (!xsnap && NEAR(o->x, vague, fx+fw)) { fx = o->x+-fw; xsnap = 1; }
-			if (!ysnap && NEAR(o->y, vague, fy+fh)) { fy = o->y+-fh; ysnap = 1; }
-			if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fx = o->x+o->w-fw; xsnap = 1; }
-			if (!ysnap && NEAR(o->y+o->h, vague, fy+fh)) { fy = o->y+o->h-fh; ysnap = 1; }
-			if (xsnap && ysnap) break;
+			winlist *visible = clients_partly_visible(&monitor, 0, c->window);
+			clients_descend(visible, i, win, o)
+			{
+				if (!xsnap && NEAR(o->x, vague, fx)) { fx = o->x; xsnap = 1; }
+				if (!ysnap && NEAR(o->y, vague, fy)) { fy = o->y; ysnap = 1; }
+				if (!xsnap && NEAR(o->x+o->w, vague, fx)) { fx = o->x+o->w; xsnap = 1; }
+				if (!ysnap && NEAR(o->y+o->h, vague, fy)) { fy = o->y+o->h; ysnap = 1; }
+				if (!xsnap && NEAR(o->x, vague, fx+fw)) { fx = o->x+-fw; xsnap = 1; }
+				if (!ysnap && NEAR(o->y, vague, fy+fh)) { fy = o->y+-fh; ysnap = 1; }
+				if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fx = o->x+o->w-fw; xsnap = 1; }
+				if (!ysnap && NEAR(o->y+o->h, vague, fy+fh)) { fy = o->y+o->h-fh; ysnap = 1; }
+				if (xsnap && ysnap) break;
+			}
+			winlist_free(visible);
 		}
 	}
 	else
@@ -550,14 +570,18 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		if (NEAR(c->monitor.x+c->monitor.w, vague, fx+fw)) { fw = c->monitor.x+c->monitor.w-fx; xsnap = 1; }
 		if (NEAR(c->monitor.y+c->monitor.h, vague, fy+fh)) { fh = c->monitor.y+c->monitor.h-fy; ysnap = 1; }
 		// snap to window edges
-		if (!xsnap || !ysnap) managed_descend(i, win, o) if (win != c->window)
+		if (!xsnap || !ysnap)
 		{
-			//client_extended_data(o);
-			if (!xsnap && NEAR(o->x, vague, fx+fw)) { fw = o->x-fx; xsnap = 1; }
-			if (!ysnap && NEAR(o->y, vague, fy+fh)) { fh = o->y-fy; ysnap = 1; }
-			if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fw = o->x+o->w-fx; xsnap = 1; }
-			if (!ysnap && NEAR(o->y+o->h, vague, fy+fh)) { fh = o->y+o->h-fy; ysnap = 1; }
-			if (xsnap && ysnap) break;
+			winlist *visible = clients_partly_visible(&monitor, 0, c->window);
+			clients_descend(visible, i, win, o)
+			{
+				if (!xsnap && NEAR(o->x, vague, fx+fw)) { fw = o->x-fx; xsnap = 1; }
+				if (!ysnap && NEAR(o->y, vague, fy+fh)) { fh = o->y-fy; ysnap = 1; }
+				if (!xsnap && NEAR(o->x+o->w, vague, fx+fw)) { fw = o->x+o->w-fx; xsnap = 1; }
+				if (!ysnap && NEAR(o->y+o->h, vague, fy+fh)) { fh = o->y+o->h-fy; ysnap = 1; }
+				if (xsnap && ysnap) break;
+			}
+			winlist_free(visible);
 		}
 	}
 
@@ -573,12 +597,13 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 	if (c->decorate && !client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 	{
 		fx += c->border_width;
-		fy += c->border_width;
+		fy += c->border_width + c->titlebar_height;
 		fw = MAX(1, fw - c->border_width*2);
-		fh = MAX(1, fh - c->border_width*2);
+		fh = MAX(1, fh - c->border_width*2 - c->titlebar_height);
 	}
 	if (c->decorate) XMoveResizeWindow(display, c->cache->frame, c->x, c->y, c->w, c->h);
 	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
+	client_redecorate(c);
 }
 
 // record a window's size and position in the undo log
@@ -1145,8 +1170,7 @@ void client_review_border(client *c)
 		XRestackWindows(display, wins, 2);
 		if (c->visible) XMapWindow(display, c->cache->frame);
 	}
-	unsigned long width = c->border_width;
-	unsigned long extents[4] = { width, width, width, width };
+	unsigned long extents[4] = { c->border_width, c->border_width, c->border_width + c->titlebar_height, c->border_width };
 	window_set_cardinal_prop(c->window, netatoms[_NET_FRAME_EXTENTS], extents, 4);
 }
 
@@ -1228,7 +1252,6 @@ void client_redecorate(client *c)
 {
 	if (!c->decorate) return;
 
-	//XMapWindow(display, c->cache->frame);
 	XSetWindowAttributes attr;
 
 	attr.background_pixel = c->active ? config_border_focus:
@@ -1236,6 +1259,38 @@ void client_redecorate(client *c)
 
 	XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
 	XClearWindow(display, c->cache->frame);
+
+	if (!c->titlebar_height) return;
+
+	client_descriptive_data(c);
+	XMoveResizeWindow(display, c->cache->title, 0, c->border_width, c->w, c->titlebar_height);
+
+	int line_height = titlebar_font->ascent + titlebar_font->descent;
+	XGlyphInfo extents;
+
+	GC gc = XCreateGC(display, c->cache->title, 0, 0);
+	Pixmap canvas = XCreatePixmap(display, c->cache->title, c->w, c->titlebar_height, DefaultDepth(display, screen_id));
+	XftDraw *draw = XftDrawCreate(display, canvas, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
+
+	XftTextExtents8(display, titlebar_font, (unsigned char*)c->title, strlen(c->title), &extents);
+
+	XftDrawRect(draw,
+		c->active ? &titlebar_focus_bg: &titlebar_blur_bg,
+		0, 0, c->w, c->titlebar_height);
+
+	XftDrawString8(draw,
+		c->active ? &titlebar_focus: &titlebar_blur, titlebar_font,
+		MAX(0, (c->w - extents.width)/2), line_height - titlebar_font->descent,
+		(unsigned char*)c->title, strlen(c->title));
+
+	XCopyArea(display, canvas, c->cache->title, gc,
+		0, 0, c->w, c->titlebar_height, 0, 0);
+
+	XMapRaised(display, c->cache->title);
+
+	XftDrawDestroy(draw);
+	XFreeGC(display, gc);
+	XFreePixmap(display, canvas);
 }
 
 // update client border to blurred
@@ -1289,14 +1344,15 @@ void client_activate(client *c, int raise, int warp)
 	client_remove_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]);
 	c->urgent = 0;
 
+	// tell the user something happened
+	if (!c->active && !c->trans)
+		client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
+
 	// update focus history order
 	winlist_forget(windows_activated, c->window);
 	winlist_append(windows_activated, c->window, NULL);
 	ewmh_active_window(c->window);
 	c->active = 1;
-
-	// tell the user something happened
-	if (!c->active && !c->trans) client_flash(c, config_border_focus, config_flash_ms, FLASHTITLEDEF);
 
 	// must happen last, after all move/resize/focus/raise stuff is sent
 	if (config_warp_mode == WARPFOCUS || warp)

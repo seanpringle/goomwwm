@@ -192,10 +192,15 @@ void setup_keyboard_options(int ac, char *av[])
 void setup_general_options(int ac, char *av[])
 {
 	int i;
+	char *mode, *color_focus, *color_blur;
 
 	// border colors
-	config_border_focus     = color_get(find_arg_str(ac, av, "-focus", FOCUS));
-	config_border_blur      = color_get(find_arg_str(ac, av, "-blur",  BLUR));
+	color_focus = find_arg_str(ac, av, "-focus", FOCUS);
+	color_blur  = find_arg_str(ac, av, "-blur",  BLUR);
+
+	config_border_focus = color_get(color_focus);
+	config_border_blur  = color_get(color_blur);
+
 	config_border_attention = color_get(find_arg_str(ac, av, "-attention", ATTENTION));
 
 	// border width in pixels
@@ -222,13 +227,31 @@ void setup_general_options(int ac, char *av[])
 	config_menu_hlbg  = find_arg_str(ac, av, "-menuhlbg",  MENUHLBG);
 	config_menu_bc    = find_arg_str(ac, av, "-menubc",    MENUBC);
 
-	// window titles
+	// popup window titles
 	config_title_font = find_arg_str(ac, av, "-titlefont", TITLEXFTFONT);
 	config_title_fg   = find_arg_str(ac, av, "-titlefg",   TITLEFG);
 	config_title_bg   = find_arg_str(ac, av, "-titlebg",   TITLEBG);
 	config_title_bc   = find_arg_str(ac, av, "-titlebc",   TITLEBC);
 
-	char *mode;
+	// title bars
+	config_titlebar_font   = find_arg_str(ac, av, "-titlebarfont",  TITLEBARXFTFONT);
+	config_titlebar_focus  = find_arg_str(ac, av, "-titlebarfocus", TITLEBARFOCUS);
+	config_titlebar_blur   = find_arg_str(ac, av, "-titlebarblur",  TITLEBARBLUR);
+
+	config_titlebar_height = MAX(0, find_arg_int(ac, av, "-titlebar", TITLEBAR));
+	if (config_titlebar_height)
+	{
+		titlebar_font = XftFontOpenName(display, screen_id, config_titlebar_font);
+		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_titlebar_focus, &titlebar_focus);
+		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_titlebar_blur,  &titlebar_blur );
+		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), color_focus, &titlebar_focus_bg);
+		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), color_blur,  &titlebar_blur_bg );
+	}
+
+	// flash title mode
+	config_flash_title = 0;
+	mode = find_arg_str(ac, av, "-flashtitle", "hide");
+	if (!strcasecmp(mode, "show")) config_flash_title = 1;
 
 	// focus mode
 	config_focus_mode = FOCUSCLICK;
@@ -280,11 +303,6 @@ void setup_general_options(int ac, char *av[])
 		mode = find_arg_str(ac, av, "-menuselect", "return");
 		if (!strcasecmp(mode, "modkeyup")) config_menu_select = MENUMODUP;
 	}
-
-	// flash title mode
-	config_flash_title = 0;
-	mode = find_arg_str(ac, av, "-flashtitle", "hide");
-	if (!strcasecmp(mode, "show")) config_flash_title = 1;
 
 	// app_find_or_start() keys
 	for (i = 0; config_apps_keysyms[i]; i++)
@@ -442,6 +460,7 @@ int wm_main(int argc, char *argv[])
 		else if (ev.type == ClientMessage)    handle_clientmessage(&ev);
 		else if (ev.type == PropertyNotify)   handle_propertynotify(&ev);
 		else if (ev.type == EnterNotify)      handle_enternotify(&ev);
+		else if (ev.type == Expose)           handle_expose(&ev);
 #ifdef DEBUG
 		else fprintf(stderr, "unhandled event %d: %x\n", ev.type, (unsigned int)ev.xany.window);
 		catch_exit(0);

@@ -186,6 +186,10 @@ typedef unsigned long long bitmap;
 #define TITLEFG "#222222"
 #define TITLEBG "#f2f1f0"
 #define TITLEBC "#c0c0c0"
+#define TITLEBAR 0
+#define TITLEBARXFTFONT "sans-10"
+#define TITLEBARFOCUS "#eeeeee"
+#define TITLEBARBLUR "#222222"
 #define CONFIGFILE ".goomwwmrc"
 #define FOCUSCLICK 1
 #define FOCUSSLOPPY 2
@@ -261,7 +265,9 @@ typedef struct {
 	winundo *ewmh;     // undo size/pos for EWMH FULLSCREEN/MAXIMIZE_HORZ/MAXIMIZE_VERT toggles
 	winundo *undo;     // general size/pos undo LIFO linked list
 	Window frame;      // titlebar & border, but NOT reparented!
+	Window title;
 	bool is_ours;      // set for any windows goomwwm creates
+	Window app;
 } wincache;
 
 // rule for controlling window size/pos/behaviour
@@ -365,6 +371,7 @@ typedef struct {
 	short states;            // number of EWMH states set
 	short initial_state;     // pulled from wm hints
 	short border_width;      // pulled from xwindowattributes
+	short titlebar_height;
 	// general flags
 	bool manage, visible, input, focus, active, minimized, shaded, decorate, urgent;
 	bool is_full, is_left, is_top, is_right, is_bottom, is_xcenter, is_ycenter;
@@ -404,12 +411,13 @@ unsigned int config_modkey, config_prefix_mode, config_border_focus,
 	config_map_mode, config_menu_select, config_menu_width,
 	config_menu_lines, config_focus_mode, config_raise_mode,
 	config_window_placement, config_only_auto, config_resize_inc,
-	config_tile_mode;
+	config_tile_mode, config_titlebar_height;
 
 char *config_menu_font, *config_menu_fg, *config_menu_bg,
 	*config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,
-	*config_title_font, *config_title_fg, *config_title_bg,
-	*config_menu_bc, *config_title_bc, *config_resizeinc_ignore;
+	*config_title_font, *config_title_fg, *config_title_bg, *config_title_bc,
+	*config_titlebar_font, *config_titlebar_focus, *config_titlebar_blur,
+	*config_menu_bc, *config_resizeinc_ignore;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
 KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };
@@ -417,6 +425,9 @@ KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7
 
 #define MAXMODCODES 16
 unsigned int config_modkeycodes[MAXMODCODES+1];
+
+XftFont *titlebar_font = NULL;
+XftColor titlebar_focus, titlebar_blur, titlebar_focus_bg, titlebar_blur_bg;
 
 #define KEY_ENUM(a,b,c,d) a
 #define KEY_KSYM(a,b,c,d) [a] = c

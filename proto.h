@@ -110,6 +110,7 @@ void handle_clientmessage(XEvent *ev);
 void handle_propertynotify(XEvent *ev);
 void handle_enternotify(XEvent *ev);
 void handle_mappingnotify(XEvent *ev);
+void handle_expose(XEvent *ev);
 void menu_draw(struct localmenu *my);
 void menu_select_current(struct localmenu *my);
 void menu_key(struct localmenu *my, XEvent *ev);
