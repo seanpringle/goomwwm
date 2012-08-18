@@ -550,9 +550,9 @@ void handle_configurerequest(XEvent *ev)
 				// client_moveresize() assumes co-ords include any border.
 				// adjust the initial size to compensate
 				int x = e->value_mask & CWX ? (e->x - c->border_width): c->x;
-				int y = e->value_mask & CWY ? (e->y - c->border_width): c->y;
+				int y = e->value_mask & CWY ? (e->y - c->border_width - c->titlebar_height): c->y;
 				int w = e->value_mask & CWWidth  ? (e->width  + c->border_width*2) : c->w;
-				int h = e->value_mask & CWHeight ? (e->height + c->border_width*2) : c->h;
+				int h = e->value_mask & CWHeight ? (e->height + c->border_width*2 + c->titlebar_height) : c->h;
 				// managed windows need to conform to a few rules
 				client_moveresize(c, 0, x, y, w, h);
 				client_review_border(c);
