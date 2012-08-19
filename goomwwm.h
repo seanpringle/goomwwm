@@ -51,6 +51,26 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 typedef unsigned char bool;
 typedef unsigned long long bitmap;
 
+#define TB_AUTOHEIGHT 1<<0
+#define TB_AUTOWIDTH 1<<1
+#define TB_LEFT 1<<16
+#define TB_RIGHT 1<<17
+#define TB_CENTER 1<<18
+#define TB_EDITABLE 1<<19
+
+typedef struct {
+	bitmap flags;
+	Window window, parent;
+	short x, y, w, h;
+	short cursor;
+	XftFont *font;
+	XftColor color_fg, color_bg;
+	char *text, *prompt;
+	XIM xim;
+	XIC xic;
+	XGlyphInfo extents;
+} textbox;
+
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define READ 0
@@ -264,8 +284,8 @@ typedef struct {
 	unsigned int tags; // desktop tags
 	winundo *ewmh;     // undo size/pos for EWMH FULLSCREEN/MAXIMIZE_HORZ/MAXIMIZE_VERT toggles
 	winundo *undo;     // general size/pos undo LIFO linked list
-	Window frame;      // titlebar & border, but NOT reparented!
-	Window title;
+	Window frame;     // titlebar & border, but NOT reparented!
+	textbox *title;
 	bool is_ours;      // set for any windows goomwwm creates
 	Window app;
 } wincache;
@@ -403,21 +423,23 @@ struct localmenu {
 	XIC xic;
 };
 
+
 // config settings
-unsigned int config_modkey, config_prefix_mode, config_border_focus,
-	config_border_blur, config_border_attention, config_flash_on,
-	config_flash_off, config_warp_mode, config_flash_title,
+unsigned int config_modkey, config_prefix_mode,
+	config_warp_mode, config_flash_title,
 	config_border_width, config_flash_width, config_flash_ms,
 	config_map_mode, config_menu_select, config_menu_width,
 	config_menu_lines, config_focus_mode, config_raise_mode,
 	config_window_placement, config_only_auto, config_resize_inc,
 	config_tile_mode, config_titlebar_height;
 
-char *config_menu_font, *config_menu_fg, *config_menu_bg,
+char *config_border_focus, *config_border_blur, *config_border_attention,
+	*config_menu_font, *config_menu_fg, *config_menu_bg,
 	*config_menu_hlfg, *config_menu_hlbg, *config_menu_bgalt,
 	*config_title_font, *config_title_fg, *config_title_bg, *config_title_bc,
 	*config_titlebar_font, *config_titlebar_focus, *config_titlebar_blur,
-	*config_menu_bc, *config_resizeinc_ignore;
+	*config_menu_bc, *config_resizeinc_ignore,
+	*config_flash_on, *config_flash_off;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
 KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };
@@ -425,9 +447,6 @@ KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7
 
 #define MAXMODCODES 16
 unsigned int config_modkeycodes[MAXMODCODES+1];
-
-XftFont *titlebar_font = NULL;
-XftColor titlebar_focus, titlebar_blur, titlebar_focus_bg, titlebar_blur_bg;
 
 #define KEY_ENUM(a,b,c,d) a
 #define KEY_KSYM(a,b,c,d) [a] = c

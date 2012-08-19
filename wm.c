@@ -192,23 +192,19 @@ void setup_keyboard_options(int ac, char *av[])
 void setup_general_options(int ac, char *av[])
 {
 	int i;
-	char *mode, *color_focus, *color_blur;
+	char *mode;
 
 	// border colors
-	color_focus = find_arg_str(ac, av, "-focus", FOCUS);
-	color_blur  = find_arg_str(ac, av, "-blur",  BLUR);
-
-	config_border_focus = color_get(color_focus);
-	config_border_blur  = color_get(color_blur);
-
-	config_border_attention = color_get(find_arg_str(ac, av, "-attention", ATTENTION));
+	config_border_focus     = find_arg_str(ac, av, "-focus", FOCUS);
+	config_border_blur      = find_arg_str(ac, av, "-blur",  BLUR);
+	config_border_attention = find_arg_str(ac, av, "-attention", ATTENTION);
 
 	// border width in pixels
 	config_border_width = MAX(0, find_arg_int(ac, av, "-border", BORDER));
 
 	// window flashing
-	config_flash_on  = color_get(find_arg_str(ac, av, "-flashon",  FLASHON));
-	config_flash_off = color_get(find_arg_str(ac, av, "-flashoff", FLASHOFF));
+	config_flash_on  = find_arg_str(ac, av, "-flashon",  FLASHON);
+	config_flash_off = find_arg_str(ac, av, "-flashoff", FLASHOFF);
 	config_flash_width = MAX(config_border_width, find_arg_int(ac, av, "-flashpx", FLASHPX));
 	config_flash_ms    = MAX(FLASHMS, find_arg_int(ac, av, "-flashms", FLASHMS));
 
@@ -237,16 +233,7 @@ void setup_general_options(int ac, char *av[])
 	config_titlebar_font   = find_arg_str(ac, av, "-titlebarfont",  TITLEBARXFTFONT);
 	config_titlebar_focus  = find_arg_str(ac, av, "-titlebarfocus", TITLEBARFOCUS);
 	config_titlebar_blur   = find_arg_str(ac, av, "-titlebarblur",  TITLEBARBLUR);
-
 	config_titlebar_height = MAX(0, find_arg_int(ac, av, "-titlebar", TITLEBAR));
-	if (config_titlebar_height)
-	{
-		titlebar_font = XftFontOpenName(display, screen_id, config_titlebar_font);
-		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_titlebar_focus, &titlebar_focus);
-		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), config_titlebar_blur,  &titlebar_blur );
-		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), color_focus, &titlebar_focus_bg);
-		XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), color_blur,  &titlebar_blur_bg );
-	}
 
 	// flash title mode
 	config_flash_title = 0;

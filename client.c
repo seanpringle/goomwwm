@@ -274,7 +274,9 @@ client* client_create(Window win)
 	// check whether the frame should be created
 	if (c->decorate && c->cache->frame == None)
 	{
-		c->cache->frame = window_create(c->x, c->y, c->w, c->h, config_border_blur);
+		c->cache->frame = window_create(c->x, c->y, c->w, c->h, color_get(config_border_blur));
+
+		// stack frame under client window
 		Window wins[2] = { c->window, c->cache->frame };
 		XRestackWindows(display, wins, 2);
 
@@ -285,11 +287,12 @@ client* client_create(Window win)
 		// ...and same for titlebar
 		if (config_titlebar_height)
 		{
-			c->cache->title = XCreateSimpleWindow(display, c->cache->frame,
-				0, c->border_width, c->w, config_titlebar_height, 0, None, config_border_focus);
-
-			XMapWindow(display, c->cache->title);
-			XSelectInput(display, c->cache->title, ExposureMask);
+			client_extended_data(c);
+			c->cache->title = textbox_create(c->cache->frame, TB_CENTER,
+				0, c->border_width, c->w, config_titlebar_height,
+				config_titlebar_font, config_titlebar_focus, config_border_focus,
+				c->title, NULL);
+			textbox_show(c->cache->title);
 		}
 	}
 
@@ -1014,7 +1017,7 @@ void client_toggle_large(client *c, int side)
 
 // visually highlight a client to attract attention
 // for now, four coloured squares in the corners. could get fancier?
-void client_flash(client *c, unsigned int color, int delay, int title)
+void client_flash(client *c, char *color, int delay, int title)
 {
 	XSync(display, False);
 	if (!fork())
@@ -1038,10 +1041,11 @@ void client_flash(client *c, unsigned int color, int delay, int title)
 			message_box(delay, c->x+c->w/2, c->y+c->h/2, config_title_fg, config_title_bg, config_title_bc, c->title);
 
 		// four coloured squares in the window's corners
-		Window tl = window_create_override(x1, y1, config_flash_width, config_flash_width, color);
-		Window tr = window_create_override(x2, y1, config_flash_width, config_flash_width, color);
-		Window bl = window_create_override(x1, y2, config_flash_width, config_flash_width, color);
-		Window br = window_create_override(x2, y2, config_flash_width, config_flash_width, color);
+		unsigned int bg = color_get(color);
+		Window tl = window_create_override(x1, y1, config_flash_width, config_flash_width, bg);
+		Window tr = window_create_override(x2, y1, config_flash_width, config_flash_width, bg);
+		Window bl = window_create_override(x1, y2, config_flash_width, config_flash_width, bg);
+		Window br = window_create_override(x2, y2, config_flash_width, config_flash_width, bg);
 
 		XMapRaised(display, tl); XMapRaised(display, tr);
 		XMapRaised(display, bl); XMapRaised(display, br);
@@ -1254,43 +1258,23 @@ void client_redecorate(client *c)
 
 	XSetWindowAttributes attr;
 
-	attr.background_pixel = c->active ? config_border_focus:
-		(c->urgent ? config_border_attention: config_border_blur);
+	attr.background_pixel = color_get(c->active ? config_border_focus
+		: (c->urgent ? config_border_attention: config_border_blur));
 
 	XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
 	XClearWindow(display, c->cache->frame);
 
 	if (!c->titlebar_height) return;
-
 	client_descriptive_data(c);
-	XMoveResizeWindow(display, c->cache->title, 0, c->border_width, c->w, c->titlebar_height);
 
-	int line_height = titlebar_font->ascent + titlebar_font->descent;
-	XGlyphInfo extents;
+	textbox_text(c->cache->title, c->title);
+	textbox_moveresize(c->cache->title, 0, c->border_width, c->w, c->titlebar_height);
 
-	GC gc = XCreateGC(display, c->cache->title, 0, 0);
-	Pixmap canvas = XCreatePixmap(display, c->cache->title, c->w, c->titlebar_height, DefaultDepth(display, screen_id));
-	XftDraw *draw = XftDrawCreate(display, canvas, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
+	textbox_font(c->cache->title, config_titlebar_font,
+		c->active ? config_titlebar_focus: config_titlebar_blur,
+		c->active ? config_border_focus  : config_border_blur);
 
-	XftTextExtents8(display, titlebar_font, (unsigned char*)c->title, strlen(c->title), &extents);
-
-	XftDrawRect(draw,
-		c->active ? &titlebar_focus_bg: &titlebar_blur_bg,
-		0, 0, c->w, c->titlebar_height);
-
-	XftDrawString8(draw,
-		c->active ? &titlebar_focus: &titlebar_blur, titlebar_font,
-		MAX(0, (c->w - extents.width)/2), line_height - titlebar_font->descent,
-		(unsigned char*)c->title, strlen(c->title));
-
-	XCopyArea(display, canvas, c->cache->title, gc,
-		0, 0, c->w, c->titlebar_height, 0, 0);
-
-	XMapRaised(display, c->cache->title);
-
-	XftDrawDestroy(draw);
-	XFreeGC(display, gc);
-	XFreePixmap(display, canvas);
+	textbox_draw(c->cache->title);
 }
 
 // update client border to blurred

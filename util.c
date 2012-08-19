@@ -26,6 +26,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 void* allocate(unsigned long bytes)
 {
+	bytes = MAX(1, bytes);
 	void *ptr = malloc(bytes);
 	if (!ptr)
 	{
@@ -44,7 +45,8 @@ void* allocate_clear(unsigned long bytes)
 
 void* reallocate(void *ptr, unsigned long bytes)
 {
-	ptr = realloc(ptr, bytes);
+	bytes = MAX(1, bytes);
+	ptr = ptr ? realloc(ptr, bytes): malloc(bytes);
 	if (!ptr)
 	{
 		fprintf(stderr, "realloc failed!\n");
@@ -220,32 +222,20 @@ void message_box(int delay, int x, int y, char *fgc, char *bgc, char *bc, char *
 
 	display = XOpenDisplay(0x0);
 
-	GC gc; XftFont *font; XftDraw *draw; XftColor fg, bg; XGlyphInfo extents;
+	Window box = window_create_override(0, 0, 1, 1, color_get(config_title_bg));
 
-	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), fgc, &fg);
-	XftColorAllocName(display, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id), bgc, &bg);
+	textbox *text = textbox_create(box, TB_CENTER|TB_AUTOHEIGHT|TB_AUTOWIDTH,
+		8, 5, 1, 1, config_title_font, config_title_fg, config_title_bg, txt, NULL);
 
-	font = XftFontOpenName(display, screen_id, config_title_font);
-	XftTextExtentsUtf8(display, font, (unsigned char*)txt, strlen(txt), &extents);
+	XMoveResizeWindow(display, box,
+		MIN(mon.x+mon.w-text->w-26, MAX(mon.x+26, x - text->w/2)),
+		MIN(mon.y+mon.h-text->h-20, MAX(mon.y+20, y - text->h/2)),
+		text->w + 16, text->h + 10);
 
-	int line_height = font->ascent + font->descent, line_width = extents.width;
-	int bar_width = MIN(line_width+20, (mon.w/10)*9), bar_height = line_height+10;
+	XSelectInput(display, box, ExposureMask);
 
-	Window bar = XCreateSimpleWindow(display, root,
-		MIN(mon.x+mon.w-bar_width-10, MAX(mon.x+10, x - bar_width/2)),
-		MIN(mon.y+mon.h-bar_height-10, MAX(mon.y+10, y - bar_height/2)),
-		bar_width, bar_height, 1, color_get(bc), color_get(bgc));
-
-	gc   = XCreateGC(display, bar, 0, 0);
-	draw = XftDrawCreate(display, bar, DefaultVisual(display, screen_id), DefaultColormap(display, screen_id));
-
-	XSetWindowAttributes attr; attr.override_redirect = True;
-	XChangeWindowAttributes(display, bar, CWOverrideRedirect, &attr);
-	XSelectInput(display, bar, ExposureMask);
-	XMapRaised(display, bar);
-	XftDrawRect(draw, &bg, 0, 0, bar_width, line_height+10);
-	XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)txt, strlen(txt));
-	XSync(display, False);
+	textbox_show(text);
+	XMapRaised(display, box);
 
 	double stamp = timestamp();
 	while ((timestamp()-stamp) < (double)delay/1000)
@@ -254,21 +244,14 @@ void message_box(int delay, int x, int y, char *fgc, char *bgc, char *bc, char *
 		{
 			XEvent ev;
 			XNextEvent(display, &ev);
+
 			if (ev.type == Expose)
-			{
-				XftDrawRect(draw, &bg, 0, 0, bar_width, line_height+10);
-				XftDrawStringUtf8(draw, &fg, font, 10, 5 + line_height - font->descent, (unsigned char*)txt, strlen(txt));
-				XSync(display, False);
-			}
+				textbox_draw(text);
 		}
 		usleep(10000); // 10ms
 	}
 
-	XftDrawDestroy(draw);
-	XFreeGC(display, gc);
-	XftFontClose(display, font);
-	XDestroyWindow(display, bar);
-
+	textbox_free(text);
 	exit(EXIT_SUCCESS);
 }
 

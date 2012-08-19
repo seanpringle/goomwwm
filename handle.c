@@ -368,7 +368,7 @@ void handle_buttonpress(XEvent *ev)
 			take_pointer(c->window, PointerMotionMask|ButtonReleaseMask, None);
 
 			mouse_dragger = allocate_clear(sizeof(struct mouse_drag));
-			mouse_dragger->overlay = window_create(c->x, c->y, c->w, c->h, config_border_blur);
+			mouse_dragger->overlay = window_create(c->x, c->y, c->w, c->h, color_get(config_border_blur));
 
 			unsigned long opacity = 0xffffffff / 2;
 			// no map yet, see motionnotify
@@ -499,8 +499,8 @@ void handle_destroynotify(XEvent *ev)
 		wincache *cache = windows->data[idx];
 
 		// destroy titlebar/borders
-		if (cache->title != None) XDestroyWindow(display, cache->title);
-		if (cache->frame != None) XDestroyWindow(display, cache->frame);
+		if (cache->title) textbox_free(cache->title);
+		if (cache->frame) XDestroyWindow(display, cache->frame);
 
 		// free undo chain
 		winundo *next, *undo = cache->undo;
@@ -995,6 +995,6 @@ void handle_expose(XEvent *ev)
 	int i; Window w; client *c;
 
 	managed_ascend(i, w, c)
-		if (c->cache->title == ev->xany.window)
+		if (c->decorate && c->cache->title->window == ev->xany.window)
 			client_redecorate(c);
 }
