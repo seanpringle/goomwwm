@@ -812,9 +812,13 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	goomwwm -titlefont sans-14:medium
 
 -titlebar
-:	Height in pixels of a window title bar (default: 0).
+:	Height in pixels of a window title bar or on/off (default: off).
 
 	goomwwm -titlebar 18
+	goomwwm -titlebar on
+	goomwwm -titlebar off
+
+	The **on** argument will auto-calculate titlebar height based on **-titlebarfont**.
 
 -titlebarfont
 :	Xft font name for use by window title bars (default: sans-10).

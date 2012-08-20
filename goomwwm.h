@@ -206,7 +206,7 @@ typedef struct {
 #define TITLEFG "#222222"
 #define TITLEBG "#f2f1f0"
 #define TITLEBC "#c0c0c0"
-#define TITLEBAR 0
+#define TITLEBAR "off"
 #define TITLEBARXFTFONT "sans-10"
 #define TITLEBARFOCUS "#eeeeee"
 #define TITLEBARBLUR "#222222"

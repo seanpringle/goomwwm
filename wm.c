@@ -233,7 +233,16 @@ void setup_general_options(int ac, char *av[])
 	config_titlebar_font   = find_arg_str(ac, av, "-titlebarfont",  TITLEBARXFTFONT);
 	config_titlebar_focus  = find_arg_str(ac, av, "-titlebarfocus", TITLEBARFOCUS);
 	config_titlebar_blur   = find_arg_str(ac, av, "-titlebarblur",  TITLEBARBLUR);
-	config_titlebar_height = MAX(0, find_arg_int(ac, av, "-titlebar", TITLEBAR));
+
+	mode = find_arg_str(ac, av, "-titlebar", TITLEBAR);
+	// check for specific height in pixels. any non-numeric string means 0
+	config_titlebar_height = atoi(mode);
+	if (!strcasecmp(mode, "on"))
+	{
+		textbox *tb = textbox_create(root, TB_AUTOHEIGHT, 0, 0, 1, 1, config_titlebar_font, "white", "black", NULL, NULL);
+		config_titlebar_height = tb->font->ascent + tb->font->descent + config_border_width;
+		textbox_free(tb);
+	}
 
 	// flash title mode
 	config_flash_title = 0;

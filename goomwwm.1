@@ -1372,10 +1372,13 @@ goomwwm -titlefont sans-14:medium
 .RE
 .TP
 .B -titlebar
-Height in pixels of a window title bar (default: 0).
+Height in pixels of a window title bar or on/off (default: off).
 .RS
 .PP
-goomwwm -titlebar 18
+goomwwm -titlebar 18 goomwwm -titlebar on goomwwm -titlebar off
+.PP
+The \f[B]on\f[] argument will auto-calculate titlebar height based on
+\f[B]-titlebarfont\f[].
 .RE
 .TP
 .B -titlebarfont
