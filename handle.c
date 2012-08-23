@@ -995,6 +995,6 @@ void handle_expose(XEvent *ev)
 	int i; Window w; client *c;
 
 	managed_ascend(i, w, c)
-		if (c->decorate && c->cache->title->window == ev->xany.window)
+		if (c->decorate && (c->cache->frame == ev->xany.window || c->cache->title->window == ev->xany.window))
 			client_redecorate(c);
 }
