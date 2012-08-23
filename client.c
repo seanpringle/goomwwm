@@ -275,6 +275,7 @@ client* client_create(Window win)
 	if (c->decorate && c->cache->frame == None)
 	{
 		c->cache->frame = window_create(c->x, c->y, c->w, c->h, color_get(config_border_blur));
+		XSelectInput(display, c->cache->frame, ExposureMask);
 
 		// stack frame under client window
 		Window wins[2] = { c->window, c->cache->frame };
@@ -292,6 +293,7 @@ client* client_create(Window win)
 				0, c->border_width, c->w, config_titlebar_height,
 				config_titlebar_font, config_titlebar_focus, config_border_focus,
 				c->title, NULL);
+			XSelectInput(display, c->cache->title->window, ExposureMask);
 			textbox_show(c->cache->title);
 		}
 	}
