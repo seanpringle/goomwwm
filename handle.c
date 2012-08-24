@@ -397,6 +397,7 @@ void handle_buttonpress(XEvent *ev)
 		XAllowEvents(display, ReplayPointer, CurrentTime);
 	}
 	event_client_dump(c);
+	ewmh_client_list();
 }
 
 void handle_buttonrelease(XEvent *ev)
@@ -437,6 +438,7 @@ void handle_buttonrelease(XEvent *ev)
 			prefix_mode_active = 0;
 		}
 	}
+	ewmh_client_list();
 }
 
 void handle_motionnotify(XEvent *ev)

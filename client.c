@@ -1175,7 +1175,6 @@ void client_review_border(client *c)
 	if (client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 	{
 		if (c->cache->frame) XUnmapWindow(display, c->cache->frame);
-		if (c->cache->title) XUnmapWindow(display, c->cache->title->window);
 		memset(extents, 0, sizeof(extents));
 	}
 	else
@@ -1266,13 +1265,23 @@ void client_redecorate(client *c)
 {
 	if (!c->decorate) return;
 
-	XSetWindowAttributes attr;
+	char *border = config_border_blur;
+	if (c->urgent) border = config_border_attention;
+	if (c->active) border = config_border_focus;
 
-	attr.background_pixel = color_get(c->active ? config_border_focus
-		: (c->urgent ? config_border_attention: config_border_blur));
-
+	XSetWindowAttributes attr; attr.background_pixel = color_get(border);
 	XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
 	XClearWindow(display, c->cache->frame);
+
+	XGCValues gcv;
+	gcv.fill_style = FillSolid;
+	gcv.foreground = color_get(config_border_blur);
+	GC gc = XCreateGC(display, c->cache->frame, GCFillStyle|GCForeground, &gcv);
+
+	XFillRectangle(display, c->cache->frame, gc, c->border_width, c->border_width,
+		c->w - (c->border_width*2), c->h - (c->border_width*2));
+
+	XFreeGC(display, gc);
 
 	if (!c->titlebar_height) return;
 	client_descriptive_data(c);
