@@ -289,8 +289,8 @@ client* client_create(Window win)
 		if (config_titlebar_height)
 		{
 			client_extended_data(c);
-			c->cache->title = textbox_create(c->cache->frame, TB_CENTER,
-				0, c->border_width, c->w, config_titlebar_height,
+			c->cache->title = textbox_create(c->cache->frame, TB_CENTER, 0,
+				c->border_width, c->w, config_titlebar_height,
 				config_titlebar_font, config_titlebar_focus, config_border_focus,
 				c->title, NULL);
 			XSelectInput(display, c->cache->title->window, ExposureMask);
@@ -1170,13 +1170,21 @@ void client_review_border(client *c)
 {
 	client_extended_data(c);
 	XSetWindowBorderWidth(display, c->window, 0);
+	unsigned long extents[4] = { c->border_width, c->border_width, c->border_width + c->titlebar_height, c->border_width };
+
+	if (client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
+	{
+		if (c->cache->frame) XUnmapWindow(display, c->cache->frame);
+		if (c->cache->title) XUnmapWindow(display, c->cache->title->window);
+		memset(extents, 0, sizeof(extents));
+	}
+	else
 	if (c->decorate)
 	{
 		Window wins[2] = { c->window, c->cache->frame };
 		XRestackWindows(display, wins, 2);
 		if (c->visible) XMapWindow(display, c->cache->frame);
 	}
-	unsigned long extents[4] = { c->border_width, c->border_width, c->border_width + c->titlebar_height, c->border_width };
 	window_set_cardinal_prop(c->window, netatoms[_NET_FRAME_EXTENTS], extents, 4);
 }
 
@@ -1834,6 +1842,7 @@ void client_duplicate(client *c)
 void client_minimize(client *c)
 {
 	XUnmapWindow(display, c->window);
+	if (c->decorate) XMapWindow(display, c->cache->frame);
 	// no update fo windows_activated yet. see handle_unmapnotify()
 	winlist_forget(windows_minimized, c->window);
 	winlist_append(windows_minimized, c->window, NULL);
