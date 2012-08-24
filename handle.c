@@ -784,7 +784,7 @@ void handle_mapnotify(XEvent *ev)
 	if (c && c->xattr.override_redirect && !c->cache->is_ours)
 	{
 		client_extended_data(c);
-		if (c->is_full) XRaiseWindow(display, c->window);
+		XRaiseWindow(display, c->window);
 	}
 }
 
