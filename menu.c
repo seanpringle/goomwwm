@@ -134,7 +134,7 @@ int menu(char **lines, char **input, char *prompt, int selected)
 				if (key == XK_Up)
 					selected = selected ? MAX(0, selected-1): MAX(0, filtered_lines-1);
 
-				if (key == XK_Down)
+				if (key == XK_Down || key == XK_Tab || key == XK_grave)
 					selected = selected < filtered_lines-1 ? MIN(filtered_lines-1, selected+1): 0;
 			}
 			menu_draw(text, boxes, max_lines, selected, filtered);
