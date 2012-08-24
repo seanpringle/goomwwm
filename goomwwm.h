@@ -155,7 +155,7 @@ typedef struct {
 #define RULE_EXPAND 1<<28
 #define RULE_CONTRACT 1<<29
 #define RULE_SKIPTBAR 1<<30
-#define RULE_SKIPPAGE 1<<31
+#define RULE_SKIPPAGE 1LL<<31
 #define RULE_RAISE 1LL<<32
 #define RULE_LOWER 1LL<<33
 #define RULE_SNAPLEFT 1LL<<34
