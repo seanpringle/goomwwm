@@ -41,6 +41,7 @@ void handle_keypress(XEvent *ev)
 
 	int i, reset_prefix = 1, reset_quit = 1;
 	while(XCheckTypedEvent(display, KeyPress, ev));
+	latest = ev->xkey.time;
 
 	client *c = NULL;
 	reset_lazy_caches();
@@ -343,6 +344,7 @@ void handle_buttonpress(XEvent *ev)
 	int is_mod = prefix_mode_active || state & config_modkey ? 1:0;
 	reset_lazy_caches();
 	reset_cache_client();
+	latest = ev->xbutton.time;
 
 	client *c = ev->xbutton.subwindow != None ? client_create(ev->xbutton.subwindow): NULL;
 
@@ -405,6 +407,7 @@ void handle_buttonrelease(XEvent *ev)
 	event_log("ButtonRelease", ev->xbutton.window);
 	int state = ev->xbutton.state & ~(LockMask|NumlockMask); client *c = NULL;
 	int is_mod = prefix_mode_active || state & config_modkey ? 1:0;
+	latest = ev->xbutton.time;
 
 	if (mouse_dragger)
 	{
@@ -445,6 +448,7 @@ void handle_motionnotify(XEvent *ev)
 {
 	// compress events to reduce window jitter and CPU load
 	while(XCheckTypedEvent(display, MotionNotify, ev));
+	latest = ev->xmotion.time;
 	client *c = client_create(ev->xmotion.window);
 	if (c && c->manage && mouse_dragger)
 	{

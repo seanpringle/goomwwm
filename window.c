@@ -139,7 +139,7 @@ int window_send_message(Window target, Window subject, Atom atom, unsigned long 
 	XEvent e; memset(&e, 0, sizeof(XEvent));
 	e.xclient.type = ClientMessage;
 	e.xclient.message_type = atom;     e.xclient.window    = subject;
-	e.xclient.data.l[0]    = protocol; e.xclient.data.l[1] = CurrentTime;
+	e.xclient.data.l[0]    = protocol; e.xclient.data.l[1] = latest;
 	e.xclient.send_event   = True;     e.xclient.format    = 32;
 	int r = XSendEvent(display, target, False, mask, &e) ?1:0;
 	XFlush(display);

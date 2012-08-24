@@ -525,6 +525,7 @@ char *keyargs[] = { KEYLIST(KEY_CARG), NULL };
 
 unsigned int NumlockMask = 0;
 Display *display; Screen *screen; Window root; int screen_id;
+Time latest = CurrentTime;
 
 // mouse move/resize controls
 // see ButtonPress,MotionNotify

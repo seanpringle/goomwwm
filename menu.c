@@ -108,6 +108,7 @@ int menu(char **lines, char **input, char *prompt, int selected)
 		if (ev.type == KeyPress)
 		{
 			while (XCheckTypedEvent(display, KeyPress, &ev));
+			latest = ev.xkey.time;
 
 			int rc = textbox_keypress(text, &ev);
 			if (rc < 0)
