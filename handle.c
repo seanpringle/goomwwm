@@ -502,7 +502,7 @@ void handle_destroynotify(XEvent *ev)
 
 		// destroy titlebar/borders
 		if (cache->title) textbox_free(cache->title);
-		if (cache->frame) XDestroyWindow(display, cache->frame);
+		if (cache->frame) box_free(cache->frame);
 
 		// free undo chain
 		winundo *next, *undo = cache->undo;
@@ -710,9 +710,6 @@ void handle_maprequest(XEvent *ev)
 
 		if (c->trans == None) client_lower(c, 0);
 		XSync(display, False);
-
-		// map frame
-		//if (c->decorate) XMapWindow(display, c->cache->frame);
 	}
 	XMapWindow(display, ev->xmaprequest.window);
 }
@@ -814,7 +811,7 @@ void handle_unmapnotify(XEvent *ev)
 		}
 		// hide border
 		if (c->decorate)
-			XUnmapWindow(display, c->cache->frame);
+			box_hide(c->cache->frame);
 	}
 	// if window has already been destroyed, above client_create() may have failed
 	// see if this was the active window, and if so, find someone else to take the job
@@ -997,6 +994,6 @@ void handle_expose(XEvent *ev)
 	int i; Window w; client *c;
 
 	managed_ascend(i, w, c)
-		if (c->decorate && (c->cache->frame == ev->xany.window || c->cache->title->window == ev->xany.window))
+		if (c->visible && c->decorate && (c->cache->frame->window == ev->xany.window || c->cache->title->window == ev->xany.window))
 			client_redecorate(c);
 }

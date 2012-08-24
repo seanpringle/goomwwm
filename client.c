@@ -272,25 +272,28 @@ client* client_create(Window win)
 		c->h += c->border_width*2 + c->titlebar_height;
 	}
 	// check whether the frame should be created
-	if (c->decorate && c->cache->frame == None)
+	if (c->decorate && !c->cache->frame)
 	{
-		c->cache->frame = window_create(c->x, c->y, c->w, c->h, color_get(config_border_blur));
-		XSelectInput(display, c->cache->frame, ExposureMask);
+		c->cache->frame = box_create(root, 0, c->x, c->y, c->w, c->h, config_border_blur);
+
+		cache = allocate_clear(sizeof(wincache));
+		winlist_append(windows, c->cache->frame->window, cache);
+		cache->is_ours = 1;
+		// associate with the window (see handle_buttonpress)
+		cache->app = c->window;
+
+		XSelectInput(display, c->cache->frame->window, ExposureMask);
 
 		// stack frame under client window
-		Window wins[2] = { c->window, c->cache->frame };
+		Window wins[2] = { c->window, c->cache->frame->window };
 		XRestackWindows(display, wins, 2);
-
-		// associate with the window (see handle_buttonpress)
-		cache = windows->data[winlist_find(windows, c->cache->frame)];
-		cache->app = c->window;
 
 		// ...and same for titlebar
 		if (config_titlebar_height)
 		{
 			client_extended_data(c);
-			c->cache->title = textbox_create(c->cache->frame, TB_CENTER, 0,
-				c->border_width, c->w, config_titlebar_height,
+			c->cache->title = textbox_create(c->cache->frame->window,
+				TB_CENTER, 0, c->border_width, c->w, config_titlebar_height,
 				config_titlebar_font, config_titlebar_focus, config_border_focus,
 				c->title, NULL);
 			XSelectInput(display, c->cache->title->window, ExposureMask);
@@ -352,7 +355,7 @@ void client_close(client *c)
 	// prevent frame flash
 	c->active = 0;
 	client_redecorate(c);
-	XUnmapWindow(display, c->cache->frame);
+	box_hide(c->cache->frame);
 
 	if (c->cache->have_closed || !client_protocol_event(c, atoms[WM_DELETE_WINDOW]))
 		XKillClient(display, c->window);
@@ -606,7 +609,7 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 		fw = MAX(1, fw - c->border_width*2);
 		fh = MAX(1, fh - c->border_width*2 - c->titlebar_height);
 	}
-	if (c->decorate) XMoveResizeWindow(display, c->cache->frame, c->x, c->y, c->w, c->h);
+	if (c->decorate) box_moveresize(c->cache->frame, c->x, c->y, c->w, c->h);
 	XMoveResizeWindow(display, c->window, fx, fy, fw, fh);
 	client_redecorate(c);
 }
@@ -1081,7 +1084,7 @@ void client_stack_family(client *c, winlist *stack)
 	// move this window to end (bottom) of stack
 	winlist_forget(stack, c->window);
 	winlist_append(stack, c->window, NULL);
-	if (c->decorate) winlist_append(stack, c->cache->frame, NULL);
+	if (c->decorate) winlist_append(stack, c->cache->frame->window, NULL);
 }
 
 // raise a window and its transients
@@ -1174,15 +1177,15 @@ void client_review_border(client *c)
 
 	if (client_has_state(c, netatoms[_NET_WM_STATE_FULLSCREEN]))
 	{
-		if (c->cache->frame) XUnmapWindow(display, c->cache->frame);
+		if (c->cache->frame) box_hide(c->cache->frame);
 		memset(extents, 0, sizeof(extents));
 	}
 	else
 	if (c->decorate)
 	{
-		Window wins[2] = { c->window, c->cache->frame };
+		Window wins[2] = { c->window, c->cache->frame->window };
 		XRestackWindows(display, wins, 2);
-		if (c->visible) XMapWindow(display, c->cache->frame);
+		if (c->visible) box_show(c->cache->frame);
 	}
 	window_set_cardinal_prop(c->window, netatoms[_NET_FRAME_EXTENTS], extents, 4);
 }
@@ -1269,19 +1272,8 @@ void client_redecorate(client *c)
 	if (c->urgent) border = config_border_attention;
 	if (c->active) border = config_border_focus;
 
-	XSetWindowAttributes attr; attr.background_pixel = color_get(border);
-	XChangeWindowAttributes(display, c->cache->frame, CWBackPixel, &attr);
-	XClearWindow(display, c->cache->frame);
-
-	XGCValues gcv;
-	gcv.fill_style = FillSolid;
-	gcv.foreground = color_get(config_border_blur);
-	GC gc = XCreateGC(display, c->cache->frame, GCFillStyle|GCForeground, &gcv);
-
-	XFillRectangle(display, c->cache->frame, gc, c->border_width, c->border_width,
-		c->w - (c->border_width*2), c->h - (c->border_width*2));
-
-	XFreeGC(display, gc);
+	box_color(c->cache->frame, border);
+	box_draw(c->cache->frame);
 
 	if (!c->titlebar_height) return;
 	client_descriptive_data(c);
@@ -1851,7 +1843,7 @@ void client_duplicate(client *c)
 void client_minimize(client *c)
 {
 	XUnmapWindow(display, c->window);
-	if (c->decorate) XMapWindow(display, c->cache->frame);
+	if (c->decorate) box_show(c->cache->frame);
 	// no update fo windows_activated yet. see handle_unmapnotify()
 	winlist_forget(windows_minimized, c->window);
 	winlist_append(windows_minimized, c->window, NULL);
@@ -1868,7 +1860,7 @@ void client_minimize(client *c)
 void client_restore(client *c)
 {
 	XMapWindow(display, c->window);
-	if (c->decorate) XMapWindow(display, c->cache->frame);
+	if (c->decorate) box_show(c->cache->frame);
 	// no update fo windows_minimized yet. see handle_mapnotify()
 	winlist_forget(windows_activated, c->window);
 	winlist_prepend(windows_activated, c->window, NULL);
@@ -1883,7 +1875,7 @@ void client_restore(client *c)
 void client_shade(client *c)
 {
 	XUnmapWindow(display, c->window);
-	if (c->decorate) XUnmapWindow(display, c->cache->frame);
+	if (c->decorate) box_hide(c->cache->frame);
 	// no update fo windows_activated yet. see handle_unmapnotify()
 	winlist_forget(windows_shaded, c->window);
 	winlist_append(windows_shaded, c->window, NULL);

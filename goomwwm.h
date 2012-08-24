@@ -51,6 +51,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 typedef unsigned char bool;
 typedef unsigned long long bitmap;
 
+typedef struct {
+	bitmap flags;
+	Window window, parent;
+	short x, y, w, h;
+	unsigned int color;
+} box;
+
 #define TB_AUTOHEIGHT 1<<0
 #define TB_AUTOWIDTH 1<<1
 #define TB_LEFT 1<<16
@@ -284,7 +291,7 @@ typedef struct {
 	unsigned int tags; // desktop tags
 	winundo *ewmh;     // undo size/pos for EWMH FULLSCREEN/MAXIMIZE_HORZ/MAXIMIZE_VERT toggles
 	winundo *undo;     // general size/pos undo LIFO linked list
-	Window frame;     // titlebar & border, but NOT reparented!
+	box *frame;        // titlebar & border, but NOT reparented!
 	textbox *title;
 	bool is_ours;      // set for any windows goomwwm creates
 	Window app;

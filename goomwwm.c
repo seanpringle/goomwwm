@@ -29,6 +29,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "goomwwm.h"
 #include "proto.h"
 #include "util.c"
+#include "box.c"
 #include "textbox.c"
 #include "winlist.c"
 #include "rule.c"

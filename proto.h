@@ -1,3 +1,9 @@
+void box_color(box *b, char *color);
+void box_moveresize(box *b, short x, short y, short w, short h);
+void box_show(box *b);
+void box_hide(box *b);
+void box_draw(box *b);
+void box_free(box *b);
 void cli_message(Atom atom, char *cmd);
 int cli_main(int argc, char *argv[]);
 void client_flush_state(client *c);
