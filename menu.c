@@ -63,13 +63,15 @@ int menu(char **lines, char **input, char *prompt, int selected)
 	textbox_show(text);
 
 	int line_height = text->font->ascent + text->font->descent;
+	int row_padding = line_height/10;
+	int row_height = line_height + row_padding;
 
 	// filtered list display
 	textbox **boxes = allocate_clear(sizeof(textbox*) * max_lines);
 
 	for (i = 0; i < max_lines; i++)
 	{
-		boxes[i] = textbox_create(box, TB_AUTOHEIGHT, 5, (i+1) * line_height + 5, w-10, 1,
+		boxes[i] = textbox_create(box, TB_AUTOHEIGHT, 5, (i+1) * row_height + 5, w-10, 1,
 			config_menu_font, config_menu_fg, config_menu_bg, lines[i], NULL);
 		textbox_show(boxes[i]);
 	}
@@ -82,7 +84,7 @@ int menu(char **lines, char **input, char *prompt, int selected)
 		filtered[i] = lines[i];
 
 	// resize window vertically to suit
-	int h = line_height * (max_lines+1) + 10;
+	int h = row_height * (max_lines+1) + 10 - row_padding;
 	int y = mon.y + (mon.h - h)/2;
 	XMoveResizeWindow(display, box, x, y, w, h);
 	XMapRaised(display, box);
