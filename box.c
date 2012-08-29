@@ -31,11 +31,17 @@ box* box_create(Window parent, bitmap flags, short x, short y, short w, short h,
 
 	b->flags = flags;
 	b->parent = parent;
+	box_color(b, color);
 
-	b->window = XCreateSimpleWindow(display, b->parent, 0, 0, 1, 1, 0, None, None);
+	b->window = XCreateSimpleWindow(display, b->parent, 0, 0, 1, 1, 0, None, b->color);
+
+	if (b->flags & BOX_OVERRIDE)
+	{
+		XSetWindowAttributes attr; attr.override_redirect = True;
+		XChangeWindowAttributes(display, b->window, CWOverrideRedirect, &attr);
+	}
 
 	box_moveresize(b, x, y, w, h);
-	box_color(b, color);
 
 	return b;
 }

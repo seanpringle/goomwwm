@@ -370,11 +370,11 @@ void handle_buttonpress(XEvent *ev)
 			take_pointer(c->window, PointerMotionMask|ButtonReleaseMask, None);
 
 			mouse_dragger = allocate_clear(sizeof(struct mouse_drag));
-			mouse_dragger->overlay = window_create(c->x, c->y, c->w, c->h, color_get(config_border_blur));
+			mouse_dragger->overlay = box_create(root, BOX_OVERRIDE, c->x, c->y, c->w, c->h, config_border_blur);
 
 			unsigned long opacity = 0xffffffff / 2;
 			// no map yet, see motionnotify
-			window_set_cardinal_prop(mouse_dragger->overlay, netatoms[_NET_WM_WINDOW_OPACITY], &opacity, 1);
+			window_set_cardinal_prop(mouse_dragger->overlay->window, netatoms[_NET_WM_WINDOW_OPACITY], &opacity, 1);
 
 			memcpy(&mouse_dragger->attr,   &c->xattr,    sizeof(c->xattr));
 			memcpy(&mouse_dragger->button, &ev->xbutton, sizeof(ev->xbutton));
@@ -430,7 +430,7 @@ void handle_buttonrelease(XEvent *ev)
 		}
 
 		release_pointer();
-		XDestroyWindow(display, mouse_dragger->overlay);
+		box_free(mouse_dragger->overlay);
 		free(mouse_dragger);
 		mouse_dragger = NULL;
 
@@ -452,7 +452,8 @@ void handle_motionnotify(XEvent *ev)
 	client *c = client_create(ev->xmotion.window);
 	if (c && c->manage && mouse_dragger)
 	{
-		XMapRaised(display, mouse_dragger->overlay);
+		box_show(mouse_dragger->overlay);
+
 		client_extended_data(c);
 		int xd = ev->xbutton.x_root - mouse_dragger->button.x_root;
 		int yd = ev->xbutton.y_root - mouse_dragger->button.y_root;
@@ -477,7 +478,7 @@ void handle_motionnotify(XEvent *ev)
 		mouse_dragger->h = h;
 
 		//XMoveResizeWindow(display, mouse_dragger->overlay, x, y, w, h);
-		client_moveresize(client_create(mouse_dragger->overlay), mouse_dragger->flags, x, y, w, h);
+		client_moveresize(client_create(mouse_dragger->overlay->window), mouse_dragger->flags, x, y, w, h);
 	}
 }
 

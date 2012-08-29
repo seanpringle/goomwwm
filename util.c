@@ -222,20 +222,20 @@ void message_box(int delay, int x, int y, char *fgc, char *bgc, char *bc, char *
 
 	display = XOpenDisplay(0x0);
 
-	Window box = window_create_override(0, 0, 1, 1, color_get(config_title_bg));
+	box *b = box_create(root, BOX_OVERRIDE, 0, 0, 1, 1, config_title_bg);
 
-	textbox *text = textbox_create(box, TB_CENTER|TB_AUTOHEIGHT|TB_AUTOWIDTH,
+	textbox *text = textbox_create(b->window, TB_CENTER|TB_AUTOHEIGHT|TB_AUTOWIDTH,
 		8, 5, 1, 1, config_title_font, config_title_fg, config_title_bg, txt, NULL);
 
-	XMoveResizeWindow(display, box,
+	box_moveresize(b,
 		MIN(mon.x+mon.w-text->w-26, MAX(mon.x+26, x - text->w/2)),
 		MIN(mon.y+mon.h-text->h-20, MAX(mon.y+20, y - text->h/2)),
 		text->w + 16, text->h + 10);
 
-	XSelectInput(display, box, ExposureMask);
+	XSelectInput(display, b->window, ExposureMask);
 
 	textbox_show(text);
-	XMapRaised(display, box);
+	box_show(b);
 
 	double stamp = timestamp();
 	while ((timestamp()-stamp) < (double)delay/1000)
@@ -252,31 +252,9 @@ void message_box(int delay, int x, int y, char *fgc, char *bgc, char *bc, char *
 	}
 
 	textbox_free(text);
+	box_free(b);
+
 	exit(EXIT_SUCCESS);
-}
-
-// wrapper for XCreateSimpleWindow so we can track our own windows
-Window window_create_override(int x, int y, int w, int h, unsigned int color)
-{
-	Window win = XCreateSimpleWindow(display, root, x, y, w, h, 0, None, color);
-	XSetWindowAttributes attr; attr.override_redirect = True;
-	XChangeWindowAttributes(display, win, CWOverrideRedirect, &attr);
-	// pre-create window's cache, so we know it's ours later
-	wincache *cache = allocate_clear(sizeof(wincache));
-	winlist_append(windows, win, cache);
-	cache->is_ours = 1;
-	return win;
-}
-
-// wrapper for XCreateSimpleWindow so we can track our own windows
-Window window_create(int x, int y, int w, int h, unsigned int color)
-{
-	Window win = XCreateSimpleWindow(display, root, x, y, w, h, 0, None, color);
-	// pre-create window's cache, so we know it's ours later
-	wincache *cache = allocate_clear(sizeof(wincache));
-	winlist_append(windows, win, cache);
-	cache->is_ours = 1;
-	return win;
 }
 
 // bottom right of screen

@@ -1046,19 +1046,17 @@ void client_flash(client *c, char *color, int delay, int title)
 			message_box(delay, c->x+c->w/2, c->y+c->h/2, config_title_fg, config_title_bg, config_title_bc, c->title);
 
 		// four coloured squares in the window's corners
-		unsigned int bg = color_get(color);
-		Window tl = window_create_override(x1, y1, config_flash_width, config_flash_width, bg);
-		Window tr = window_create_override(x2, y1, config_flash_width, config_flash_width, bg);
-		Window bl = window_create_override(x1, y2, config_flash_width, config_flash_width, bg);
-		Window br = window_create_override(x2, y2, config_flash_width, config_flash_width, bg);
+		box *tl = box_create(root, BOX_OVERRIDE, x1, y1, config_flash_width, config_flash_width, color);
+		box *tr = box_create(root, BOX_OVERRIDE, x2, y1, config_flash_width, config_flash_width, color);
+		box *bl = box_create(root, BOX_OVERRIDE, x1, y2, config_flash_width, config_flash_width, color);
+		box *br = box_create(root, BOX_OVERRIDE, x2, y2, config_flash_width, config_flash_width, color);
 
-		XMapRaised(display, tl); XMapRaised(display, tr);
-		XMapRaised(display, bl); XMapRaised(display, br);
+		box_show(tl); box_show(tr); box_show(bl); box_show(br);
 
-		XSync(display, False); usleep(delay*1000);
+		XSync(display, False);
+		usleep(delay*1000);
 
-		XDestroyWindow(display, tl); XDestroyWindow(display, tr);
-		XDestroyWindow(display, bl); XDestroyWindow(display, br);
+		box_free(tl); box_free(tr); box_free(bl); box_free(br);
 
 		exit(EXIT_SUCCESS);
 	}

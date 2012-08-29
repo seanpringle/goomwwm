@@ -51,6 +51,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 typedef unsigned char bool;
 typedef unsigned long long bitmap;
 
+#define BOX_OVERRIDE 1<<0
+
 typedef struct {
 	bitmap flags;
 	Window window, parent;
@@ -533,7 +535,7 @@ Time latest = CurrentTime;
 struct mouse_drag {
 	XButtonEvent button;
 	XWindowAttributes attr;
-	Window overlay;
+	box *overlay;
 	short x, y, w, h;
 	unsigned int flags;
 };
