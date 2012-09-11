@@ -475,11 +475,6 @@ void client_moveresize(client *c, unsigned int flags, int fx, int fy, int fw, in
 	{
 		fx = monitor.x-monitor.l; fy = monitor.y-monitor.t;
 		fw = monitor.w+monitor.l+monitor.r; fh = monitor.h+monitor.t+monitor.b;
-
-		// can't afford to ignore resize hints on full screen as some apps just freeze up.
-		// sometimes proper full-screen only works with apps' built-in toggle (eg, gnome-terminal,
-		// mplayer)... not much we can do?
-		client_process_size_hints(c, &fx, &fy, &fw, &fh);
 	}
 	else
 	{
