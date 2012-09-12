@@ -1,5 +1,5 @@
 CFLAGS?=-Wall -O2
-LDADD?=$(shell pkg-config --cflags --libs x11 xinerama x11 xft)
+LDADD?=`pkg-config --cflags --libs x11 xinerama xft`
 
 normal:
 	$(CC) -o goomwwm goomwwm.c $(CFLAGS) $(LDADD) $(LDFLAGS)
