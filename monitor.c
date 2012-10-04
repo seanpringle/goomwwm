@@ -122,7 +122,7 @@ int monitor_dimensions_struts(int x, int y, workarea *mon)
 // find a monitor by direction relative to another
 int monitor_over_there_ish(workarea *here, int direction, workarea *mon)
 {
-	int vague = MAX(here->w/100, here->h/100), xd = here->w/3, yd = here->h/3;
+	int vague = MAX(here->w/50, here->h/50), xd = here->w/3, yd = here->h/3;
 
 	switch (direction)
 	{
