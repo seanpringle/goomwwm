@@ -261,33 +261,17 @@ void handle_keypress(XEvent *ev)
 			free(c->cache->ewmh); c->cache->ewmh = NULL;
 
 			// monitor switching if window is on an edge
-			if (ISKEY(KEY_LEFT) && c->is_left)
-			{
-				monitor_dimensions_struts(c->monitor.x-c->monitor.l-vague, c->y, &mon);
-				if (mon.x < c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ done = 1; fx = mon.x+mon.w-w; fy = c->y; fw = w; fh = h; }
-			}
+			if (ISKEY(KEY_LEFT) && c->is_left && monitor_over_there_ish(&c->monitor, MONITORLEFT, &mon))
+				{ done = 1; fx = mon.x+mon.w-w; fy = MAX(mon.y, MIN(mon.y+mon.h-c->h, c->y)); fw = w; fh = h; }
 			else
-			if (ISKEY(KEY_RIGHT) && c->is_right)
-			{
-				monitor_dimensions_struts(c->monitor.x+c->monitor.w+c->monitor.r+vague, c->y, &mon);
-				if (mon.x > c->monitor.x && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ done = 1; fx = mon.x; fy = c->y; fw = w; fh = h; }
-			}
+			if (ISKEY(KEY_RIGHT) && c->is_right && monitor_over_there_ish(&c->monitor, MONITORRIGHT, &mon))
+				{ done = 1; fx = mon.x; fy = MAX(mon.y, MIN(mon.y+mon.h-c->h, c->y)); fw = w; fh = h; }
 			else
-			if (ISKEY(KEY_UP) && c->is_top)
-			{
-				monitor_dimensions_struts(c->x, c->monitor.y-c->monitor.t-vague, &mon);
-				if (mon.y < c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ done = 1; fx = c->x; fy = mon.y+mon.h-h; fw = w; fh = h; }
-			}
+			if (ISKEY(KEY_UP) && c->is_top && monitor_over_there_ish(&c->monitor, MONITORUP, &mon))
+				{ done = 1; fx = MAX(mon.x, MIN(mon.x+mon.w-c->w, c->x)); fy = mon.y+mon.h-h; fw = w; fh = h; }
 			else
-			if (ISKEY(KEY_DOWN) && c->is_bottom)
-			{
-				monitor_dimensions_struts(c->x, c->monitor.y+c->monitor.h+c->monitor.b+vague, &mon);
-				if (mon.y > c->monitor.y && !INTERSECT(mon.x, mon.y, mon.w, mon.h, c->monitor.x, c->monitor.y, c->monitor.h, c->monitor.w))
-					{ done = 1; fx = c->x; fy = mon.y; fw = w; fh = h; }
-			}
+			if (ISKEY(KEY_DOWN) && c->is_bottom && monitor_over_there_ish(&c->monitor, MONITORDOWN, &mon))
+				{ done = 1; fx = MAX(mon.x, MIN(mon.x+mon.w-c->w, c->x)); fy = mon.y; fw = w; fh = h; }
 
 			// move within current monitor
 			if (!done && !c->is_full)

@@ -116,6 +116,10 @@ typedef struct {
 #define SWAPRIGHT 2
 #define SWAPUP 3
 #define SWAPDOWN 4
+#define MONITORLEFT 1
+#define MONITORRIGHT 2
+#define MONITORUP 3
+#define MONITORDOWN 4
 #define CLIENTSTATE 7
 
 // client_moveresize() flags

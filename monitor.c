@@ -25,9 +25,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // find the dimensions of the monitor displaying point x,y
-void monitor_dimensions(int x, int y, workarea *mon)
+int monitor_dimensions(int x, int y, workarea *mon)
 {
-	int monitors, i;
+	int monitors, i, rc = 0;
 	memset(mon, 0, sizeof(workarea));
 
 	mon->w = WidthOfScreen(screen);
@@ -45,18 +45,20 @@ void monitor_dimensions(int x, int y, workarea *mon)
 				{
 					mon->x = info[i].x_org; mon->y = info[i].y_org;
 					mon->w = info[i].width; mon->h = info[i].height;
+					rc = 1;
 					break;
 				}
 			}
 			XFree(info);
 		}
 	}
+	return rc;
 }
 
 // find the dimensions, EXCLUDING STRUTS, of the monitor displaying point x,y
-void monitor_dimensions_struts(int x, int y, workarea *mon)
+int monitor_dimensions_struts(int x, int y, workarea *mon)
 {
-	int i;
+	int i, rc = 0;
 	// check cache. we may be able to avoid walking all windows
 	for (i = 0; i < sizeof(cache_monitor)/sizeof(workarea); i++)
 	{
@@ -64,11 +66,11 @@ void monitor_dimensions_struts(int x, int y, workarea *mon)
 		if (INTERSECT(x, y, 1, 1, cm->x-cm->l, cm->y-cm->t, cm->w+cm->l+cm->r, cm->h+cm->t+cm->b))
 		{
 			memmove(mon, cm, sizeof(workarea));
-			return;
+			return 1;
 		}
 	}
 
-	monitor_dimensions(x, y, mon);
+	rc = monitor_dimensions(x, y, mon);
 
 	// strut cardinals are relative to the root window size, which is not necessarily the monitor size
 	XWindowAttributes *rattr = window_get_attributes(root);
@@ -114,6 +116,31 @@ void monitor_dimensions_struts(int x, int y, workarea *mon)
 			break;
 		}
 	}
+	return rc;
+}
+
+// find a monitor by direction relative to another
+int monitor_over_there_ish(workarea *here, int direction, workarea *mon)
+{
+	int vague = MAX(here->w/100, here->h/100), xd = here->w/3, yd = here->h/3;
+
+	switch (direction)
+	{
+		case MONITORLEFT:
+			return monitor_dimensions_struts(here->x - here->l - vague, here->y+yd, mon)
+				|| monitor_dimensions_struts(here->x - here->l - vague, here->y+yd*2, mon);
+		case MONITORRIGHT:
+			return monitor_dimensions_struts(here->x + here->w + here->r + vague, here->y+yd, mon)
+				|| monitor_dimensions_struts(here->x + here->w + here->r + vague, here->y+yd*2, mon);
+		case MONITORUP:
+			return monitor_dimensions_struts(here->x+xd, here->y - here->t - vague, mon)
+				|| monitor_dimensions_struts(here->x+xd*2, here->y - here->t - vague, mon);
+		case MONITORDOWN:
+			return monitor_dimensions_struts(here->x+xd, here->y + here->h + here->b + vague, mon)
+				|| monitor_dimensions_struts(here->x+xd*2, here->y + here->h + here->b + vague, mon);
+	}
+	memmove(mon, here, sizeof(workarea));
+	return 0;
 }
 
 // determine which monitor holds the active window, or failing that the mouse pointer
