@@ -300,6 +300,18 @@ void setup_general_options(int ac, char *av[])
 		if (!strcasecmp(mode, "modkeyup")) config_menu_select = MENUMODUP;
 	}
 
+	// optionally swap tag and app key
+	mode = find_arg_str(ac, av, "-appkeys", "numbers");
+	if (!strcasecmp(mode, "functions"))
+	{
+		for (i = 0; i < sizeof(config_apps_keysyms)/sizeof(KeySym); i++)
+		{
+			KeySym k = config_apps_keysyms[i];
+			config_apps_keysyms[i] = config_tags_keysyms[i];
+			config_tags_keysyms[i] = k;
+		}
+	}
+
 	// app_find_or_start() keys
 	for (i = 0; config_apps_keysyms[i]; i++)
 	{

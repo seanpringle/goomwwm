@@ -401,6 +401,27 @@ Set an X11 key name to toggle _NET_WM_STATE_ABOVE for the active window
 goomwwm -above a
 .RE
 .TP
+.B -appkeys
+Specify the keys to use for app search-or-launch as set by \f[B]-1\f[]
+through \f[B]-9\f[] (default: numbers).
+.RS
+.PP
+Valid settings are:
+.TP
+.B numbers
+Use the number keys 1-9
+.RS
+.RE
+.TP
+.B functions
+Use the function keys F1-F9
+.RS
+.RE
+.PP
+If function keys are used for app launchers the number keys will be used
+to swap tags, and vice versa.
+.RE
+.TP
 .B -attention
 Set the border color (X11 named color or hex #rrggbb) for an inactive
 window with _NET_WM_STATE_DEMANDS_ATTENTION (default: Red).

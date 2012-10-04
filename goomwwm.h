@@ -46,6 +46,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <regex.h>
+#include <err.h>
 #include <X11/extensions/Xinerama.h>
 
 typedef unsigned char bool;
@@ -451,8 +452,9 @@ char *config_border_focus, *config_border_blur, *config_border_attention,
 	*config_flash_on, *config_flash_off;
 
 char *config_switcher, *config_launcher, *config_apps_patterns[10];
-KeySym config_apps_keysyms[] = { XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, 0 };
-KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, 0 };
+// these must be the same size
+KeySym config_apps_keysyms[] = { XK_1,  XK_2,  XK_3,  XK_4,  XK_5,  XK_6,  XK_7,  XK_8,  XK_9,  XK_0, 0 };
+KeySym config_tags_keysyms[] = { XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, 0,    0 };
 
 #define MAXMODCODES 16
 unsigned int config_modkeycodes[MAXMODCODES+1];

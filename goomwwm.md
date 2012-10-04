@@ -218,6 +218,19 @@ Note that this would capture F12 globally, making it unusable for anything else.
 
 	goomwwm -above a
 
+-appkeys
+:	Specify the keys to use for app search-or-launch as set by **-1** through **-9** (default: numbers).
+
+	Valid settings are:
+
+	numbers
+	:	Use the number keys 1-9
+
+	functions
+	:	Use the function keys F1-F9
+
+	If function keys are used for app launchers the number keys will be used to swap tags, and vice versa.
+
 -attention
 :	Set the border color (X11 named color or hex #rrggbb) for an inactive window with _NET_WM_STATE_DEMANDS_ATTENTION (default: Red).
 
