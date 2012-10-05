@@ -316,7 +316,7 @@ void setup_general_options(int ac, char *av[])
 	for (i = 0; config_apps_keysyms[i]; i++)
 	{
 		char tmp[3]; sprintf(tmp, "-%d", i);
-		config_apps_patterns[i] = find_arg_str(ac, av, tmp, NULL);
+		config_apps_patterns[i ? i-1: 9] = find_arg_str(ac, av, tmp, NULL);
 	}
 }
 
