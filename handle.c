@@ -92,7 +92,7 @@ void handle_keypress(XEvent *ev)
 	else if ((i = in_array_keysym(config_apps_keysyms, key)) >= 0 && state == (config_modkey|ShiftMask))
 		client_start(config_apps_patterns[i]);
 
-	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && state == config_modkey)
+	else if ((i = in_array_keysym(config_tags_keysyms, key)) >= 0 && state == config_modkey && key != XK_0)
 		tag_raise(1<<i);
 
 	// tag cycling
