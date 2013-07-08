@@ -264,6 +264,7 @@ void setup_general_options(int ac, char *av[])
 	config_warp_mode = WARPNEVER;
 	mode = find_arg_str(ac, av, "-warpmode", config_focus_mode == FOCUSCLICK ? "never": "focus");
 	if (!strcasecmp(mode, "focus")) config_warp_mode = WARPFOCUS;
+	if (!strcasecmp(mode, "follow")) config_warp_mode = WARPFOLLOW;
 
 	// steal mode
 	config_map_mode = MAPSTEAL;
