@@ -232,6 +232,7 @@ typedef struct {
 #define RAISECLICK 2
 #define MAPSTEAL 1
 #define MAPBLOCK 2
+#define WARPFOLLOW 2
 #define WARPFOCUS 1
 #define WARPNEVER 0
 #define PLACEANY 1

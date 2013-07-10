@@ -618,7 +618,9 @@ void handle_configurenotify(XEvent *ev)
 		{
 			client_review_border(c);
 			client_review_position(c);
-			if (c->active && config_warp_mode == WARPFOCUS && !mouse_dragger)
+			if (c->active && !mouse_dragger &&
+				(config_warp_mode == WARPFOCUS ||
+					config_warp_mode == WARPFOLLOW))
 			{
 				client_warp_pointer(c);
 				// dump any enterynotify events that have been generated
