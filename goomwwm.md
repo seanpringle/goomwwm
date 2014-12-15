@@ -888,8 +888,11 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	never
 	:	Pointer is never moved (default for -focusmode click).
 
+	follow
+	:	Pointer follows a moved window, but is not moved to a newly focused window.
+
 	focus
-	:	Pointer is warped to a newly focused window (default for -focusmode sloppy[tag]).
+	:	Pointer is warped to a newly focused window, and follows a moved window (default for -focusmode sloppy[tag]).
 
 
 # OPTIONS (cli mode)
