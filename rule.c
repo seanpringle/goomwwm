@@ -24,7 +24,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-// load a rule specified on cmd line or .goomwwmrc
+// load a rule specified on cmd line or in a config file
 int rule_parse(char *rulestr)
 {
 	winrule *new = allocate_clear(sizeof(winrule));

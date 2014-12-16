@@ -24,6 +24,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <sys/stat.h>
+#include <errno.h>
+
 // X error handler
 int oops(Display *d, XErrorEvent *ee)
 {
@@ -357,12 +360,31 @@ int wm_main(int argc, char *argv[])
 {
 	int i; XEvent ev;
 
-	// prepare to fall back on ~/.goomwwmrc
-	char *conf_home = NULL, *home = getenv("HOME");
+	char *xdg_config_home = getenv("XDG_CONFIG_HOME");
+	char *home = NULL;
+	char *conf_home = NULL;
+
+	// try to use $XDG_CONFIG_HOME/goomwwm/goomwwmrc
+	if (xdg_config_home)
+	{
+		struct stat status;
+		conf_home = allocate_clear(1024);
+		sprintf(conf_home, "%s/%s", xdg_config_home, CONFIGFILE);
+
+		if (stat(conf_home, &status) == -1 && errno == ENOENT)
+		{
+			free(conf_home);
+			home = getenv("HOME");
+		}
+	}
+	else
+		home = getenv("HOME");
+
+	// fall back on ~/.goomwwmrc
 	if (home)
 	{
 		conf_home = allocate_clear(1024);
-		sprintf(conf_home, "%s/%s", home, CONFIGFILE);
+		sprintf(conf_home, "%s/%s", home, CONFIGFILE_FALLBACK);
 	}
 
 	// prepare args and merge conf file args

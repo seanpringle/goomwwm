@@ -220,7 +220,8 @@ typedef struct {
 #define TITLEBARXFTFONT "sans-10"
 #define TITLEBARFOCUS "#eeeeee"
 #define TITLEBARBLUR "#222222"
-#define CONFIGFILE ".goomwwmrc"
+#define CONFIGFILE "goomwwm/goomwwmrc"
+#define CONFIGFILE_FALLBACK ".goomwwmrc"
 #define FOCUSCLICK 1
 #define FOCUSSLOPPY 2
 #define FOCUSSLOPPYTAG 3
