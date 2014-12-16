@@ -380,11 +380,19 @@ int wm_main(int argc, char *argv[])
 	else
 		home = getenv("HOME");
 
-	// fall back on ~/.goomwwmrc
+	// try to use ~/.config/goomwwm/goomwwmrc
 	if (home)
 	{
+		struct stat status;
 		conf_home = allocate_clear(1024);
-		sprintf(conf_home, "%s/%s", home, CONFIGFILE_FALLBACK);
+		sprintf(conf_home, "%s/.config/%s", home, CONFIGFILE);
+
+		if (stat(conf_home, &status) == -1 && errno == ENOENT)
+		{
+			// fall back on ~/.goomwwmrc
+			free(conf_home);
+			sprintf(conf_home, "%s/%s", home, CONFIGFILE_FALLBACK);
+		}
 	}
 
 	// prepare args and merge conf file args

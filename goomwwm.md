@@ -277,7 +277,7 @@ Note that this would capture F12 globally, making it unusable for anything else.
 		close Escape
 		menufont mono-14
 
-	If a config file is found at **$XDG_CONFIG_HOME/goomwwm/goomwwmrc** or **$HOME/.goomwwmrc**, the first one found will be automatically parsed.
+	If a config file is found at **$XDG_CONFIG_HOME/goomwwm/goomwwmrc** or **$HOME/.config/goomwwm/goomwwmrc** or **$HOME/.goomwwmrc**, the first one found will be automatically parsed.
 
 -cycle
 :	Set an X11 key name to cycle windows in the same tag and position as the active window (default: XK_c).
