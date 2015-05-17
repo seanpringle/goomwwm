@@ -355,7 +355,7 @@ void client_close(client *c)
 	// prevent frame flash
 	c->active = 0;
 	client_redecorate(c);
-	box_hide(c->cache->frame);
+	if (c->cache->frame) box_hide(c->cache->frame);
 
 	if (c->cache->have_closed || !client_protocol_event(c, atoms[WM_DELETE_WINDOW]))
 		XKillClient(display, c->window);
