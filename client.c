@@ -1325,8 +1325,9 @@ void client_activate(client *c, int raise, int warp)
 
 	// focus a window politely if possible
 	client_protocol_event(c, atoms[WM_TAKE_FOCUS]);
-	if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
-	else XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
+	//if (c->input) XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
+	//else XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
+	XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
 
 	// we have recieved attention
 	client_remove_state(c, netatoms[_NET_WM_STATE_DEMANDS_ATTENTION]);
