@@ -1893,43 +1893,61 @@ void client_reveal(client *c)
 		if (o->trans == c->window) client_restore(o);
 }
 
+winlist* top_level_windows()
+{
+  int type, i;
+  Window w;
+  client *c;
+  winlist* result = winlist_new();
+	// type=0 normal windows
+	// type=1 shaded windows
+	// type=2 minimized windows
+	for (type = 0; type < 3; type++)
+  {
+    winlist *l = windows_activated;
+    if (type == 1) l = windows_shaded;
+    if (type == 2) l = windows_minimized;
+    // calc widths of wm_class and tag csv fields
+    clients_descend(l, i, w, c)
+    {
+      if (c->manage &&
+          (c->visible || c->minimized || c->shaded) &&
+          !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
+        {
+          winlist_append(result, c->window, NULL);
+        }
+    }
+  }
+  return result;
+}
+
 // built-in window switcher
 void client_switcher(unsigned int tag)
 {
 	// TODO: this whole function is messy. build a nicer solution
 	char pattern[50], **list = NULL;
-	int i, type, classfield = 0, maxtags = 0, lines = 0, above = 0, sticky = 0, minimized = 0, plen = 0;
+	int i, classfield = 0, maxtags = 0, lines = 0, above = 0, sticky = 0, minimized = 0, plen = 0;
 	Window w; client *c; winlist *ids = winlist_new();
 
-	// type=0 normal windows
-	// type=1 shaded windows
-	// type=2 minimized windows
-	for (type = 0; type < 3; type++)
-	{
-		winlist *l = windows_activated;
-		if (type == 1) l = windows_shaded;
-		if (type == 2) l = windows_minimized;
-		// calc widths of wm_class and tag csv fields
-		clients_descend(l, i, w, c)
-		{
-			if (c->manage && (c->visible || c->minimized || c->shaded) && !client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR]))
-			{
-				client_descriptive_data(c);
-				if (!tag || (c->cache && c->cache->tags & tag))
-				{
-					if (c->minimized) minimized = 1;
-					if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) above = 1;
-					if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) sticky = 1;
-					int j, t; for (j = 0, t = 0; j < TAGS; j++)
-						if (c->cache->tags & (1<<j)) t++;
-					maxtags = MAX(maxtags, t);
-					classfield = MAX(classfield, strlen(c->class));
-					winlist_append(ids, c->window, NULL);
-					lines++;
-				}
-			}
-		}
-	}
+  winlist* l = top_level_windows();
+  clients_descend(l, i, w, c)
+  {
+    client_descriptive_data(c);
+    if (!tag || (c->cache && c->cache->tags & tag))
+    {
+      if (c->minimized) minimized = 1;
+      if (client_has_state(c, netatoms[_NET_WM_STATE_ABOVE])) above = 1;
+      if (client_has_state(c, netatoms[_NET_WM_STATE_STICKY])) sticky = 1;
+      int j, t; for (j = 0, t = 0; j < TAGS; j++)
+                  if (c->cache->tags & (1<<j)) t++;
+      maxtags = MAX(maxtags, t);
+      classfield = MAX(classfield, strlen(c->class));
+      winlist_append(ids, c->window, NULL);
+      lines++;
+    }
+  }
+  winlist_free(l);
+
 	// truncate silly java WM_CLASS strings
 	classfield = MAX(5, MIN(classfield, 14));
 	maxtags = MAX(0, (maxtags*2)-1);

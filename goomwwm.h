@@ -263,8 +263,6 @@ typedef struct {
 #define managed_ascend(i,w,c) clients_ascend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
 #define managed_descend(i,w,c) clients_descend(windows_in_play(),i,w,c) if ((c)->manage && (c)->visible)
 
-#define all_managed_ascend(i,w,c) clients_ascend(windows,i,w,c) if ((c)->manage && ((c)->visible || (c)->minimized || (c)->shaded))
-
 #define tag_ascend(i,w,c,t) managed_ascend(i, w, c) if (!(t) || (c)->cache->tags & (t))
 #define tag_descend(i,w,c,t) managed_descend(i, w, c) if (!(t) || (c)->cache->tags & (t))
 
