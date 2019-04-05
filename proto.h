@@ -82,6 +82,7 @@ void client_minimize(client *c);
 void client_restore(client *c);
 void client_shade(client *c);
 void client_reveal(client *c);
+winlist* top_level_windows();
 void client_switcher(unsigned int tag);
 void client_toggle_tag(client *c, unsigned int tag, int flash);
 client* client_find(char *pattern);

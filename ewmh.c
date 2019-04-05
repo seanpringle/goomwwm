@@ -31,12 +31,11 @@ void ewmh_client_list()
 	// this often happens after we've made changes. refresh
 	reset_cache_inplay();
 
-	winlist *relevant = winlist_new();
+	winlist *relevant = top_level_windows();
 	winlist *mapped   = winlist_new();
-	int i; Window w; client *c;
+	int i; Window w;
 
 	// windows_in_play() returns the stacking order. windows_activated *MAY NOT* have the same order
-	managed_ascend(i, w, c) if (!client_has_state(c, netatoms[_NET_WM_STATE_SKIP_TASKBAR])) winlist_append(relevant, w, NULL);
 	XChangeProperty(display, root, netatoms[_NET_CLIENT_LIST_STACKING], XA_WINDOW, 32, PropModeReplace, (unsigned char*)relevant->array, relevant->len);
 
 	// 'windows' list has mapping order of everything. build 'mapped' from 'relevant', ordered by 'windows'
