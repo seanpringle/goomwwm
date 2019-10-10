@@ -1,5 +1,6 @@
 /* GoomwWM, Get out of my way, Window Manager!
 
+
 MIT/X11 License
 Copyright (c) 2012 Sean Pringle <sean.pringle@gmail.com>
 
