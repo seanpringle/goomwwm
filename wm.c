@@ -314,7 +314,7 @@ void setup_general_options(int ac, char *av[])
 	}
 
 	// app_find_or_start() keys
-	for (i = 0; config_apps_keysyms[i]; i++)
+	for (i = 0; i < (sizeof(config_apps_keysyms)/sizeof(KeySym)) - 1; i++)
 	{
 		char tmp[3]; sprintf(tmp, "-%d", i);
 		config_apps_patterns[i ? i-1: 9] = find_arg_str(ac, av, tmp, NULL);
