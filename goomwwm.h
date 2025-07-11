@@ -34,6 +34,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <X11/cursorfont.h>
 #include <X11/XKBlib.h>
 #include <X11/Xft/Xft.h>
+#include <stddef.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,7 +51,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <err.h>
 #include <X11/extensions/Xinerama.h>
 
-typedef unsigned char bool;
 typedef unsigned long long bitmap;
 
 #define BOX_OVERRIDE 1<<0
@@ -289,7 +290,7 @@ typedef struct _winundo {
 // every window we know about gets one of these, even if it's empty
 typedef struct {
 	bool have_closed;  // true when we've previously politely sent a close request
-	bool last_corner;  // the last screen corner, used to make corner seem sticky during resizing
+	int last_corner;   // the last screen corner, used to make corner seem sticky during resizing
 	bool hlock, vlock; // horizontal and vertical size/position locks
 	bool has_mapped;   // true when a client has mapped previously. used to avoid applying rules
 	unsigned int tags; // desktop tags
