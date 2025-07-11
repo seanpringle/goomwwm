@@ -277,7 +277,7 @@ Note that this would capture F12 globally, making it unusable for anything else.
 		close Escape
 		menufont mono-14
 
-	If it exists, **$HOME/.goomwwmrc** is automatically parsed.
+	If a config file is found at **$XDG_CONFIG_HOME/goomwwm/goomwwmrc** or **$HOME/.config/goomwwm/goomwwmrc** or **$HOME/.goomwwmrc**, the first one found will be automatically parsed.
 
 -cycle
 :	Set an X11 key name to cycle windows in the same tag and position as the active window (default: XK_c).
@@ -704,7 +704,7 @@ Note that this would capture F12 globally, making it unusable for anything else.
 
 	goomwwm -ruleset Name -rule ... -rule ... -ruleset Name2 -rule ...
 
-	Or, in .goomwwmrc:
+	Or, in a config file:
 
 		ruleset Development Layout
 		rule class:xterm right,bottom,small
@@ -715,7 +715,7 @@ Note that this would capture F12 globally, making it unusable for anything else.
 		rule class:chromium top,maximize_horz,large
 
 
-	All **-ruleset** definitions need to come after the global **-rule** definitions on the command line, or in .goomwwmrc.
+	All **-ruleset** definitions need to come after the global **-rule** definitions on the command line, or in a config file.
 
 	Where global rules are autonomous and their order is not important, rulesets are more like mini scripts where rules are commands executed in order. Windows may therefore be affected by multiple rules in a ruleset. Use precise regex patterns to be safe.
 
@@ -888,8 +888,11 @@ Note that this would capture F12 globally, making it unusable for anything else.
 	never
 	:	Pointer is never moved (default for -focusmode click).
 
+	follow
+	:	Pointer follows a moved window, but is not moved to a newly focused window.
+
 	focus
-	:	Pointer is warped to a newly focused window (default for -focusmode sloppy[tag]).
+	:	Pointer is warped to a newly focused window, and follows a moved window (default for -focusmode sloppy[tag]).
 
 
 # OPTIONS (cli mode)
@@ -922,7 +925,7 @@ When run with **-cli** (command line interface) goomwwm may be used to dispatch 
 	goomwwm -cli -quit
 
 -restart
-:	Restart a running goomwwm instance in place (without restarting X). Useful for reloading .goomwwmrc or upgrading to a new version.
+:	Restart a running goomwwm instance in place (without restarting X). Useful for reloading config file or upgrading to a new version.
 
 	goomwwm -cli -restart
 

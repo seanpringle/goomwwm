@@ -492,7 +492,10 @@ menufont\ mono-14
 \f[]
 .fi
 .PP
-If it exists, \f[B]$HOME/.goomwwmrc\f[] is automatically parsed.
+If a config file is found at \f[B]$XDG_CONFIG_HOME/goomwwm/goomwwmrc\f[]
+or \f[B]$HOME/.config/goomwwm/goomwwmrc\f[] or
+\f[B]$HOME/.goomwwmrc\f[], the first one found will be automatically
+parsed.
 .RE
 .TP
 .B -cycle
@@ -1207,7 +1210,7 @@ goomwwm -ruleset Name -rule ...
 -rule ...
 -ruleset Name2 -rule ...
 .PP
-Or, in .goomwwmrc:
+Or, in a config file:
 .IP
 .nf
 \f[C]
@@ -1222,7 +1225,7 @@ rule\ class:chromium\ top,maximize_horz,large
 .fi
 .PP
 All \f[B]-ruleset\f[] definitions need to come after the global
-\f[B]-rule\f[] definitions on the command line, or in .goomwwmrc.
+\f[B]-rule\f[] definitions on the command line, or in a config file.
 .PP
 Where global rules are autonomous and their order is not important,
 rulesets are more like mini scripts where rules are commands executed in
@@ -1545,7 +1548,7 @@ goomwwm -cli -quit
 .TP
 .B -restart
 Restart a running goomwwm instance in place (without restarting X).
-Useful for reloading .goomwwmrc or upgrading to a new version.
+Useful for reloading config file or upgrading to a new version.
 .RS
 .PP
 goomwwm -cli -restart
